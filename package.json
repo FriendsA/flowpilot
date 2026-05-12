@@ -1,0 +1,40 @@
+{
+  "name": "workflow",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    }
+  },
+  "module": "./dist/server.js",
+  "types": "./dist/server.d.ts",
+  "description": "",
+  "bin": {
+    "workflow": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "rslib",
+    "check": "biome check --write",
+    "dev": "rslib --watch",
+    "format": "biome format --write"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@hono/node-server": "^2.0.2",
+    "cac": "^7.0.0",
+    "hono": "^4.12.18",
+    "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.15",
+    "@rslib/core": "^0.21.4",
+    "@types/node": "^25.6.2",
+    "@types/prompts": "^2.4.9",
+    "@typescript/native-preview": "7.0.0-dev.20260421.2",
+    "typescript": "^6.0.3"
+  }
+}
