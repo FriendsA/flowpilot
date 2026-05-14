@@ -1,3 +1,2 @@
-import { configAction, configPage } from "./config";
-
-export { configAction, configPage };
+export { configAction } from "./config/action";
+export { releaseAction } from "./release/action";

@@ -6,7 +6,8 @@
 		"useIgnoreFile": false
 	},
 	"files": {
-		"ignoreUnknown": false
+		"ignoreUnknown": false,
+		"ignore": ["*.md"]
 	},
 	"formatter": {
 		"enabled": true,
@@ -15,7 +16,10 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true
+			"recommended": true,
+			"style": {
+				"useShorthandFunctionType": "off"
+			}
 		}
 	},
 	"javascript": {

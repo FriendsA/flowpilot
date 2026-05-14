@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xxd)",
+      "mcp__plugin_serena_serena__replace_content",
+      "Bash(python3 *)"
+    ]
+  }
+}

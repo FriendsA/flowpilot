@@ -1,35 +1,40 @@
 import cac from "cac";
-import { configAction } from "./commands";
+import { configAction, releaseAction } from "./commands";
 import { VERSION } from "./constants";
 import {
-  restartServerInBackground,
-  startServerInBackground,
-  stopServer,
+	restartServerInBackground,
+	startServerInBackground,
+	stopServer,
 } from "./server";
 
 const cli = cac("workflow");
 
 cli
-  .command("config", "配置账号信息")
-  .option("-o, --open", "打开页面操作")
-  .action(configAction);
+	.command("config", "配置账号信息")
+	.option("-o, --open", "打开页面操作")
+	.action(configAction);
+
+cli
+	.command("release", "创建发布申请")
+	.option("-o, --open", "打开页面操作")
+	.action(releaseAction);
 
 cli.command("serve", "启动后台服务").action(async () => {
-  await startServerInBackground();
-  console.log("服务已启动");
+	await startServerInBackground();
+	console.log("服务已启动");
 });
 
 cli.command("stop", "停止后台服务").action(() => {
-  if (stopServer()) {
-    console.log("服务已停止");
-  } else {
-    console.log("没有正在运行的服务");
-  }
+	if (stopServer()) {
+		console.log("服务已停止");
+	} else {
+		console.log("没有正在运行的服务");
+	}
 });
 
 cli.command("restart", "重启后台服务").action(async () => {
-  await restartServerInBackground();
-  console.log("服务已重启");
+	await restartServerInBackground();
+	console.log("服务已重启");
 });
 
 cli.help();

@@ -1,5 +1,5 @@
 export interface Config {
-  jiraName?: string;
-  jiraPassword?: string;
-  gitlabKey?: string;
+	jiraName?: string;
+	jiraPassword?: string;
+	gitlabKey?: string;
 }

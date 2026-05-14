@@ -2,6 +2,10 @@
   "name": "workflow",
   "version": "0.0.1",
   "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "packageManager": "pnpm@11.0.9",
   "exports": {
     ".": {
       "types": "./dist/server.d.ts",
@@ -18,15 +22,18 @@
     "build": "rslib",
     "check": "biome check --write",
     "dev": "rslib --watch",
-    "format": "biome format --write"
+    "format": "biome format --write",
+    "test": "vitest"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@gitbeaker/rest": "^43.8.0",
     "@hono/node-server": "^2.0.2",
     "cac": "^7.0.0",
     "hono": "^4.12.18",
+    "picocolors": "^1.1.1",
     "prompts": "^2.4.2"
   },
   "devDependencies": {
@@ -35,6 +42,7 @@
     "@types/node": "^25.6.2",
     "@types/prompts": "^2.4.9",
     "@typescript/native-preview": "7.0.0-dev.20260421.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
   }
 }

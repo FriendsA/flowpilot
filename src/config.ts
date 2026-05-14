@@ -5,48 +5,45 @@ import type { Config } from "./types";
 type Key = keyof Config;
 
 export class ConfigJson {
-  private config: Config | undefined;
-  constructor(init?: Config) {
-    this.initial(init);
-  }
+	private config: Config;
 
-  private initial(init?: Config) {
-    try {
-      if (fs.existsSync(CONFIG_PATH)) {
-        const config = JSON.parse(fs.readFileSync(CONFIG_PATH).toString());
-        this.config = config;
-      }
-      if (init) {
-        this.config = { ...this.config, ...init };
-      }
-      if (this.config) {
-        fs.writeFileSync(CONFIG_PATH, JSON.stringify(this.config));
-      }
-    } catch (e) {
-      // TODO: 提示错误
-      console.error(e);
-    }
-  }
+	constructor() {
+		this.config = ConfigJson.read();
+	}
 
-  getConfig() {
-    return this.config || {};
-  }
+	/** Read config from disk. Returns empty object if file missing or invalid. */
+	private static read(): Config {
+		try {
+			if (fs.existsSync(CONFIG_PATH)) {
+				return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8"));
+			}
+		} catch {
+			// corrupt or unreadable — fall through to default
+		}
+		return {};
+	}
 
-  setConfig(init?: Config) {
-    this.initial(init);
-  }
+	/** Write current config to disk. */
+	private persist() {
+		fs.writeFileSync(CONFIG_PATH, JSON.stringify(this.config));
+	}
 
-  get(key: Key) {
-    if (this.config) return this.config?.[key];
-  }
+	getConfig(): Config {
+		return this.config;
+	}
 
-  set(key: Key, value: string) {
-    if (!this.config) this.config = {} as Config;
-    this.config[key] = value;
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(this.config));
-  }
+	/** Merge partial config into current and persist. */
+	setConfig(patch: Config) {
+		this.config = { ...this.config, ...patch };
+		this.persist();
+	}
 
-  static from(init?: Config) {
-    return new ConfigJson(init);
-  }
+	get<K extends Key>(key: K): Config[K] | undefined {
+		return this.config[key];
+	}
+
+	set<K extends Key>(key: K, value: NonNullable<Config[K]>) {
+		this.config[key] = value;
+		this.persist();
+	}
 }
