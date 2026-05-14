@@ -1,5 +1,4 @@
 import { ConfigJson } from "./config";
-import { JIRA_HOST } from "./constants";
 
 export interface JiraIssue {
 	key: string;
@@ -23,14 +22,21 @@ export class JiraController {
 	private host: string;
 	private auth: string;
 
-	constructor(host = JIRA_HOST) {
+	constructor() {
 		const config = new ConfigJson();
+		const host = config.get("jiraHost");
 		const name = config.get("jiraName");
 		const password = config.get("jiraPassword");
 
+		if (!host) {
+			throw new Error(
+				"Jira host not configured. Run `flowpilot config` first.",
+			);
+		}
+
 		if (!name || !password) {
 			throw new Error(
-				"Jira credentials not configured. Run `workflow config` first.",
+				"Jira credentials not configured. Run `flowpilot config` first.",
 			);
 		}
 

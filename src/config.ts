@@ -1,8 +1,11 @@
 import fs from "node:fs";
+import os from "node:os";
 import { CONFIG_PATH } from "./constants";
 import type { Config } from "./types";
 
 type Key = keyof Config;
+
+const OLD_CONFIG_PATH = `${os.homedir()}/.workflowrc`;
 
 export class ConfigJson {
 	private config: Config;
@@ -16,6 +19,12 @@ export class ConfigJson {
 		try {
 			if (fs.existsSync(CONFIG_PATH)) {
 				return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8"));
+			}
+			// Migration: copy old config if new one doesn't exist
+			if (fs.existsSync(OLD_CONFIG_PATH)) {
+				const oldConfig = JSON.parse(fs.readFileSync(OLD_CONFIG_PATH, "utf-8"));
+				fs.writeFileSync(CONFIG_PATH, JSON.stringify(oldConfig));
+				return oldConfig;
 			}
 		} catch {
 			// corrupt or unreadable — fall through to default

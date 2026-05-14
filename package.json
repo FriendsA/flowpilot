@@ -1,5 +1,5 @@
 {
-  "name": "workflow",
+  "name": "flowpilot",
   "version": "0.0.1",
   "type": "module",
   "engines": {
@@ -16,7 +16,7 @@
   "types": "./dist/server.d.ts",
   "description": "",
   "bin": {
-    "workflow": "./dist/cli.js"
+    "flowpilot": "./dist/cli.js"
   },
   "scripts": {
     "build": "rslib",

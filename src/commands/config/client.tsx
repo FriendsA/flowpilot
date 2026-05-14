@@ -52,7 +52,6 @@ const configStyle = `
     animation: slide-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .section:nth-of-type(2) { animation-delay: 0.1s; }
-  .section:nth-of-type(3) { animation-delay: 0.15s; }
 
   .section-head {
     padding: 16px 20px;
@@ -73,12 +72,6 @@ const configStyle = `
     font-weight: 600;
     letter-spacing: 0.01em;
   }
-  .section-head span {
-    font-size: 11px;
-    color: var(--text-3);
-    margin-left: auto;
-    font-family: var(--mono);
-  }
 
   .section-body { padding: 20px; }
 
@@ -98,14 +91,6 @@ const configStyle = `
     font-size: 11px;
     margin-left: 4px;
   }
-  .field-label a {
-    color: var(--accent);
-    text-decoration: none;
-    font-weight: 400;
-    border-bottom: 1px dashed rgba(91, 160, 232, 0.3);
-    transition: border-color 0.2s;
-  }
-  .field-label a:hover { border-bottom-color: var(--accent); }
 
   .field input {
     width: 100%;
@@ -168,8 +153,10 @@ const configStyle = `
 `;
 
 type Config = {
+	jiraHost?: string;
 	jiraName?: string;
 	jiraPassword?: string;
+	gitlabHost?: string;
 	gitlabKey?: string;
 };
 
@@ -216,10 +203,10 @@ const ConfigClient: FC = () => {
 			<style>{configStyle}</style>
 
 			<div class="page-header">
-				<h2>Credentials</h2>
+				<h2>Settings</h2>
 				<p>
-					Manage your service credentials. All values are stored locally at
-					~/.workflowrc and never leave your machine.
+					Configure service hosts and credentials. All values are stored locally
+					at ~/.flowpilotrc and never leave your machine.
 				</p>
 			</div>
 
@@ -235,19 +222,30 @@ const ConfigClient: FC = () => {
 					<div class="section-head">
 						<span class="section-dot jira" />
 						<h3>Jira</h3>
-						<span>Atlassian</span>
 					</div>
 					<div class="section-body">
 						<div class="field">
+							<label class="field-label" for="jiraHost">
+								Host
+								<span class="hint">e.g. https://jira.example.com</span>
+							</label>
+							<input
+								id="jiraHost"
+								name="jiraHost"
+								type="text"
+								placeholder="https://jira.example.com"
+								value={config.jiraHost ?? ""}
+							/>
+						</div>
+						<div class="field">
 							<label class="field-label" for="jiraName">
 								Account
-								<span class="hint">without @datayes.com</span>
 							</label>
 							<input
 								id="jiraName"
 								name="jiraName"
 								type="text"
-								placeholder="e.g. mingyu.tan"
+								placeholder="username"
 								value={config.jiraName ?? ""}
 							/>
 						</div>
@@ -270,25 +268,30 @@ const ConfigClient: FC = () => {
 					<div class="section-head">
 						<span class="section-dot gitlab" />
 						<h3>GitLab</h3>
-						<span>Personal Access Token</span>
 					</div>
 					<div class="section-body">
 						<div class="field">
+							<label class="field-label" for="gitlabHost">
+								Host
+								<span class="hint">带协议前缀，e.g. http://git.example.com</span>
+							</label>
+							<input
+								id="gitlabHost"
+								name="gitlabHost"
+								type="text"
+								placeholder="http://git.example.com"
+								value={config.gitlabHost ?? ""}
+							/>
+						</div>
+						<div class="field">
 							<label class="field-label" for="gitlabKey">
-								Token{" "}
-								<a
-									href="http://git.datayes.com/profile/personal_access_tokens"
-									target="_blank"
-									rel="noreferrer"
-								>
-									create one here
-								</a>
+								Personal Access Token
 							</label>
 							<input
 								id="gitlabKey"
 								name="gitlabKey"
 								type="text"
-								// placeholder="glpat-xxxxxxxxxxxxxxxxxxxx"
+								placeholder="glpat-xxxxxxxxxxxxxxxxxxxx"
 								value={config.gitlabKey ?? ""}
 							/>
 						</div>
@@ -299,7 +302,7 @@ const ConfigClient: FC = () => {
 					<button class="btn" type="submit">
 						Save Changes
 					</button>
-					<span class="save-note">saved to ~/.workflowrc</span>
+					<span class="save-note">saved to ~/.flowpilotrc</span>
 				</div>
 			</form>
 		</div>

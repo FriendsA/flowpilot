@@ -1,24 +1,30 @@
 import { Gitlab } from "@gitbeaker/rest";
 import { ConfigJson } from "./config";
-import { GITLAB_HOST } from "./constants";
 
 type MrState = "opened" | "closed" | "locked" | "merged";
 
 export class GitlabController {
 	private api: Gitlab<true>;
 
-	constructor(host = GITLAB_HOST) {
+	constructor() {
 		const config = new ConfigJson();
+		const host = config.get("gitlabHost");
 		const token = config.get("gitlabKey");
+
+		if (!host) {
+			throw new Error(
+				"GitLab host not configured. Run `flowpilot config` first.",
+			);
+		}
 
 		if (!token) {
 			throw new Error(
-				"GitLab token not configured. Run `workflow config` first.",
+				"GitLab token not configured. Run `flowpilot config` first.",
 			);
 		}
 
 		this.api = new Gitlab({
-			host: `http://${host}`,
+			host: /^https?:\/\//.test(host) ? host : `http://${host}`,
 			token,
 			camelize: true,
 		});

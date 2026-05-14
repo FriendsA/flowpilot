@@ -29,7 +29,7 @@ export const Layout: FC<LayoutProps> = ({
 			<head>
 				<meta charset="utf-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
-				<title>Workflow{pageTitle ? ` - ${pageTitle}` : ""}</title>
+				<title>FlowPilot{pageTitle ? ` - ${pageTitle}` : ""}</title>
 				<style>{globalStyle}</style>
 				<script type="module" src="/client/client.js" defer />
 			</head>
@@ -37,7 +37,7 @@ export const Layout: FC<LayoutProps> = ({
 				<nav class="sidebar">
 					<div class="sidebar-brand">
 						<div class="sidebar-brand-icon">&#9881;</div>
-						<div class="sidebar-brand-text">Workflow</div>
+						<div class="sidebar-brand-text">FlowPilot</div>
 					</div>
 
 					{Object.entries(grouped).map(([category, items]) => (

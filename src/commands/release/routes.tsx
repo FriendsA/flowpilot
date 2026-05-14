@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { ConfigJson } from "../../config";
 import { GitlabController } from "../../gitlab-controller";
 import { JiraController } from "../../jira-controller";
 
@@ -6,6 +7,11 @@ const router = new Hono();
 
 router.get("/", async (c) => {
 	return c.render(<div id="app">Loading...</div>, { title: "Release" });
+});
+
+router.get("/api/config", async (c) => {
+	const config = new ConfigJson().getConfig();
+	return c.json({ jiraHost: config.jiraHost ?? "", gitlabHost: config.gitlabHost ?? "" });
 });
 
 router.get("/api/projects", async (c) => {

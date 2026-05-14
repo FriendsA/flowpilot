@@ -229,6 +229,7 @@ type JiraProject = { key: string; id: string; name?: string };
 // ── State ──
 
 type State = {
+	jiraHost: string;
 	projects: Project[];
 	projectsLoading: boolean;
 	projectsError: string;
@@ -257,6 +258,7 @@ type State = {
 };
 
 const initial: State = {
+	jiraHost: "",
 	projects: [],
 	projectsLoading: true,
 	projectsError: "",
@@ -287,6 +289,7 @@ const initial: State = {
 // ── Actions ──
 
 type Action =
+	| { type: "SET_JIRA_HOST"; host: string }
 	| { type: "PROJECTS_LOADED"; projects: Project[] }
 	| { type: "PROJECTS_ERROR"; error: string }
 	| { type: "SET_PROJECT_OPEN"; open: boolean }
@@ -319,6 +322,8 @@ type Action =
 
 const reducer = (state: State, action: Action): State => {
 	switch (action.type) {
+		case "SET_JIRA_HOST":
+			return { ...state, jiraHost: action.host };
 		case "PROJECTS_LOADED":
 			return { ...state, projects: action.projects, projectsLoading: false };
 		case "PROJECTS_ERROR":
@@ -478,6 +483,13 @@ const ReleaseClient: FC = () => {
 	const jiraSearchRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
+		fetch("/release/api/config")
+			.then((r) => r.json())
+			.then((data) => { if (data.jiraHost) d({ type: "SET_JIRA_HOST", host: data.jiraHost }); })
+			.catch(() => {});
+	}, []);
+
+	useEffect(() => {
 		fetch("/release/api/projects")
 			.then((r) => r.json())
 			.then((data) => { if (data.error) d({ type: "PROJECTS_ERROR", error: data.error }); else d({ type: "PROJECTS_LOADED", projects: data }); })
@@ -595,7 +607,7 @@ const ReleaseClient: FC = () => {
 	const fp = filterProjects(s.projects, s.projectSearch);
 	const fb = filterList(s.branches, s.branchSearch, (b) => (b as Branch).name);
 	const fj = filterList(s.jiraProjects, s.jiraProjectSearch, (p) => `${(p as JiraProject).key} ${(p as JiraProject).name ?? ""}`);
-	const jiraUrl = s.jiraResult ? `https://jira.datayes.com/browse/${s.jiraResult.key}` : "";
+	const jiraUrl = s.jiraResult && s.jiraHost ? `${s.jiraHost}/browse/${s.jiraResult.key}` : "";
 
 	if (s.projectsLoading) return <div><style>{releaseStyle}</style><div class="loading-row"><span class="spinner" />Loading projects...</div></div>;
 	if (s.projectsError) return <div><style>{releaseStyle}</style><div class="state-error">{s.projectsError}</div></div>;

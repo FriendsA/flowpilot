@@ -7,14 +7,11 @@ const { version } = JSON.parse(
 
 export const VERSION = version;
 
-export const CONFIG_PATH = `${os.homedir()}/.workflowrc`;
+export const CONFIG_PATH = `${os.homedir()}/.flowpilotrc`;
 
 export const PORT = 8787;
 
 export const SERVER_URL = `http://127.0.0.1:${PORT}`;
 
-export const PID_FILE = `${os.homedir()}/.workflow.pid`;
+export const PID_FILE = `${os.homedir()}/.flowpilot.pid`;
 
-export const JIRA_HOST = "https://jira.datayes.com";
-
-export const GITLAB_HOST = "git.datayes.com";
