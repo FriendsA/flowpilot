@@ -1,69 +1,160 @@
-# workflow
+<div align="center">
 
-## TODO
+# FlowPilot
 
-1. 美化控制台输出
+**Bridge Jira & GitLab — automate your release workflow**
 
-## 项目结构
+A CLI + Web Dashboard tool that connects Jira and GitLab to streamline
+release issue creation, version management, and project coordination.
+
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.13-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![pnpm](https://img.shields.io/badge/pnpm-11-F69220?logo=pnpm&logoColor=white)](https://pnpm.io/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Hono](https://img.shields.io/badge/Hono-4-E3602B?logoColor=white)](https://hono.dev/)
+[![License](https://img.shields.io/badge/License-ISC-gray)](./package.json)
+
+</div>
+
+---
+
+## Why FlowPilot?
+
+Creating a release issue in Jira usually means: open GitLab → find the project → pick a branch → check pom.xml → open Jira → find the right project → create a version → fill in the issue form. **FlowPilot automates all of that** — one command or a few clicks in the dashboard.
+
+## Features
+
+- **Smart project detection** — auto-resolves GitLab project from your `git remote origin`
+- **Interactive CLI** — step-by-step prompts with fuzzy search (`@clack/prompts` + `@inquirer/search`)
+- **Web Dashboard** — dark-themed UI with sidebar, dropdowns, and keyboard navigation
+- **POM version parsing** — fetches `pom.xml` from GitLab and extracts version info
+- **Jira integration** — creates release issues, ensures project versions, deduplicates existing issues
+- **i18n** — supports `zh-CN` and `en`, auto-detected from system locale / browser headers
+- **Local-only credentials** — all config stored at `~/.flowpilotrc`, never sent externally
+- **Zero framework overhead** — Hono SSR + `hono/jsx/dom` CSR, no React/Vue dependency
+
+## Quick Start
+
+```bash
+# Install dependencies
+pnpm install
+
+# Build
+pnpm build
+
+# Configure Jira & GitLab credentials
+./dist/cli.js config
+
+# Create a release issue (CLI mode)
+./dist/cli.js release
+
+# Or launch the web dashboard
+./dist/cli.js serve
+# → opens http://127.0.0.1:8787
+```
+
+## CLI Reference
+
+| Command | Description | Options |
+|---------|-------------|---------|
+| `flowpilot config` | Configure Jira & GitLab credentials | `-o, --open` Open settings in browser |
+| `flowpilot release` | Create a release issue | `-o, --open` Open release page in browser |
+| `flowpilot serve` | Start the background web service | — |
+| `flowpilot stop` | Stop the running web service | — |
+| `flowpilot restart` | Restart the web service | — |
+
+### Release Workflow (CLI)
+
+```mermaid
+graph LR
+    A[Detect Git Remote] --> B[Resolve GitLab Project]
+    B --> C[Select Branch]
+    C --> D[Fetch pom.xml]
+    D --> E[Extract Version]
+    E --> F[Select Jira Project]
+    F --> G{Issue Exists?}
+    G -->|Yes| H[Return Existing Issue URL]
+    G -->|No| I[Ensure Jira Version]
+    I --> J[Create Release Issue]
+    J --> K[Copy URL to Clipboard]
+```
+
+### Release Workflow (Web)
+
+The web dashboard provides the same flow with an interactive UI — select project → branch → view version → pick Jira project → create issue. All operations happen via API calls to the same controllers.
+
+## Project Structure
 
 ```
 src/
-├── cli.ts                 # CLI 入口（cac）
-├── index.ts               # 库入口，导出公共 API
-├── serve.ts               # 后台服务启动入口
-├── server.tsx             # Hono 服务端（全局 layout、路由挂载、静态资源）
-├── client.ts              # 浏览器端入口（动态加载各命令的 client 模块）
-├── config.ts              # 本地配置读写（~/.workflowrc）
-├── constants.ts           # 常量（端口、主机地址等）
-├── types.ts               # 公共类型定义
-├── jira-controller.ts     # Jira API 封装
-├── gitlab-controller.ts   # GitLab API 封装
+├── cli.ts                 # CLI entry (cac)
+├── index.ts               # Library entry, exports public API
+├── serve.ts               # Background service bootstrap
+├── server.tsx             # Hono server (layout, routes, static assets)
+├── client.ts              # Browser entry (dynamic module loading)
+├── config.ts              # Local config read/write (~/.flowpilotrc)
+├── constants.ts           # Constants (port, host, version)
+├── types.ts               # Shared type definitions
+├── jira-controller.ts     # Jira API wrapper
+├── gitlab-controller.ts   # GitLab API wrapper (@gitbeaker/rest)
 ├── commands/
-│   ├── index.ts           # 聚合导出所有 action（供 cli.ts 使用）
-│   ├── config/            # Settings 命令
-│   └── release/           # Release 命令
-└── shared/
-    ├── layout.tsx          # 全局 Layout 组件（侧边栏 + 顶栏）
-    ├── menus.ts            # 侧边栏菜单注册表
-    └── style.ts            # 全局 CSS 变量与基础样式
+│   ├── index.ts           # Aggregated action exports
+│   ├── config/            # Settings command
+│   └── release/           # Release command
+├── shared/
+│   ├── layout.tsx         # Global Layout (sidebar + topbar)
+│   ├── menus.ts           # Sidebar menu registry
+│   └── style.ts           # CSS variables & base styles
+├── i18n/
+│   ├── cli.ts             # CLI i18n (system locale detection)
+│   ├── web.ts             # Web i18n (cookie/header detection)
+│   └── locales/
+│       ├── zh-CN.json     # Chinese translations
+│       └── en.json        # English translations
+└── utils/
+    ├── config.ts           # Config validation helpers
+    ├── git.ts              # Git remote detection & parsing
+    ├── pom.ts              # POM XML parser
+    └── search.ts           # Fuzzy relevance filter
 ```
 
-## 命令文件夹约定
+## Command Convention
 
-每个命令是一个独立文件夹，包含以下文件：
+Each command is a self-contained folder with four required files:
 
-| 文件 | 必须 | 说明 |
-|------|------|------|
-| `meta.ts` | 是 | 侧边栏菜单元数据（title、icon、href、category） |
-| `routes.tsx` | 是 | Hono 路由：页面挂载点（`<div id="app">`）+ API 接口 |
-| `client.tsx` | 是 | 浏览器端交互组件（`hono/jsx/dom`），导出 `mount(el)` |
-| `action.ts` | 是 | CLI 命令入口（处理 `--open` 等参数） |
-
-所有页面统一使用客户端渲染：`routes.tsx` 渲染挂载点，`client.tsx` 在浏览器端加载数据并接管渲染。
+| File | Required | Purpose |
+|------|----------|---------|
+| `meta.ts` | Yes | Sidebar menu metadata (title, icon, href, category) |
+| `routes.tsx` | Yes | Hono routes: page mount point + API endpoints |
+| `client.tsx` | Yes | Browser-side component (`hono/jsx/dom`), exports `mount(el)` |
+| `action.ts` | Yes | CLI command entry (handles `--open` and other flags) |
 
 ```
 commands/<name>/
-├── meta.ts        # 菜单元数据
-├── routes.tsx     # 路由 + API
-├── client.tsx     # 客户端组件
-└── action.ts      # CLI 入口
+├── meta.ts        # Menu metadata
+├── routes.tsx     # Routes + API
+├── client.tsx     # Client component
+└── action.ts      # CLI entry
 ```
 
-## 新建命令步骤
+All pages use client-side rendering: `routes.tsx` renders a mount point (`<div id="app">`), `client.tsx` loads data in the browser and takes over rendering.
 
-### 1. 创建 meta.ts
+## Adding a New Command
+
+### 1. Create meta.ts
 
 ```ts
 // src/commands/<name>/meta.ts
 export const meta = {
-	title: "显示名称",
-	icon: "&#128260;",      // HTML 实体
-	href: "/<name>",        // 路由路径
-	category: "分类名",      // 侧边栏分组
+  titleKey: "web.<name>Title",
+  icon: "&#128260;",
+  href: "/<name>",
+  categoryKey: "web.generalCategory",
 } as const;
 ```
 
-### 2. 创建 routes.tsx
+Add the corresponding i18n key to `src/i18n/locales/zh-CN.json` and `en.json`.
+
+### 2. Create routes.tsx
 
 ```tsx
 // src/commands/<name>/routes.tsx
@@ -71,20 +162,18 @@ import { Hono } from "hono";
 
 const router = new Hono();
 
-// 页面挂载点
 router.get("/", (c) =>
-	c.render(<div id="app">Loading...</div>, { title: "页面标题" }),
+  c.render(<div id="app">Loading...</div>, { title: "Page Title" }),
 );
 
-// API 接口
 router.get("/api/data", async (c) => {
-	return c.json({ ok: true });
+  return c.json({ ok: true });
 });
 
 export const <name>Routes = router;
 ```
 
-### 3. 创建 client.tsx
+### 3. Create client.tsx
 
 ```tsx
 // src/commands/<name>/client.tsx
@@ -92,87 +181,136 @@ import { type FC, useEffect, useState } from "hono/jsx";
 import { render } from "hono/jsx/dom";
 
 const MyClient: FC = () => {
-	const [data, setData] = useState([]);
+  const [data, setData] = useState([]);
 
-	useEffect(() => {
-		fetch("/<name>/api/data")
-			.then((r) => r.json())
-			.then(setData);
-	}, []);
+  useEffect(() => {
+    fetch("/<name>/api/data")
+      .then((r) => r.json())
+      .then(setData);
+  }, []);
 
-	return <div>{/* 页面内容 */}</div>;
+  return <div>{/* page content */}</div>;
 };
 
 export function mount(el: HTMLElement) {
-	render(<MyClient />, el);
+  render(<MyClient />, el);
 }
 ```
 
-### 4. 创建 action.ts
+### 4. Create action.ts
 
 ```ts
 // src/commands/<name>/action.ts
 import { openPage } from "../../server";
 
 export const <name>Action = async (options: {
-	open?: boolean;
-	o?: boolean;
-	"--": unknown[];
+  open?: boolean;
+  o?: boolean;
+  "--": unknown[];
 }) => {
-	if (options.open) {
-		openPage("/<name>");
-		return;
-	}
-	// CLI 逻辑...
+  if (options.open) {
+    openPage("/<name>");
+    return;
+  }
+  // CLI logic...
 };
 ```
 
-### 5. 注册到各入口文件
+### 5. Register in entry files
 
-**server.tsx** — 注册路由：
-
-```tsx
-import { <name>Routes } from "./commands/<name>/routes";
-app.route("/<name>", <name>Routes);
-```
-
-**shared/menus.ts** — 注册菜单：
-
-```ts
-import { meta as <name> } from "../commands/<name>/meta";
-export const menus: CommandMeta[] = [config, release, <name>];
-```
-
-**client.ts** — 注册客户端模块：
-
-```ts
-import { meta as <name> } from "./commands/<name>/meta";
-const routes = {
-	[<name>.href]: () => import("./commands/<name>/client"),
-};
-```
-
-**commands/index.ts** — 注册 action：
-
-```ts
-export { <name>Action } from "./<name>/action";
-```
-
-**cli.ts** — 注册 CLI 命令：
-
-```ts
-import { <name>Action } from "./commands";
-cli.command("<name>", "命令描述").option("-o, --open", "打开页面").action(<name>Action);
-```
+| File | What to add |
+|------|-------------|
+| `src/server.tsx` | `app.route("/<name>", <name>Routes)` |
+| `src/shared/menus.ts` | Add `meta` import to `menus` array |
+| `src/client.ts` | Add route mapping in `routes` object |
+| `src/commands/index.ts` | Export `<name>Action` |
+| `src/cli.ts` | Add `cli.command("<name>", ...).action(<name>Action)` |
 
 ### Checklist
 
-- [ ] `src/commands/<name>/meta.ts` — 菜单元数据
-- [ ] `src/commands/<name>/routes.tsx` — 路由 + API
-- [ ] `src/commands/<name>/client.tsx` — 客户端组件
-- [ ] `src/commands/<name>/action.ts` — CLI 入口
-- [ ] `src/server.tsx` — 注册路由
-- [ ] `src/shared/menus.ts` — 注册菜单
-- [ ] `src/client.ts` — 注册客户端模块
-- [ ] `src/commands/index.ts` — 注册 action
-- [ ] `src/cli.ts` — 注册 CLI 命令
+- [ ] `src/commands/<name>/meta.ts` — menu metadata
+- [ ] `src/commands/<name>/routes.tsx` — routes + API
+- [ ] `src/commands/<name>/client.tsx` — client component
+- [ ] `src/commands/<name>/action.ts` — CLI entry
+- [ ] `src/server.tsx` — register route
+- [ ] `src/shared/menus.ts` — register menu
+- [ ] `src/client.ts` — register client module
+- [ ] `src/commands/index.ts` — register action
+- [ ] `src/cli.ts` — register CLI command
+- [ ] `src/i18n/locales/zh-CN.json` + `en.json` — add i18n keys
+
+## Tech Stack
+
+| Category | Tool | Version |
+|----------|------|---------|
+| Runtime | Node.js | >= 22.13 |
+| Package Manager | pnpm | 11 |
+| Language | TypeScript | 6 |
+| Build | Rslib (Rspack) | 0.21 |
+| Server | Hono | 4 |
+| Client Render | hono/jsx/dom | — |
+| CLI Framework | cac | 7 |
+| Interactive CLI | @clack/prompts | 1.4 |
+| Fuzzy Search | @inquirer/search | 4 |
+| GitLab SDK | @gitbeaker/rest | 43 |
+| i18n | i18next | 26 |
+| Colors | picocolors | 1 |
+| Clipboard | clipboardy | 5 |
+| Lint | Biome | 2 |
+| Test | Vitest | 4 |
+
+## Build Architecture
+
+Rslib produces four bundles:
+
+| Bundle | Entry | Target | Purpose |
+|--------|-------|--------|---------|
+| `cli.js` | `src/cli.ts` | Node | CLI binary (`#!/usr/bin/env node`) |
+| `server.js` | `src/index.ts` | Node | Library export (server utilities + controllers) |
+| `serve.js` | `src/serve.ts` | Node | Background daemon (starts Hono server) |
+| `client/client.js` | `src/client.ts` | Web | Browser-side module loader |
+
+Client bundle uses `dynamicImportMode: "eager"` and no chunk splitting — all command client modules are bundled into one file for simplicity.
+
+## Development
+
+```bash
+# Install
+pnpm install
+
+# Dev mode (watch)
+pnpm dev
+
+# Lint & format
+pnpm check
+
+# Run tests
+pnpm test
+
+# Build for production
+pnpm build
+```
+
+## Configuration
+
+Credentials are stored locally at `~/.flowpilotrc`:
+
+```json
+{
+  "jiraHost": "https://jira.example.com",
+  "jiraName": "username",
+  "jiraPassword": "password",
+  "gitlabHost": "http://git.example.com",
+  "gitlabKey": "glpat-xxxxxxxxxxxxxxxxxxxx"
+}
+```
+
+- `jiraHost` — Jira server URL (with protocol prefix)
+- `jiraName` — Jira account name (without @ suffix)
+- `jiraPassword` — Jira password (stored locally only)
+- `gitlabHost` — GitLab server URL (with protocol prefix)
+- `gitlabKey` — GitLab Personal Access Token
+
+## License
+
+ISC
