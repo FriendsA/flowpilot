@@ -7,7 +7,7 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"ignore": ["*.md"]
+		"includes": ["src/**", "*.json", "*.js", "*.ts", "*.tsx", "*.css"]
 	},
 	"formatter": {
 		"enabled": true,
