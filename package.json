@@ -29,12 +29,15 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@clack/prompts": "^1.4.0",
     "@gitbeaker/rest": "^43.8.0",
     "@hono/node-server": "^2.0.2",
+    "@inquirer/search": "^4.1.9",
     "cac": "^7.0.0",
+    "clipboardy": "^5.3.1",
     "hono": "^4.12.18",
-    "picocolors": "^1.1.1",
-    "prompts": "^2.4.2"
+    "i18next": "^26.1.0",
+    "picocolors": "^1.1.1"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.15",

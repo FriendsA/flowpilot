@@ -1,5 +1,6 @@
 import pc from "picocolors";
 import { ConfigJson } from "../config";
+import { t } from "../i18n/cli";
 import type { Config } from "../types";
 
 const REQUIRED_KEYS: (keyof Config)[] = [
@@ -16,11 +17,11 @@ export function validateConfigOrWarn(): boolean {
 
 	if (missing.length > 0) {
 		console.error(
-			pc.red("Missing configuration:") +
+			pc.red(t("error.configMissing")) +
 				" " +
 				missing.map((k) => pc.bold(k)).join(", "),
 		);
-		console.error(pc.dim("Run `flowpilot config` to set these values."));
+		console.error(pc.dim(t("error.runConfig")));
 		return false;
 	}
 

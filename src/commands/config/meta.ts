@@ -1,6 +1,6 @@
 export const meta = {
-	title: "Settings",
+	titleKey: "web.settingsTitle",
 	icon: "&#9881;",
 	href: "/config",
-	category: "General",
+	categoryKey: "web.generalCategory",
 } as const;

@@ -153,6 +153,22 @@ export const globalStyle = `
     color: var(--text-1);
     font-weight: 600;
   }
+  .topbar-settings {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px; height: 42px;
+    border-radius: 8px;
+    color: var(--text-2);
+    font-size: 22px;
+    text-decoration: none;
+    transition: background 0.15s, color 0.2s;
+  }
+  .topbar-settings:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
 
   /* Content */
   .content {

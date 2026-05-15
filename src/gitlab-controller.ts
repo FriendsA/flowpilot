@@ -1,5 +1,6 @@
 import { Gitlab } from "@gitbeaker/rest";
 import { ConfigJson } from "./config";
+import { t } from "./i18n/cli";
 
 type MrState = "opened" | "closed" | "locked" | "merged";
 
@@ -12,15 +13,11 @@ export class GitlabController {
 		const token = config.get("gitlabKey");
 
 		if (!host) {
-			throw new Error(
-				"GitLab host not configured. Run `flowpilot config` first.",
-			);
+			throw new Error(t("error.gitlabHostMissing"));
 		}
 
 		if (!token) {
-			throw new Error(
-				"GitLab token not configured. Run `flowpilot config` first.",
-			);
+			throw new Error(t("error.gitlabTokenMissing"));
 		}
 
 		this.api = new Gitlab({

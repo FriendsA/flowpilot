@@ -8,24 +8,41 @@ import { Hono } from "hono";
 import { configRoutes } from "./commands/config/routes";
 import { releaseRoutes } from "./commands/release/routes";
 import { PID_FILE, PORT, SERVER_URL } from "./constants";
+import { initI18n, detectLocaleFromCookie, detectLocaleFromHeader, getLocaleResources, type Locale } from "./i18n/web";
 import { Layout } from "./shared/layout";
 
 declare module "hono" {
 	interface ContextRenderer {
 		(
 			content: string | Promise<string>,
-			head: { title?: string },
+			head: { title?: string; locale?: Locale },
 		): Response | Promise<Response>;
+	}
+	interface ContextVariableMap {
+		locale: Locale;
 	}
 }
 
 const app = new Hono();
 
-// Global renderer — wraps every page in the shared layout
+// i18n middleware: detect locale, init i18next, inject into renderer
 app.use("/*", async (c, next) => {
+	const cookieLocale = detectLocaleFromCookie(c.req.header("cookie"));
+	const headerLocale = detectLocaleFromHeader(c.req.header("accept-language") ?? "");
+	const locale = cookieLocale ?? headerLocale;
+
+	await initI18n(locale);
+
+	c.set("locale", locale);
+
 	c.setRenderer((content, head) =>
 		c.html(
-			<Layout activeHref={c.req.path} pageTitle={head?.title}>
+			<Layout
+				activeHref={c.req.path}
+				pageTitle={head?.title}
+				locale={locale}
+				localeResources={getLocaleResources(locale)}
+			>
 				{content}
 			</Layout>,
 		),
@@ -45,6 +62,27 @@ app.get("/client/*", async (c) => {
 		const content = fs.readFileSync(filePath);
 		return new Response(content, {
 			headers: { "Content-Type": "application/javascript" },
+		});
+	} catch {
+		return c.notFound();
+	}
+});
+
+// Serve favicon and other static assets (all under /public/)
+const MIME_TYPES: Record<string, string> = {
+	".ico": "image/x-icon",
+	".png": "image/png",
+	".json": "application/json",
+	".webmanifest": "application/manifest+json",
+};
+
+app.get("/public/*", async (c) => {
+	const filePath = join(__serverDir, c.req.path);
+	try {
+		const content = fs.readFileSync(filePath);
+		const ext = filePath.slice(filePath.lastIndexOf("."));
+		return new Response(content, {
+			headers: { "Content-Type": MIME_TYPES[ext] ?? "application/octet-stream" },
 		});
 	} catch {
 		return c.notFound();

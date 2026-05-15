@@ -1,5 +1,25 @@
+import i18next from "i18next";
 import { type FC, useEffect, useReducer, useRef } from "hono/jsx";
 import { render } from "hono/jsx/dom";
+import { filterByRelevance } from "../../utils/search";
+
+// Hydrate i18n from server-inlined data
+if (typeof window !== "undefined" && window.__I18N_LOCALE__ && window.__I18N_RESOURCES__) {
+	i18next.init({
+		lng: window.__I18N_LOCALE__,
+		fallbackLng: "zh-CN",
+		resources: window.__I18N_RESOURCES__,
+		interpolation: { escapeValue: false },
+	});
+}
+const t = i18next.t;
+
+declare global {
+	interface Window {
+		__I18N_LOCALE__: string;
+		__I18N_RESOURCES__: Record<string, { translation: Record<string, unknown> }>;
+	}
+}
 
 const releaseStyle = `
   .page-header {
@@ -422,44 +442,6 @@ const reducer = (state: State, action: Action): State => {
 
 const cleanVersion = (v: string | null) => (v ?? "").split("-")[0];
 
-const filterList = (items: unknown[], query: string, getLabel: (item: unknown) => string): unknown[] => {
-	if (!query) return items.slice(0, 50);
-	const q = query.toLowerCase();
-	const scored = items
-		.filter((item) => getLabel(item).toLowerCase().includes(q))
-		.map((item) => {
-			const label = getLabel(item).toLowerCase();
-			const idx = label.indexOf(q);
-			const score = idx === 0 ? 0 : idx;
-			return { item, score };
-		})
-		.sort((a, b) => a.score - b.score)
-		.map((entry) => entry.item);
-	return scored;
-};
-
-const filterProjects = (items: Project[], query: string): Project[] => {
-	if (!query) return items.slice(0, 50);
-	const q = query.toLowerCase();
-	return items
-		.filter((p) => p.name.toLowerCase().includes(q) || (p.pathWithNamespace ?? "").toLowerCase().includes(q))
-		.map((p) => {
-			const name = p.name.toLowerCase();
-			const path = (p.pathWithNamespace ?? "").toLowerCase();
-			let score: number;
-			if (name === q) score = 0;
-			else if (name.startsWith(q)) score = 1 + name.length - q.length;
-			else if (path.startsWith(q)) score = 50;
-			else score = Math.min(
-				name.includes(q) ? 10 + name.indexOf(q) : 999,
-				path.includes(q) ? 60 + path.indexOf(q) : 999,
-			);
-			return { p, score };
-		})
-		.sort((a, b) => a.score - b.score)
-		.map((e) => e.p);
-};
-
 const selKeyDown = (
 	e: KeyboardEvent, open: boolean, len: number, idx: number,
 	onSelect: (i: number) => void, onClose: () => void,
@@ -537,7 +519,6 @@ const ReleaseClient: FC = () => {
 	};
 
 	const handleSelectProject = (project: Project) => {
-		// Immediately close dropdown and show project name
 		d({ type: "SELECT_PROJECT", project });
 		d({ type: "BRANCHES_LOADING" });
 		fetch(`/release/api/projects/${project.id}/branches`)
@@ -559,7 +540,7 @@ const ReleaseClient: FC = () => {
 		const artifactId = s.pomInfo.artifactId ?? s.selected.name;
 		const projectVersion = cleanVersion(s.pomInfo.version);
 		const versionName = `${artifactId}-${projectVersion}`;
-		const summary = `${artifactId}-${projectVersion} 发布申请`;
+		const summary = `${artifactId}-${projectVersion} ${t("web.releaseSuffix") ?? t("release.releaseSuffix")}`;
 
 		d({ type: "JIRA_CHECKING" });
 		try {
@@ -604,31 +585,31 @@ const ReleaseClient: FC = () => {
 		}
 	};
 
-	const fp = filterProjects(s.projects, s.projectSearch);
-	const fb = filterList(s.branches, s.branchSearch, (b) => (b as Branch).name);
-	const fj = filterList(s.jiraProjects, s.jiraProjectSearch, (p) => `${(p as JiraProject).key} ${(p as JiraProject).name ?? ""}`);
+	const fp = filterByRelevance(s.projects.map((p) => ({ ...p, name: p.name, path: p.pathWithNamespace ?? "" })), s.projectSearch);
+	const fb = filterByRelevance(s.branches.map((b) => ({ ...b, name: b.name })), s.branchSearch);
+	const fj = filterByRelevance(s.jiraProjects.map((p) => ({ ...p, name: `${p.key} ${p.name ?? ""}` })), s.jiraProjectSearch);
 	const jiraUrl = s.jiraResult && s.jiraHost ? `${s.jiraHost}/browse/${s.jiraResult.key}` : "";
 
-	if (s.projectsLoading) return <div><style>{releaseStyle}</style><div class="loading-row"><span class="spinner" />Loading projects...</div></div>;
+	if (s.projectsLoading) return <div><style>{releaseStyle}</style><div class="loading-row"><span class="spinner" />{t("web.loadingProjects")}</div></div>;
 	if (s.projectsError) return <div><style>{releaseStyle}</style><div class="state-error">{s.projectsError}</div></div>;
 
 	return (
 		<div>
 			<style>{releaseStyle}</style>
-			<div class="page-header"><h2>Release</h2><p>Select a project and branch to view its Maven version.</p></div>
+			<div class="page-header"><h2>{t("web.releaseTitle")}</h2><p>{t("web.releaseDesc")}</p></div>
 
 			{/* ── Project ── */}
 			<div class="sel" data-sel="project" style={`z-index:${s.projectOpen ? 100 : 1}`}>
 				<button class={`sel-trigger${s.projectOpen ? " open" : ""}`} type="button"
 					onClick={() => { d({ type: "SET_BRANCH_OPEN", open: false }); d({ type: "SET_JIRA_PROJECT_OPEN", open: false }); d({ type: "SET_PROJECT_OPEN", open: !s.projectOpen }); }}>
-					<span class="sel-trigger-label">Project</span>
-					<span class={`sel-trigger-value${s.selected ? "" : " empty"}`}>{s.selected ? s.selected.name : "Select project..."}</span>
+					<span class="sel-trigger-label">{t("web.projectLabel")}</span>
+					<span class={`sel-trigger-value${s.selected ? "" : " empty"}`}>{s.selected ? s.selected.name : t("web.selectProject")}</span>
 					<span class="sel-trigger-arrow">▼</span>
 				</button>
 				{s.projectOpen && (
 					<div class="sel-dropdown">
 						<div class="sel-search">
-							<input ref={projectSearchRef} class="sel-search-input" type="text" placeholder="Search projects..." value={s.projectSearch}
+							<input ref={projectSearchRef} class="sel-search-input" type="text" placeholder={t("web.searchProjects")} value={s.projectSearch}
 								onChange={(e: Event) => d({ type: "SET_PROJECT_SEARCH", search: (e.target as HTMLInputElement).value })}
 								onKeyDown={(e: KeyboardEvent) => {
 									const n = selKeyDown(e, s.projectOpen, fp.length, s.projectIndex,
@@ -644,26 +625,26 @@ const ReleaseClient: FC = () => {
 								<div class="sel-item-name">{(p as Project).name}</div>
 								<div class="sel-item-sub">{(p as Project).pathWithNamespace}</div>
 							</div>
-						)) : <div class="sel-empty">No projects found</div>}
+						)) : <div class="sel-empty">{t("web.noProjects")}</div>}
 					</div>
 				)}
 			</div>
 
 			{/* ── Branch ── */}
 			{s.selected && (s.branchesLoading ? (
-				<div class="loading-row"><span class="spinner" />Loading branches...</div>
+				<div class="loading-row"><span class="spinner" />{t("web.loadingBranches")}</div>
 			) : s.branches.length > 0 && (
 				<div class="sel" data-sel="branch" style={`z-index:${s.branchOpen ? 100 : 1}`}>
 					<button class={`sel-trigger${s.branchOpen ? " open" : ""}`} type="button"
 						onClick={() => { d({ type: "SET_PROJECT_OPEN", open: false }); d({ type: "SET_JIRA_PROJECT_OPEN", open: false }); d({ type: "SET_BRANCH_OPEN", open: !s.branchOpen }); }}>
-						<span class="sel-trigger-label">Branch</span>
-						<span class={`sel-trigger-value${s.selectedBranch ? "" : " empty"}`}>{s.selectedBranch || "Select branch..."}</span>
+						<span class="sel-trigger-label">{t("web.branchLabel")}</span>
+						<span class={`sel-trigger-value${s.selectedBranch ? "" : " empty"}`}>{s.selectedBranch || t("web.selectBranch")}</span>
 						<span class="sel-trigger-arrow">▼</span>
 					</button>
 					{s.branchOpen && (
 						<div class="sel-dropdown">
 							<div class="sel-search">
-								<input ref={branchSearchRef} class="sel-search-input" type="text" placeholder="Filter branches..." value={s.branchSearch}
+								<input ref={branchSearchRef} class="sel-search-input" type="text" placeholder={t("web.filterBranches")} value={s.branchSearch}
 									onChange={(e: Event) => d({ type: "SET_BRANCH_SEARCH", search: (e.target as HTMLInputElement).value })}
 									onKeyDown={(e: KeyboardEvent) => {
 										const n = selKeyDown(e, s.branchOpen, fb.length, s.branchIndex,
@@ -677,9 +658,9 @@ const ReleaseClient: FC = () => {
 									onMouseEnter={() => d({ type: "SET_BRANCH_INDEX", index: i })}
 									onClick={() => handleSelectBranch((b as Branch).name)}>
 									<span class="sel-item-name">{(b as Branch).name}</span>
-									{(b as Branch).default && <span style="font-size:10px;color:var(--accent);margin-left:6px">default</span>}
+									{(b as Branch).default && <span style="font-size:10px;color:var(--accent);margin-left:6px">{t("web.defaultBranch")}</span>}
 								</div>
-							)) : <div class="sel-empty">No branches found</div>}
+							)) : <div class="sel-empty">{t("web.noBranches")}</div>}
 						</div>
 					)}
 				</div>
@@ -687,27 +668,27 @@ const ReleaseClient: FC = () => {
 
 			{/* ── Version ── */}
 			{s.selected && s.selectedBranch && !s.branchesLoading &&
-				(s.pomLoading ? <div class="loading-row"><span class="spinner" />Loading version...</div>
-				: s.pomError ? <div class="version-error">{s.pomError.includes("404") ? "No pom.xml found on this branch" : s.pomError}</div>
-				: s.pomInfo && <div class="version-display"><span class="version-tag">Version</span><span class="version-number">{cleanVersion(s.pomInfo.version)}</span></div>)}
+				(s.pomLoading ? <div class="loading-row"><span class="spinner" />{t("web.loadingVersion")}</div>
+				: s.pomError ? <div class="version-error">{s.pomError.includes("404") ? t("web.noPom") : s.pomError}</div>
+				: s.pomInfo && <div class="version-display"><span class="version-tag">{t("web.versionTag")}</span><span class="version-number">{cleanVersion(s.pomInfo.version)}</span></div>)}
 
 			{/* ── Jira ── */}
 			{s.selected && s.pomInfo?.version && !s.pomLoading && (
 				<div class="jira-section">
 					{s.jiraProjectsLoading ? (
-						<div class="loading-row"><span class="spinner" />Loading Jira projects...</div>
+						<div class="loading-row"><span class="spinner" />{t("web.loadingJiraProjects")}</div>
 					) : (
 						<div class="sel" data-sel="jira" style={`z-index:${s.jiraProjectOpen ? 100 : 1}`}>
 							<button class={`sel-trigger${s.jiraProjectOpen ? " open" : ""}`} type="button"
 								onClick={() => { d({ type: "SET_PROJECT_OPEN", open: false }); d({ type: "SET_BRANCH_OPEN", open: false }); d({ type: "SET_JIRA_PROJECT_OPEN", open: !s.jiraProjectOpen }); }}>
-								<span class="sel-trigger-label">Jira Project</span>
-								<span class={`sel-trigger-value${s.selectedJiraProject ? "" : " empty"}`}>{s.selectedJiraProject ? `${s.selectedJiraProject.key} - ${s.selectedJiraProject.name ?? ""}` : "Select Jira project..."}</span>
+								<span class="sel-trigger-label">{t("web.jiraProjectLabel")}</span>
+								<span class={`sel-trigger-value${s.selectedJiraProject ? "" : " empty"}`}>{s.selectedJiraProject ? `${s.selectedJiraProject.key} - ${s.selectedJiraProject.name ?? ""}` : t("web.selectJiraProject")}</span>
 								<span class="sel-trigger-arrow">▼</span>
 							</button>
 							{s.jiraProjectOpen && (
 								<div class="sel-dropdown">
 									<div class="sel-search">
-										<input ref={jiraSearchRef} class="sel-search-input" type="text" placeholder="Search project key or name..." value={s.jiraProjectSearch}
+										<input ref={jiraSearchRef} class="sel-search-input" type="text" placeholder={t("web.searchJiraProject")} value={s.jiraProjectSearch}
 											onChange={(e: Event) => d({ type: "SET_JIRA_PROJECT_SEARCH", search: (e.target as HTMLInputElement).value })}
 											onKeyDown={(e: KeyboardEvent) => {
 												const n = selKeyDown(e, s.jiraProjectOpen, fj.length, s.jiraProjectIndex,
@@ -723,7 +704,7 @@ const ReleaseClient: FC = () => {
 											<span class="sel-item-name">{(p as JiraProject).key}</span>
 											{(p as JiraProject).name && <div class="sel-item-sub">{(p as JiraProject).name}</div>}
 										</div>
-									)) : <div class="sel-empty">No projects found</div>}
+									)) : <div class="sel-empty">{t("web.noJiraProjects")}</div>}
 								</div>
 							)}
 						</div>
@@ -732,23 +713,23 @@ const ReleaseClient: FC = () => {
 					<button class="jira-btn" type="button"
 						disabled={!s.selectedJiraProject || s.jiraStatus === "checking" || s.jiraStatus === "creating"}
 						onClick={handleCreateIssue}>
-						{s.jiraStatus === "checking" ? "Checking..." : s.jiraStatus === "creating" ? "Creating..." : "Create Release Issue"}
+						{s.jiraStatus === "checking" ? t("web.checkingBtn") : s.jiraStatus === "creating" ? t("web.creatingBtn") : t("web.createBtn")}
 					</button>
 
 					{(s.jiraStatus === "checking" || s.jiraStatus === "creating") && (
 						<div class="loading-row" style="margin-top:12px"><span class="spinner" />
-							{s.jiraStatus === "checking" ? "Checking existing issues..." : "Creating release issue..."}
+							{s.jiraStatus === "checking" ? t("web.checkingIssues") : t("web.creatingIssue")}
 						</div>
 					)}
 
 					{s.jiraResult && (
 						<div class="jira-result">
 							<div class="jira-result-label">
-								{s.jiraResult.exists ? `发布版本 ${s.jiraResult.versionName} 已存在` : `发布版本 ${s.jiraResult.versionName} 已创建`}
+								{s.jiraResult.exists ? t("web.versionExistsResult", { version: s.jiraResult.versionName }) : t("web.versionCreatedResult", { version: s.jiraResult.versionName })}
 							</div>
 							<a class="jira-result-key" href={jiraUrl} target="_blank" rel="noreferrer">{s.jiraResult.key}</a>
 							<span class={`jira-result-badge ${s.jiraResult.exists ? "exists" : "created"}`}>
-								{s.jiraResult.exists ? "already exists" : "created"}
+								{s.jiraResult.exists ? t("web.existsBadge") : t("web.createdBadge")}
 							</span>
 						</div>
 					)}
@@ -756,7 +737,7 @@ const ReleaseClient: FC = () => {
 				</div>
 			)}
 
-			{!s.selected && <div class="empty-hint">Select a project above to view its Maven version</div>}
+			{!s.selected && <div class="empty-hint">{t("web.emptyHint")}</div>}
 		</div>
 	);
 };

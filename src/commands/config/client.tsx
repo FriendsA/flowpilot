@@ -1,5 +1,24 @@
+import i18next from "i18next";
 import { type FC, useEffect, useState } from "hono/jsx";
 import { render } from "hono/jsx/dom";
+
+// Hydrate i18n from server-inlined data
+if (typeof window !== "undefined" && window.__I18N_LOCALE__ && window.__I18N_RESOURCES__) {
+	i18next.init({
+		lng: window.__I18N_LOCALE__,
+		fallbackLng: "zh-CN",
+		resources: window.__I18N_RESOURCES__,
+		interpolation: { escapeValue: false },
+	});
+}
+const t = i18next.t;
+
+declare global {
+	interface Window {
+		__I18N_LOCALE__: string;
+		__I18N_RESOURCES__: Record<string, { translation: Record<string, unknown> }>;
+	}
+}
 
 const configStyle = `
   .page-header {
@@ -193,7 +212,7 @@ const ConfigClient: FC = () => {
 		return (
 			<div>
 				<style>{configStyle}</style>
-				<div class="loading">Loading...</div>
+				<div class="loading">{t("web.loading")}</div>
 			</div>
 		);
 	}
@@ -203,17 +222,14 @@ const ConfigClient: FC = () => {
 			<style>{configStyle}</style>
 
 			<div class="page-header">
-				<h2>Settings</h2>
-				<p>
-					Configure service hosts and credentials. All values are stored locally
-					at ~/.flowpilotrc and never leave your machine.
-				</p>
+				<h2>{t("web.settingsTitle")}</h2>
+				<p>{t("web.settingsDesc")}</p>
 			</div>
 
 			{toast && (
 				<div class="toast visible">
 					<span class="toast-dot" />
-					Configuration saved successfully
+					{t("web.savedToast")}
 				</div>
 			)}
 
@@ -221,43 +237,43 @@ const ConfigClient: FC = () => {
 				<div class="section">
 					<div class="section-head">
 						<span class="section-dot jira" />
-						<h3>Jira</h3>
+						<h3>{t("web.jiraSection")}</h3>
 					</div>
 					<div class="section-body">
 						<div class="field">
 							<label class="field-label" for="jiraHost">
-								Host
-								<span class="hint">e.g. https://jira.example.com</span>
+								{t("web.hostLabel")}
+								<span class="hint">{t("web.hostHintJira")}</span>
 							</label>
 							<input
 								id="jiraHost"
 								name="jiraHost"
 								type="text"
-								placeholder="https://jira.example.com"
+								placeholder={t("web.placeholderJiraHost")}
 								value={config.jiraHost ?? ""}
 							/>
 						</div>
 						<div class="field">
 							<label class="field-label" for="jiraName">
-								Account
+								{t("web.accountLabel")}
 							</label>
 							<input
 								id="jiraName"
 								name="jiraName"
 								type="text"
-								placeholder="username"
+								placeholder={t("web.placeholderUsername")}
 								value={config.jiraName ?? ""}
 							/>
 						</div>
 						<div class="field">
 							<label class="field-label" for="jiraPassword">
-								Password
+								{t("web.passwordLabel")}
 							</label>
 							<input
 								id="jiraPassword"
 								name="jiraPassword"
 								type="password"
-								placeholder="stored locally only"
+								placeholder={t("web.placeholderPassword")}
 								value={config.jiraPassword ?? ""}
 							/>
 						</div>
@@ -267,31 +283,31 @@ const ConfigClient: FC = () => {
 				<div class="section">
 					<div class="section-head">
 						<span class="section-dot gitlab" />
-						<h3>GitLab</h3>
+						<h3>{t("web.gitlabSection")}</h3>
 					</div>
 					<div class="section-body">
 						<div class="field">
 							<label class="field-label" for="gitlabHost">
-								Host
-								<span class="hint">带协议前缀，e.g. http://git.example.com</span>
+								{t("web.hostLabel")}
+								<span class="hint">{t("web.hostHintGitlab")}</span>
 							</label>
 							<input
 								id="gitlabHost"
 								name="gitlabHost"
 								type="text"
-								placeholder="http://git.example.com"
+								placeholder={t("web.placeholderGitlabHost")}
 								value={config.gitlabHost ?? ""}
 							/>
 						</div>
 						<div class="field">
 							<label class="field-label" for="gitlabKey">
-								Personal Access Token
+								{t("web.tokenLabel")}
 							</label>
 							<input
 								id="gitlabKey"
 								name="gitlabKey"
 								type="text"
-								placeholder="glpat-xxxxxxxxxxxxxxxxxxxx"
+								placeholder={t("web.placeholderToken")}
 								value={config.gitlabKey ?? ""}
 							/>
 						</div>
@@ -300,9 +316,9 @@ const ConfigClient: FC = () => {
 
 				<div class="save-bar">
 					<button class="btn" type="submit">
-						Save Changes
+						{t("web.saveBtn")}
 					</button>
-					<span class="save-note">saved to ~/.flowpilotrc</span>
+					<span class="save-note">{t("web.saveNote")}</span>
 				</div>
 			</form>
 		</div>

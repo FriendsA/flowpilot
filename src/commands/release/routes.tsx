@@ -2,11 +2,12 @@ import { Hono } from "hono";
 import { ConfigJson } from "../../config";
 import { GitlabController } from "../../gitlab-controller";
 import { JiraController } from "../../jira-controller";
+import { t } from "../../i18n/web";
 
 const router = new Hono();
 
 router.get("/", async (c) => {
-	return c.render(<div id="app">Loading...</div>, { title: "Release" });
+	return c.render(<div id="app">{t("web.loading")}</div>, { title: t("web.releaseTitle") });
 });
 
 router.get("/api/config", async (c) => {

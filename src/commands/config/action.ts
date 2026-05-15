@@ -1,6 +1,7 @@
-import prompts, { type PromptObject } from "prompts";
+import * as clack from "@clack/prompts";
 import pc from "picocolors";
 import { ConfigJson } from "../../config";
+import { t } from "../../i18n/cli";
 import { openPage } from "../../server";
 
 interface ConfigActionProps {
@@ -17,43 +18,43 @@ export const configAction = async (options: ConfigActionProps) => {
 	const configJson = new ConfigJson();
 	const config = configJson.getConfig();
 
-	console.log(pc.bold(pc.cyan("⚙  FlowPilot 配置")));
-	console.log(pc.dim("─────────────────────────────"));
+	clack.intro(pc.bgCyan(pc.black(" FlowPilot ")));
 
-	const questions: PromptObject[] = [
-		{
-			type: "text",
-			name: "jiraHost",
-			message: pc.bold("Jira") + " 地址 " + pc.dim("(带协议前缀，e.g. https://jira.example.com)"),
-			initial: config.jiraHost ?? "",
+	const group = await clack.group({
+		jiraHost: () => clack.text({
+			message: `${pc.bold("Jira")} ${t("config.jiraHostLabel")} ${pc.dim(`(${t("config.jiraHostHint")})`)}`,
+			placeholder: "https://jira.example.com",
+			initialValue: config.jiraHost ?? "",
+		}),
+		jiraName: () => clack.text({
+			message: `${pc.bold("Jira")} ${t("config.jiraNameLabel")} ${pc.dim(`(${t("config.jiraNameHint")})`)}`,
+			placeholder: "username",
+			initialValue: config.jiraName ?? "",
+		}),
+		jiraPassword: () => clack.text({
+			message: `${pc.bold("Jira")} ${t("config.jiraPasswordLabel")} ${pc.dim(`(${t("config.jiraPasswordHint")})`)}`,
+			placeholder: "••••••••",
+			initialValue: config.jiraPassword ?? "",
+		}),
+		gitlabHost: () => clack.text({
+			message: `${pc.bold("GitLab")} ${t("config.gitlabHostLabel")} ${pc.dim(`(${t("config.gitlabHostHint")})`)}`,
+			placeholder: "http://git.example.com",
+			initialValue: config.gitlabHost ?? "",
+		}),
+		gitlabKey: () => clack.text({
+			message: `${pc.bold("GitLab")} ${t("config.gitlabTokenLabel")} ${pc.dim(`(${t("config.gitlabTokenHint")})`)}`,
+			placeholder: "glpat-xxxxxxxxxxxxxxxxxxxx",
+			initialValue: config.gitlabKey ?? "",
+		}),
+	}, {
+		onCancel: () => {
+			clack.cancel(t("release.aborted"));
+			process.exit(0);
 		},
-		{
-			type: "text",
-			name: "jiraName",
-			message: pc.bold("Jira") + " 账号 " + pc.dim("(无 @后缀)"),
-			initial: config.jiraName ?? "",
-		},
-		{
-			type: "password",
-			name: "jiraPassword",
-			message: pc.bold("Jira") + " 密码 " + pc.dim("(仅存储在本地 ~/.flowpilotrc)"),
-			initial: config.jiraPassword ?? "",
-		},
-		{
-			type: "text",
-			name: "gitlabHost",
-			message: pc.bold("GitLab") + " 地址 " + pc.dim("(带协议前缀，e.g. http://git.example.com)"),
-			initial: config.gitlabHost ?? "",
-		},
-		{
-			type: "password",
-			name: "gitlabKey",
-			message: pc.bold("GitLab") + " Token " + pc.dim("(在 GitLab 设置页面生成)"),
-			initial: config.gitlabKey ?? "",
-		},
-	];
+	});
 
-	const answers = await prompts(questions);
-	configJson.setConfig(answers);
-	console.log(pc.green("✔") + " 配置已保存至 " + pc.dim("~/.flowpilotrc"));
+	if (clack.isCancel(group)) return;
+
+	configJson.setConfig(group);
+	clack.outro(pc.green("✔") + ` ${t("config.saved")}`);
 };

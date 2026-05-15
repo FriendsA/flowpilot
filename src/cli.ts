@@ -2,6 +2,7 @@ import cac from "cac";
 import pc from "picocolors";
 import { configAction, releaseAction } from "./commands";
 import { VERSION } from "./constants";
+import { t } from "./i18n/cli";
 import {
   restartServerInBackground,
   startServerInBackground,
@@ -11,31 +12,31 @@ import {
 const cli = cac("flowpilot");
 
 cli
-  .command("config", "配置账号信息")
-  .option("-o, --open", "打开页面操作")
+  .command("config", t("cli.configDesc"))
+  .option("-o, --open", t("cli.configOpenDesc"))
   .action(configAction);
 
 cli
-  .command("release", "创建发布申请")
-  .option("-o, --open", "打开页面操作")
+  .command("release", t("cli.releaseDesc"))
+  .option("-o, --open", t("cli.configOpenDesc"))
   .action(releaseAction);
 
-cli.command("serve", "启动后台服务").action(async () => {
+cli.command("serve", t("cli.serveDesc")).action(async () => {
   await startServerInBackground();
-  console.log(pc.green("✔") + " 服务已启动");
+  console.log(pc.green("✔") + ` ${t("cli.serveStarted")}`);
 });
 
-cli.command("stop", "停止后台服务").action(() => {
+cli.command("stop", t("cli.serveDesc")).action(() => {
   if (stopServer()) {
-    console.log(pc.green("✔") + " 服务已停止");
+    console.log(pc.green("✔") + ` ${t("cli.serveStopped")}`);
   } else {
-    console.log(pc.yellow("⚠") + " 没有正在运行的服务");
+    console.log(pc.yellow("⚠") + ` ${t("cli.noRunningService")}`);
   }
 });
 
-cli.command("restart", "重启后台服务").action(async () => {
+cli.command("restart", t("cli.serveDesc")).action(async () => {
   await restartServerInBackground();
-  console.log(pc.green("✔") + " 服务已重启");
+  console.log(pc.green("✔") + ` ${t("cli.serveRestarted")}`);
 });
 
 cli.help();

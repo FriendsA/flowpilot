@@ -39,6 +39,7 @@ export default defineConfig({
 			output: {
 				target: "node",
 				externals: sharedExternals,
+				copy: [{ from: "**/*", to: "public/", context: "favicon" }],
 			},
 		},
 		{

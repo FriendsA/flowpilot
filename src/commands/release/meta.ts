@@ -1,6 +1,6 @@
 export const meta = {
-	title: "Release",
+	titleKey: "web.releaseTitle",
 	icon: "&#128640;",
 	href: "/release",
-	category: "FlowPilot",
+	categoryKey: "web.generalCategory",
 } as const;

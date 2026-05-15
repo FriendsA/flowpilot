@@ -1,4 +1,5 @@
 import { ConfigJson } from "./config";
+import { t } from "./i18n/cli";
 
 export interface JiraIssue {
 	key: string;
@@ -29,15 +30,11 @@ export class JiraController {
 		const password = config.get("jiraPassword");
 
 		if (!host) {
-			throw new Error(
-				"Jira host not configured. Run `flowpilot config` first.",
-			);
+			throw new Error(t("error.jiraHostMissing"));
 		}
 
 		if (!name || !password) {
-			throw new Error(
-				"Jira credentials not configured. Run `flowpilot config` first.",
-			);
+			throw new Error(t("error.jiraCredentialsMissing"));
 		}
 
 		this.host = host;

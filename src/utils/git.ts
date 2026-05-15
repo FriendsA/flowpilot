@@ -9,6 +9,15 @@ export function isGitRepo(): boolean {
 	}
 }
 
+export function hasGitRemoteOrigin(): boolean {
+	try {
+		execSync("git remote get-url origin", { stdio: "pipe" });
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 export function getGitRemoteUrl(): string {
 	try {
 		return execSync("git remote get-url origin", { encoding: "utf-8" }).trim();

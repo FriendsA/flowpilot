@@ -1,11 +1,10 @@
-import { meta as config } from "../commands/config/meta";
 import { meta as release } from "../commands/release/meta";
 
 export type CommandMeta = {
-	title: string;
+	titleKey: string;
 	icon: string;
 	href: string;
-	category: string;
+	categoryKey: string;
 };
 
-export const menus: CommandMeta[] = [config, release];
+export const menus: CommandMeta[] = [release];
