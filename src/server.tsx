@@ -89,6 +89,9 @@ app.get("/public/*", async (c) => {
 	}
 });
 
+// Redirect /favicon.ico → /public/favicon.ico (browser default lookup path)
+app.get("/favicon.ico", (c) => c.redirect("/public/favicon.ico"));
+
 export const startServer = () => {
 	return serve({
 		fetch: app.fetch,
