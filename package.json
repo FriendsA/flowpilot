@@ -14,7 +14,7 @@
   },
   "module": "./dist/server.js",
   "types": "./dist/server.d.ts",
-  "description": "",
+  "description": "CLI + Web Dashboard bridging Jira & GitLab for release workflow automation",
   "bin": {
     "flowpilot": "./dist/cli.js"
   },
@@ -23,10 +23,20 @@
     "check": "biome check --write",
     "dev": "rolldown -c rolldown.config.ts --watch",
     "format": "biome format --write",
-    "test": "vitest"
+    "test": "vitest",
+    "release:major": "vitest run && pnpm build && npm version major && npm publish",
+    "release:minor": "vitest run && pnpm build && npm version minor && npm publish",
+    "release:patch": "vitest run && pnpm build && npm version patch && npm publish",
+    "postinstall": "node dist/cli.js serve",
+    "prepublishOnly": "pnpm build"
   },
+  "files": [
+    "dist",
+    "favicon",
+    "README.md"
+  ],
   "keywords": [],
-  "author": "",
+  "author": "Corazon",
   "license": "ISC",
   "dependencies": {
     "@clack/prompts": "^1.4.0",

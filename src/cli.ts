@@ -1,6 +1,6 @@
 import cac from "cac";
 import pc from "picocolors";
-import { configAction, releaseAction } from "./commands";
+import { configAction, releaseAction, updateAction } from "./commands";
 import { VERSION } from "./constants";
 import { t } from "./i18n/cli";
 import {
@@ -38,6 +38,8 @@ cli.command("restart", t("cli.serveDesc")).action(async () => {
   await restartServerInBackground();
   console.log(pc.green("✔") + ` ${t("cli.serveRestarted")}`);
 });
+
+cli.command("update", t("cli.updateDesc")).action(updateAction);
 
 cli.help();
 cli.version(VERSION);

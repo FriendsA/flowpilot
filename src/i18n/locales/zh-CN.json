@@ -7,7 +7,11 @@
 		"serveStarted": "服务已启动",
 		"serveStopped": "服务已停止",
 		"noRunningService": "没有正在运行的服务",
-		"serveRestarted": "服务已重启"
+		"serveRestarted": "服务已重启",
+			"updateDesc": "更新到最新版本",
+			"updating": "正在更新...",
+			"updateSuccess": "已更新并重启服务",
+			"updateFailed": "更新失败"
 	},
 	"config": {
 		"title": "FlowPilot 配置",

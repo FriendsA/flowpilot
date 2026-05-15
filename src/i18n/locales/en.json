@@ -7,7 +7,11 @@
 		"serveStarted": "Service started",
 		"serveStopped": "Service stopped",
 		"noRunningService": "No running service found",
-		"serveRestarted": "Service restarted"
+		"serveRestarted": "Service restarted",
+			"updateDesc": "Update to latest version",
+			"updating": "Updating...",
+			"updateSuccess": "Updated and service restarted",
+			"updateFailed": "Update failed"
 	},
 	"config": {
 		"title": "FlowPilot Configuration",
