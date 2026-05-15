@@ -1,18 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { JiraController } from "../jira-controller";
 
+vi.mock("../i18n/cli", () => ({
+	t: (key: string) => {
+		const translations: Record<string, string> = {
+			"error.jiraHostMissing": "Jira host not configured. Run `flowpilot config` first.",
+			"error.jiraCredentialsMissing": "Jira credentials not configured. Run `flowpilot config` first.",
+			"error.gitlabHostMissing": "GitLab host not configured. Run `flowpilot config` first.",
+			"error.gitlabTokenMissing": "GitLab token not configured. Run `flowpilot config` first.",
+		};
+		return translations[key] ?? key;
+	},
+}));
+
 let _testCreds = {
+	host: "https://test.jira.com" as string | undefined,
 	name: "testuser" as string | undefined,
 	password: "testpass" as string | undefined,
 };
 
 function setCreds(name?: string, password?: string) {
-	_testCreds = { name, password };
+	_testCreds = { host: "https://test.jira.com", name, password };
 }
 
 vi.mock("../config", () => ({
 	ConfigJson: class {
 		get(key: string) {
+			if (key === "jiraHost") return _testCreds.host;
 			if (key === "jiraName") return _testCreds.name;
 			if (key === "jiraPassword") return _testCreds.password;
 			return undefined;
@@ -62,7 +76,8 @@ describe("JiraController – constructor", () => {
 	});
 
 	it("uses custom host when provided", () => {
-		const ctrl = new JiraController("custom.jira.com");
+		_testCreds.host = "https://custom.jira.com";
+		const ctrl = new JiraController();
 		mockFetch.mockResolvedValueOnce(
 			jsonRes({ displayName: "A", emailAddress: "a@b.c" }),
 		);
