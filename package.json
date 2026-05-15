@@ -19,9 +19,9 @@
     "flowpilot": "./dist/cli.js"
   },
   "scripts": {
-    "build": "node scripts/build.mjs",
+    "build": "rolldown -c rolldown.config.ts",
     "check": "biome check --write",
-    "dev": "rslib --watch",
+    "dev": "rolldown -c rolldown.config.ts --watch",
     "format": "biome format --write",
     "test": "vitest"
   },

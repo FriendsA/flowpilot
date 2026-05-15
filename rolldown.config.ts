@@ -1,4 +1,6 @@
 import { defineConfig } from "rolldown";
+import fs from "node:fs";
+import path from "node:path";
 
 const sharedExternals = [
 	"node:fs",
@@ -11,6 +13,22 @@ const sharedExternals = [
 	"node:crypto",
 ];
 
+// Plugin to copy favicon assets after each build
+function copyFaviconsPlugin() {
+	return {
+		name: "copy-favicons",
+		writeBundle() {
+			const srcDir = path.resolve("favicon");
+			const destDir = path.resolve("dist/public");
+			if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+			for (const file of fs.readdirSync(srcDir)) {
+				fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file));
+			}
+			console.log("✓ Copied favicon assets → dist/public/");
+		},
+	};
+}
+
 export default defineConfig([
 	// CLI binary (Node target, shebang header)
 	{
@@ -19,7 +37,7 @@ export default defineConfig([
 			dir: "dist",
 			format: "esm",
 			entryFileNames: "[name].js",
-			banner: { js: "#!/usr/bin/env node" },
+			banner: "#!/usr/bin/env node",
 		},
 		platform: "node",
 		external: sharedExternals,
@@ -71,5 +89,6 @@ export default defineConfig([
 		transform: {
 			jsx: { runtime: "automatic", importSource: "hono/jsx" },
 		},
+		plugins: [copyFaviconsPlugin()],
 	},
 ]);
