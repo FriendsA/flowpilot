@@ -1,3 +1,4 @@
+import { meta as end } from "../commands/end/meta";
 import { meta as release } from "../commands/release/meta";
 
 export type CommandMeta = {
@@ -6,4 +7,4 @@ export type CommandMeta = {
 	categoryKey: string;
 };
 
-export const menus: CommandMeta[] = [release];
+export const menus: CommandMeta[] = [release, end];
