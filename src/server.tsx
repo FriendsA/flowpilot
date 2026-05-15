@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { configRoutes } from "./commands/config/routes";
+import { endRoutes } from "./commands/end/routes";
 import { releaseRoutes } from "./commands/release/routes";
 import { PID_FILE, PORT, SERVER_URL } from "./constants";
 import { initI18n, detectLocaleFromCookie, detectLocaleFromHeader, getLocaleResources, type Locale } from "./i18n/web";
@@ -51,6 +52,7 @@ app.use("/*", async (c, next) => {
 });
 
 app.route("/config", configRoutes);
+app.route("/end", endRoutes);
 app.route("/release", releaseRoutes);
 
 // Serve client-side bundles and shared chunks (all under /client/)
