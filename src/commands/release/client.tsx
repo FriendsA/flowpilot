@@ -24,7 +24,7 @@ declare global {
 const releaseStyle = `
   .page-header {
     margin-bottom: 28px;
-    animation: slide-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
   }
   .page-header h2 {
     font-size: 22px;
@@ -43,7 +43,7 @@ const releaseStyle = `
   .sel {
     position: relative;
     margin-bottom: 16px;
-    animation: slide-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
     z-index: 1;
   }
   .sel-trigger {
@@ -51,7 +51,7 @@ const releaseStyle = `
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 11px 14px;
+    padding: 12px 14px;
     font-size: 13px;
     font-family: var(--sans);
     color: var(--text-1);
@@ -104,7 +104,7 @@ const releaseStyle = `
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.4);
     z-index: 1000;
-    animation: dropdown-in 0.15s ease both;
+    animation: dropdown-in 0.12s ease both;
   }
   @keyframes dropdown-in {
     from { opacity: 0; transform: translateY(-4px); }
@@ -136,7 +136,7 @@ const releaseStyle = `
   .sel-search-input::placeholder { color: var(--text-3); }
   .sel-search-input:focus { border-color: var(--accent); }
   .sel-item {
-    padding: 9px 14px;
+    padding: 10px 14px;
     font-size: 13px;
     cursor: pointer;
     transition: background 0.1s;
@@ -173,7 +173,7 @@ const releaseStyle = `
     color: var(--text-3);
     font-size: 13px;
     margin-bottom: 16px;
-    animation: slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   /* ── Version display ── */
@@ -185,19 +185,20 @@ const releaseStyle = `
     background: var(--bg-content);
     border: 1px solid var(--border);
     border-radius: 8px;
-    animation: slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .version-tag { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--mono); }
   .version-number { font-size: 20px; font-weight: 600; font-family: var(--mono); color: var(--text-1); letter-spacing: -0.01em; }
-  .version-error { color: #e05c43; font-size: 13px; animation: slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .version-error { color: #e05c43; font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
-  .empty-hint { text-align: center; padding: 32px 0; color: var(--text-3); font-size: 13px; animation: slide-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
-  .state-error { color: #e05c43; font-size: 13px; animation: slide-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .empty-hint { text-align: center; padding: 32px 0; color: var(--text-3); font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
+  .state-error { color: #e05c43; font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
   /* ── Jira ── */
-  .jira-section { margin-top: 20px; animation: slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .jira-section { margin-top: 20px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
   .jira-btn {
     width: 100%;
+    min-height: 44px;
     padding: 10px 20px;
     font-size: 13px;
     font-family: var(--sans);
@@ -601,13 +602,14 @@ const ReleaseClient: FC = () => {
 			{/* ── Project ── */}
 			<div class="sel" data-sel="project" style={`z-index:${s.projectOpen ? 100 : 1}`}>
 				<button class={`sel-trigger${s.projectOpen ? " open" : ""}`} type="button"
+					role="combobox" aria-expanded={s.projectOpen} aria-haspopup="listbox"
 					onClick={() => { d({ type: "SET_BRANCH_OPEN", open: false }); d({ type: "SET_JIRA_PROJECT_OPEN", open: false }); d({ type: "SET_PROJECT_OPEN", open: !s.projectOpen }); }}>
 					<span class="sel-trigger-label">{t("web.projectLabel")}</span>
 					<span class={`sel-trigger-value${s.selected ? "" : " empty"}`}>{s.selected ? s.selected.name : t("web.selectProject")}</span>
 					<span class="sel-trigger-arrow">▼</span>
 				</button>
 				{s.projectOpen && (
-					<div class="sel-dropdown">
+					<div class="sel-dropdown" role="listbox" aria-label={t("web.selectProject")}>
 						<div class="sel-search">
 							<input ref={projectSearchRef} class="sel-search-input" type="text" placeholder={t("web.searchProjects")} value={s.projectSearch}
 								onChange={(e: Event) => d({ type: "SET_PROJECT_SEARCH", search: (e.target as HTMLInputElement).value })}
@@ -636,13 +638,14 @@ const ReleaseClient: FC = () => {
 			) : s.branches.length > 0 && (
 				<div class="sel" data-sel="branch" style={`z-index:${s.branchOpen ? 100 : 1}`}>
 					<button class={`sel-trigger${s.branchOpen ? " open" : ""}`} type="button"
+						role="combobox" aria-expanded={s.branchOpen} aria-haspopup="listbox"
 						onClick={() => { d({ type: "SET_PROJECT_OPEN", open: false }); d({ type: "SET_JIRA_PROJECT_OPEN", open: false }); d({ type: "SET_BRANCH_OPEN", open: !s.branchOpen }); }}>
 						<span class="sel-trigger-label">{t("web.branchLabel")}</span>
 						<span class={`sel-trigger-value${s.selectedBranch ? "" : " empty"}`}>{s.selectedBranch || t("web.selectBranch")}</span>
 						<span class="sel-trigger-arrow">▼</span>
 					</button>
 					{s.branchOpen && (
-						<div class="sel-dropdown">
+						<div class="sel-dropdown" role="listbox" aria-label={t("web.selectBranch")}>
 							<div class="sel-search">
 								<input ref={branchSearchRef} class="sel-search-input" type="text" placeholder={t("web.filterBranches")} value={s.branchSearch}
 									onChange={(e: Event) => d({ type: "SET_BRANCH_SEARCH", search: (e.target as HTMLInputElement).value })}
@@ -680,13 +683,14 @@ const ReleaseClient: FC = () => {
 					) : (
 						<div class="sel" data-sel="jira" style={`z-index:${s.jiraProjectOpen ? 100 : 1}`}>
 							<button class={`sel-trigger${s.jiraProjectOpen ? " open" : ""}`} type="button"
+								role="combobox" aria-expanded={s.jiraProjectOpen} aria-haspopup="listbox"
 								onClick={() => { d({ type: "SET_PROJECT_OPEN", open: false }); d({ type: "SET_BRANCH_OPEN", open: false }); d({ type: "SET_JIRA_PROJECT_OPEN", open: !s.jiraProjectOpen }); }}>
 								<span class="sel-trigger-label">{t("web.jiraProjectLabel")}</span>
 								<span class={`sel-trigger-value${s.selectedJiraProject ? "" : " empty"}`}>{s.selectedJiraProject ? `${s.selectedJiraProject.key} - ${s.selectedJiraProject.name ?? ""}` : t("web.selectJiraProject")}</span>
 								<span class="sel-trigger-arrow">▼</span>
 							</button>
 							{s.jiraProjectOpen && (
-								<div class="sel-dropdown">
+								<div class="sel-dropdown" role="listbox" aria-label={t("web.selectJiraProject")}>
 									<div class="sel-search">
 										<input ref={jiraSearchRef} class="sel-search-input" type="text" placeholder={t("web.searchJiraProject")} value={s.jiraProjectSearch}
 											onChange={(e: Event) => d({ type: "SET_JIRA_PROJECT_SEARCH", search: (e.target as HTMLInputElement).value })}
@@ -733,7 +737,7 @@ const ReleaseClient: FC = () => {
 							</span>
 						</div>
 					)}
-					{s.jiraError && <div class="jira-error">{s.jiraError}</div>}
+					{s.jiraError && <div class="jira-error" role="alert">{s.jiraError}</div>}
 				</div>
 			)}
 

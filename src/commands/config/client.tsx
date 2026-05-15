@@ -2,7 +2,6 @@ import i18next from "i18next";
 import { type FC, useEffect, useState } from "hono/jsx";
 import { render } from "hono/jsx/dom";
 
-// Hydrate i18n from server-inlined data
 if (typeof window !== "undefined" && window.__I18N_LOCALE__ && window.__I18N_RESOURCES__) {
 	i18next.init({
 		lng: window.__I18N_LOCALE__,
@@ -20,10 +19,13 @@ declare global {
 	}
 }
 
+const EYE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const EYE_OFF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 5.06A9.68 9.68 0 0 1 12 4c7 0 11 8 11 8a18.45 18.45 0 0 1-3.06 4.94"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
 const configStyle = `
   .page-header {
     margin-bottom: 32px;
-    animation: slide-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
   }
   .page-header h2 {
     font-size: 22px;
@@ -45,20 +47,20 @@ const configStyle = `
     padding: 8px 14px;
     margin-bottom: 24px;
     border-radius: 6px;
-    background: var(--green-soft);
-    border: 1px solid rgba(92, 184, 122, 0.12);
-    color: var(--green);
+    background: var(--success-soft);
+    border: 1px solid rgba(34, 197, 94, 0.12);
+    color: var(--success);
     font-size: 12px;
     font-weight: 500;
   }
   .toast.visible {
     display: inline-flex;
-    animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .toast-dot {
     width: 6px; height: 6px;
     border-radius: 50%;
-    background: var(--green);
+    background: var(--success);
     flex-shrink: 0;
   }
 
@@ -68,9 +70,9 @@ const configStyle = `
     border-radius: 10px;
     margin-bottom: 16px;
     overflow: hidden;
-    animation: slide-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
-  .section:nth-of-type(2) { animation-delay: 0.1s; }
+  .section:nth-of-type(2) { animation-delay: 0.06s; }
 
   .section-head {
     padding: 16px 20px;
@@ -111,9 +113,13 @@ const configStyle = `
     margin-left: 4px;
   }
 
+  .field-input-wrap {
+    position: relative;
+  }
+
   .field input {
     width: 100%;
-    padding: 9px 12px;
+    padding: 10px 12px;
     font-size: 13px;
     font-family: var(--mono);
     color: var(--text-1);
@@ -122,6 +128,9 @@ const configStyle = `
     border-radius: 6px;
     outline: none;
     transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .field input.password-input {
+    padding-right: 40px;
   }
   .field input::placeholder {
     color: var(--text-3);
@@ -133,16 +142,41 @@ const configStyle = `
     box-shadow: 0 0 0 2px var(--accent-soft);
   }
 
+  .password-toggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-3);
+    padding: 0;
+    transition: color 0.15s;
+  }
+  .password-toggle:hover { color: var(--text-2); }
+  .password-toggle svg {
+    width: 18px; height: 18px;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
   .save-bar {
     display: flex;
     align-items: center;
     gap: 12px;
     margin-top: 24px;
-    animation: slide-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
   }
 
   .btn {
-    padding: 9px 22px;
+    min-height: 44px;
+    padding: 10px 22px;
     font-size: 13px;
     font-family: var(--sans);
     font-weight: 500;
@@ -154,8 +188,8 @@ const configStyle = `
     transition: background 0.15s, box-shadow 0.2s;
   }
   .btn:hover {
-    background: #6aaef0;
-    box-shadow: 0 2px 12px rgba(91, 160, 232, 0.25);
+    background: var(--accent-hover);
+    box-shadow: 0 2px 12px rgba(91, 156, 240, 0.25);
   }
   .btn:active { background: #4e95d4; }
 
@@ -183,6 +217,7 @@ const ConfigClient: FC = () => {
 	const [config, setConfig] = useState<Config>({});
 	const [loading, setLoading] = useState(true);
 	const [toast, setToast] = useState(false);
+	const [showPassword, setShowPassword] = useState(false);
 
 	useEffect(() => {
 		fetch("/config/api/config")
@@ -204,7 +239,7 @@ const ConfigClient: FC = () => {
 		});
 		if (res.ok) {
 			setToast(true);
-			setTimeout(() => setToast(false), 2500);
+			setTimeout(() => setToast(false), 3000);
 		}
 	};
 
@@ -227,7 +262,7 @@ const ConfigClient: FC = () => {
 			</div>
 
 			{toast && (
-				<div class="toast visible">
+				<div class="toast visible" role="status" aria-live="polite">
 					<span class="toast-dot" />
 					{t("web.savedToast")}
 				</div>
@@ -269,13 +304,23 @@ const ConfigClient: FC = () => {
 							<label class="field-label" for="jiraPassword">
 								{t("web.passwordLabel")}
 							</label>
-							<input
-								id="jiraPassword"
-								name="jiraPassword"
-								type="password"
-								placeholder={t("web.placeholderPassword")}
-								value={config.jiraPassword ?? ""}
-							/>
+							<div class="field-input-wrap">
+								<input
+									id="jiraPassword"
+									name="jiraPassword"
+									type={showPassword ? "text" : "password"}
+									class="password-input"
+									placeholder={t("web.placeholderPassword")}
+									value={config.jiraPassword ?? ""}
+								/>
+								<button
+									class="password-toggle"
+									type="button"
+									aria-label={showPassword ? "Hide password" : "Show password"}
+									onClick={() => setShowPassword(!showPassword)}
+									dangerouslySetInnerHTML={{ __html: showPassword ? EYE_OFF_SVG : EYE_SVG }}
+								/>
+							</div>
 						</div>
 					</div>
 				</div>
