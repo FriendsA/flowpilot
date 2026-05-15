@@ -48,8 +48,8 @@ const configStyle = `
     margin-bottom: 24px;
     border-radius: 6px;
     background: var(--success-soft);
-    border: 1px solid rgba(34, 197, 94, 0.12);
-    color: var(--success);
+    border: 1px solid rgba(0,255,136,0.12);
+    color: var(--neon);
     font-size: 12px;
     font-weight: 500;
   }
@@ -60,19 +60,21 @@ const configStyle = `
   .toast-dot {
     width: 6px; height: 6px;
     border-radius: 50%;
-    background: var(--success);
-    flex-shrink: 0;
+    background: var(--neon);
+    animation: neon-pulse 2s ease infinite;
   }
 
   .section {
-    background: var(--bg-content);
+    background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 10px;
     margin-bottom: 16px;
     overflow: hidden;
     animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+    transition: border-color 0.2s;
   }
   .section:nth-of-type(2) { animation-delay: 0.06s; }
+  .section:hover { border-color: var(--border-active); }
 
   .section-head {
     padding: 16px 20px;
@@ -86,12 +88,11 @@ const configStyle = `
     border-radius: 50%;
     flex-shrink: 0;
   }
-  .section-dot.jira { background: #4a90d9; }
-  .section-dot.gitlab { background: #e05c43; }
+  .section-dot.jira { background: var(--cyan); box-shadow: 0 0 6px var(--cyan-glow); }
+  .section-dot.gitlab { background: var(--neon); box-shadow: 0 0 6px var(--neon-glow); }
   .section-head h3 {
     font-size: 13px;
     font-weight: 600;
-    letter-spacing: 0.01em;
   }
 
   .section-body { padding: 20px; }
@@ -113,9 +114,7 @@ const configStyle = `
     margin-left: 4px;
   }
 
-  .field-input-wrap {
-    position: relative;
-  }
+  .field-input-wrap { position: relative; }
 
   .field input {
     width: 100%;
@@ -129,17 +128,12 @@ const configStyle = `
     outline: none;
     transition: border-color 0.2s, box-shadow 0.2s;
   }
-  .field input.password-input {
-    padding-right: 40px;
-  }
-  .field input::placeholder {
-    color: var(--text-3);
-    font-weight: 400;
-  }
+  .field input.password-input { padding-right: 40px; }
+  .field input::placeholder { color: var(--text-3); font-weight: 400; }
   .field input:hover { border-color: var(--border-active); }
   .field input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-soft);
+    border-color: var(--neon);
+    box-shadow: 0 0 0 2px var(--neon-soft), 0 0 8px var(--neon-glow);
   }
 
   .password-toggle {
@@ -180,18 +174,18 @@ const configStyle = `
     font-size: 13px;
     font-family: var(--sans);
     font-weight: 500;
-    color: #fff;
-    background: var(--accent);
+    color: var(--bg-void);
+    background: var(--neon);
     border: none;
     border-radius: 6px;
     cursor: pointer;
     transition: background 0.15s, box-shadow 0.2s;
   }
   .btn:hover {
-    background: var(--accent-hover);
-    box-shadow: 0 2px 12px rgba(91, 156, 240, 0.25);
+    background: var(--neon-hover);
+    box-shadow: 0 0 12px var(--neon-glow), 0 2px 12px rgba(0,255,136,0.2);
   }
-  .btn:active { background: #4e95d4; }
+  .btn:active { background: #00DD77; }
 
   .save-note {
     font-size: 11px;

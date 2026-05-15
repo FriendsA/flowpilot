@@ -3,7 +3,6 @@ import { type FC, useEffect, useReducer, useRef } from "hono/jsx";
 import { render } from "hono/jsx/dom";
 import { filterByRelevance } from "../../utils/search";
 
-// Hydrate i18n from server-inlined data
 if (typeof window !== "undefined" && window.__I18N_LOCALE__ && window.__I18N_RESOURCES__) {
 	i18next.init({
 		lng: window.__I18N_LOCALE__,
@@ -39,11 +38,60 @@ const releaseStyle = `
     line-height: 1.5;
   }
 
+  /* ── Pipeline ── */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 28px;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
+  }
+  .pipeline-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text-3);
+    font-weight: 400;
+    white-space: nowrap;
+  }
+  .pipeline-step.active {
+    color: var(--neon);
+    font-weight: 500;
+  }
+  .pipeline-step.done {
+    color: var(--cyan);
+  }
+  .pipeline-node {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--text-3);
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .pipeline-step.active .pipeline-node {
+    background: var(--neon);
+    box-shadow: 0 0 8px var(--neon-glow);
+    animation: neon-pulse 2s ease infinite;
+  }
+  .pipeline-step.done .pipeline-node {
+    background: var(--cyan);
+    box-shadow: 0 0 4px var(--cyan-glow);
+  }
+  .pipeline-line {
+    width: 32px;
+    height: 1px;
+    background: var(--border);
+    margin: 0 4px;
+    transition: background 0.3s;
+  }
+  .pipeline-line.done { background: var(--cyan); }
+
   /* ── Generic select ── */
   .sel {
     position: relative;
     margin-bottom: 16px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
     z-index: 1;
   }
   .sel-trigger {
@@ -66,8 +114,8 @@ const releaseStyle = `
   .sel-trigger:hover { border-color: var(--border-active); }
   .sel-trigger:focus,
   .sel-trigger.open {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-soft);
+    border-color: var(--neon);
+    box-shadow: 0 0 0 2px var(--neon-soft), 0 0 8px var(--neon-glow);
   }
   .sel-trigger-label {
     font-size: 11px;
@@ -99,16 +147,12 @@ const releaseStyle = `
     left: 0; right: 0;
     max-height: 280px;
     overflow-y: auto;
-    background: var(--bg-content);
-    border: 1px solid var(--border);
+    background: var(--bg-card);
+    border: 1px solid rgba(0,255,136,0.08);
     border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 12px rgba(0,255,136,0.03);
     z-index: 1000;
     animation: dropdown-in 0.12s ease both;
-  }
-  @keyframes dropdown-in {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
   }
   .sel-dropdown::-webkit-scrollbar { width: 6px; }
   .sel-dropdown::-webkit-scrollbar-track { background: transparent; }
@@ -118,7 +162,7 @@ const releaseStyle = `
     border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
-    background: var(--bg-content);
+    background: var(--bg-card);
     z-index: 1;
   }
   .sel-search-input {
@@ -127,14 +171,14 @@ const releaseStyle = `
     font-size: 12px;
     font-family: var(--mono);
     color: var(--text-1);
-    background: var(--bg-base);
+    background: var(--bg-void);
     border: 1px solid var(--border);
     border-radius: 4px;
     outline: none;
     transition: border-color 0.15s;
   }
   .sel-search-input::placeholder { color: var(--text-3); }
-  .sel-search-input:focus { border-color: var(--accent); }
+  .sel-search-input:focus { border-color: var(--neon); }
   .sel-item {
     padding: 10px 14px;
     font-size: 13px;
@@ -147,8 +191,8 @@ const releaseStyle = `
   .sel-item:hover,
   .sel-item.highlighted { background: var(--bg-hover); }
   .sel-item.active {
-    background: var(--accent-soft);
-    border-left-color: var(--accent);
+    background: var(--neon-soft);
+    border-left-color: var(--neon);
     font-weight: 500;
   }
   .sel-item-name { font-weight: 500; color: var(--text-1); }
@@ -160,7 +204,7 @@ const releaseStyle = `
     display: inline-block;
     width: 14px; height: 14px;
     border: 2px solid var(--border);
-    border-top-color: var(--accent);
+    border-top-color: var(--neon);
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
   }
@@ -182,17 +226,17 @@ const releaseStyle = `
     align-items: center;
     gap: 12px;
     padding: 14px 20px;
-    background: var(--bg-content);
-    border: 1px solid var(--border);
+    background: var(--bg-card);
+    border: 1px solid rgba(0,212,255,0.08);
     border-radius: 8px;
     animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .version-tag { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--mono); }
-  .version-number { font-size: 20px; font-weight: 600; font-family: var(--mono); color: var(--text-1); letter-spacing: -0.01em; }
-  .version-error { color: #e05c43; font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .version-number { font-size: 20px; font-weight: 600; font-family: var(--mono); color: var(--cyan); letter-spacing: -0.01em; }
+  .version-error { color: var(--error); font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
   .empty-hint { text-align: center; padding: 32px 0; color: var(--text-3); font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
-  .state-error { color: #e05c43; font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .state-error { color: var(--error); font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
   /* ── Jira ── */
   .jira-section { margin-top: 20px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
@@ -203,8 +247,8 @@ const releaseStyle = `
     font-size: 13px;
     font-family: var(--sans);
     font-weight: 500;
-    color: #fff;
-    background: var(--accent);
+    color: var(--bg-void);
+    background: var(--neon);
     border: none;
     border-radius: 8px;
     cursor: pointer;
@@ -213,12 +257,12 @@ const releaseStyle = `
     position: relative;
     z-index: 1;
   }
-  .jira-btn:hover { background: #6aaef0; box-shadow: 0 2px 12px rgba(91, 160, 232, 0.25); }
+  .jira-btn:hover { background: var(--neon-hover); box-shadow: 0 0 12px var(--neon-glow), 0 2px 12px rgba(0,255,136,0.2); }
   .jira-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .jira-result {
     margin-top: 12px;
     padding: 12px 16px;
-    background: var(--bg-content);
+    background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 8px;
     animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -229,17 +273,17 @@ const releaseStyle = `
     font-family: var(--mono);
     font-size: 14px;
     font-weight: 600;
-    color: var(--accent);
+    color: var(--neon);
     text-decoration: none;
-    border-bottom: 1px dashed rgba(91, 160, 232, 0.3);
+    border-bottom: 1px dashed rgba(0,255,136,0.3);
     transition: border-color 0.2s;
   }
-  .jira-result-key:hover { border-bottom-color: var(--accent); }
+  .jira-result-key:hover { border-bottom-color: var(--neon); }
   .jira-result-label { font-size: 11px; color: var(--text-3); margin-bottom: 4px; }
   .jira-result-badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 4px; margin-left: 8px; font-weight: 500; }
-  .jira-result-badge.created { background: var(--green-soft); color: var(--green); }
-  .jira-result-badge.exists { background: rgba(91, 160, 232, 0.1); color: var(--accent); }
-  .jira-error { margin-top: 12px; color: #e05c43; font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .jira-result-badge.created { background: var(--neon-soft); color: var(--neon); }
+  .jira-result-badge.exists { background: var(--cyan-soft); color: var(--cyan); }
+  .jira-error { margin-top: 12px; color: var(--error); font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
 `;
 
 type Project = { id: number; name: string; path?: string; pathWithNamespace?: string; description?: string; defaultBranch?: string };
@@ -457,6 +501,14 @@ const selKeyDown = (
 	return undefined;
 };
 
+// ── Pipeline step class helper ──
+
+const pipelineStepClass = (done: boolean, active: boolean) =>
+	done ? "pipeline-step done" : active ? "pipeline-step active" : "pipeline-step";
+
+const pipelineLineClass = (done: boolean) =>
+	done ? "pipeline-line done" : "pipeline-line";
+
 // ── Component ──
 
 const ReleaseClient: FC = () => {
@@ -479,7 +531,6 @@ const ReleaseClient: FC = () => {
 			.catch((e) => d({ type: "PROJECTS_ERROR", error: e.message }));
 	}, []);
 
-	// Close all dropdowns on outside click
 	useEffect(() => {
 		if (!s.projectOpen && !s.branchOpen && !s.jiraProjectOpen) return;
 		const handler = (e: Event) => {
@@ -494,14 +545,12 @@ const ReleaseClient: FC = () => {
 		return () => document.removeEventListener("click", handler);
 	}, [s.projectOpen, s.branchOpen, s.jiraProjectOpen]);
 
-	// Focus search input when dropdown opens
 	useEffect(() => {
 		if (s.projectOpen) setTimeout(() => projectSearchRef.current?.focus(), 50);
 		if (s.branchOpen) setTimeout(() => branchSearchRef.current?.focus(), 50);
 		if (s.jiraProjectOpen) setTimeout(() => jiraSearchRef.current?.focus(), 50);
 	}, [s.projectOpen, s.branchOpen, s.jiraProjectOpen]);
 
-	// Fetch Jira projects when pom is loaded
 	useEffect(() => {
 		if (!s.pomInfo?.version || s.jiraProjects.length > 0 || s.jiraProjectsLoading) return;
 		d({ type: "JIRA_PROJECTS_LOADING" });
@@ -591,6 +640,18 @@ const ReleaseClient: FC = () => {
 	const fj = filterByRelevance(s.jiraProjects.map((p) => ({ ...p, name: `${p.key} ${p.name ?? ""}` })), s.jiraProjectSearch);
 	const jiraUrl = s.jiraResult && s.jiraHost ? `${s.jiraHost}/browse/${s.jiraResult.key}` : "";
 
+	// Pipeline step states
+	const step1Done = !!s.selected;
+	const step1Active = !s.projectsLoading && !step1Done;
+	const step2Done = !!s.selectedBranch;
+	const step2Active = !!s.selected && !step2Done;
+	const step3Done = !!s.pomInfo?.version;
+	const step3Active = !!s.selectedBranch && !step3Done;
+	const step4Done = !!s.selectedJiraProject;
+	const step4Active = !!s.pomInfo?.version && !step4Done;
+	const step5Done = !!s.jiraResult;
+	const step5Active = !!s.selectedJiraProject && !step5Done;
+
 	if (s.projectsLoading) return <div><style>{releaseStyle}</style><div class="loading-row"><span class="spinner" />{t("web.loadingProjects")}</div></div>;
 	if (s.projectsError) return <div><style>{releaseStyle}</style><div class="state-error">{s.projectsError}</div></div>;
 
@@ -598,6 +659,29 @@ const ReleaseClient: FC = () => {
 		<div>
 			<style>{releaseStyle}</style>
 			<div class="page-header"><h2>{t("web.releaseTitle")}</h2><p>{t("web.releaseDesc")}</p></div>
+
+			{/* ── Pipeline ── */}
+			<div class="pipeline">
+				<div class={pipelineStepClass(step1Done, step1Active)}>
+					<span class="pipeline-node" />{t("web.projectLabel")}
+				</div>
+				<div class={pipelineLineClass(step1Done)} />
+				<div class={pipelineStepClass(step2Done, step2Active)}>
+					<span class="pipeline-node" />{t("web.branchLabel")}
+				</div>
+				<div class={pipelineLineClass(step2Done)} />
+				<div class={pipelineStepClass(step3Done, step3Active)}>
+					<span class="pipeline-node" />{t("web.versionTag")}
+				</div>
+				<div class={pipelineLineClass(step3Done)} />
+				<div class={pipelineStepClass(step4Done, step4Active)}>
+					<span class="pipeline-node" />{t("web.jiraProjectLabel")}
+				</div>
+				<div class={pipelineLineClass(step4Done)} />
+				<div class={pipelineStepClass(step5Done, step5Active)}>
+					<span class="pipeline-node" />{t("web.createBtn")}
+				</div>
+			</div>
 
 			{/* ── Project ── */}
 			<div class="sel" data-sel="project" style={`z-index:${s.projectOpen ? 100 : 1}`}>
@@ -661,7 +745,7 @@ const ReleaseClient: FC = () => {
 									onMouseEnter={() => d({ type: "SET_BRANCH_INDEX", index: i })}
 									onClick={() => handleSelectBranch((b as Branch).name)}>
 									<span class="sel-item-name">{(b as Branch).name}</span>
-									{(b as Branch).default && <span style="font-size:10px;color:var(--accent);margin-left:6px">{t("web.defaultBranch")}</span>}
+									{(b as Branch).default && <span style="font-size:10px;color:var(--neon);margin-left:6px">{t("web.defaultBranch")}</span>}
 								</div>
 							)) : <div class="sel-empty">{t("web.noBranches")}</div>}
 						</div>
@@ -672,7 +756,7 @@ const ReleaseClient: FC = () => {
 			{/* ── Version ── */}
 			{s.selected && s.selectedBranch && !s.branchesLoading &&
 				(s.pomLoading ? <div class="loading-row"><span class="spinner" />{t("web.loadingVersion")}</div>
-				: s.pomError ? <div class="version-error">{s.pomError.includes("404") ? t("web.noPom") : s.pomError}</div>
+				: s.pomError ? <div class="version-error" role="alert">{s.pomError.includes("404") ? t("web.noPom") : s.pomError}</div>
 				: s.pomInfo && <div class="version-display"><span class="version-tag">{t("web.versionTag")}</span><span class="version-number">{cleanVersion(s.pomInfo.version)}</span></div>)}
 
 			{/* ── Jira ── */}
