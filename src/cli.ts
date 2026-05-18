@@ -1,48 +1,53 @@
 import cac from "cac";
 import pc from "picocolors";
-import { configAction, endAction, releaseAction, updateAction } from "./commands";
+import {
+	configAction,
+	endAction,
+	releaseAction,
+	updateAction,
+} from "./commands";
 import { VERSION } from "./constants";
 import { t } from "./i18n/cli";
 import {
-  restartServerInBackground,
-  startServerInBackground,
-  stopServer,
+	restartServerInBackground,
+	startServerInBackground,
+	stopServer,
 } from "./server";
 
 const cli = cac("flowpilot");
 
 cli
-  .command("config", t("cli.configDesc"))
-  .option("-o, --open", t("cli.configOpenDesc"))
-  .action(configAction);
+	.command("config", t("cli.configDesc"))
+	.option("-o, --open", t("cli.configOpenDesc"))
+	.action(configAction);
 
 cli
-  .command("release", t("cli.releaseDesc"))
-  .option("-o, --open", t("cli.configOpenDesc"))
-  .action(releaseAction);
+	.command("release", t("cli.releaseDesc"))
+	.option("-o, --open", t("cli.configOpenDesc"))
+	.action(releaseAction);
 
 cli
-  .command("end", t("cli.endDesc"))
-  .option("-b, --branch <branch>", t("cli.endBranchDesc"))
-  .option("-o, --open", t("cli.configOpenDesc"))
-  .action(endAction);
+	.command("end", t("cli.endDesc"))
+	.option("-b, --branch <branch>", t("cli.endBranchDesc"))
+	.option("-o, --open", t("cli.configOpenDesc"))
+	.action(endAction);
 
 cli.command("serve", t("cli.serveDesc")).action(async () => {
-  await startServerInBackground();
-  console.log(pc.green("✔") + ` ${t("cli.serveStarted")}`);
+	await startServerInBackground();
+	console.log(`${pc.green("✔")} ${t("cli.serveStarted")}`);
 });
 
 cli.command("stop", t("cli.serveDesc")).action(() => {
-  if (stopServer()) {
-    console.log(pc.green("✔") + ` ${t("cli.serveStopped")}`);
-  } else {
-    console.log(pc.yellow("⚠") + ` ${t("cli.noRunningService")}`);
-  }
+	if (stopServer()) {
+		console.log(`${pc.green("✔")} ${t("cli.serveStopped")}`);
+	} else {
+		console.log(`${pc.yellow("⚠")} ${t("cli.noRunningService")}`);
+	}
 });
 
 cli.command("restart", t("cli.serveDesc")).action(async () => {
-  await restartServerInBackground();
-  console.log(pc.green("✔") + ` ${t("cli.serveRestarted")}`);
+	await restartServerInBackground();
+	console.log(`${pc.green("✔")} ${t("cli.serveRestarted")}`);
 });
 
 cli.command("update", t("cli.updateDesc")).action(updateAction);

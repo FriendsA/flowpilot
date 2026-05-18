@@ -1,24 +1,24 @@
 import * as clack from "@clack/prompts";
 import clipboardy from "clipboardy";
 import pc from "picocolors";
-import { t } from "../../i18n/cli";
 import { GitlabController } from "../../gitlab-controller";
+import { t } from "../../i18n/cli";
 import { JiraController } from "../../jira-controller";
 import { openPage } from "../../server";
 import { validateConfigOrWarn } from "../../utils/config";
 import {
-	isGitRepo,
-	hasGitRemoteOrigin,
-	getGitRemoteUrl,
 	extractProjectPath,
-	getCurrentBranch,
-	getReflogSourceBranch,
-	getLocalBranches,
-	gitFetch,
-	gitRebase,
-	gitPush,
-	getCommitMessagesSince,
 	extractTicketKeys,
+	getCommitMessagesSince,
+	getCurrentBranch,
+	getGitRemoteUrl,
+	getLocalBranches,
+	getReflogSourceBranch,
+	gitFetch,
+	gitPush,
+	gitRebase,
+	hasGitRemoteOrigin,
+	isGitRepo,
 } from "../../utils/git";
 
 interface EndActionProps {
@@ -30,7 +30,11 @@ interface EndActionProps {
 }
 
 function stopSpinner(s: ReturnType<typeof clack.spinner>, msg: string) {
-	try { s.stop(msg); } catch { /* already stopped */ }
+	try {
+		s.stop(msg);
+	} catch {
+		/* already stopped */
+	}
 }
 
 export const endAction = async (options: EndActionProps) => {
@@ -107,7 +111,7 @@ export const endAction = async (options: EndActionProps) => {
 		return;
 	}
 
-	const rebaseOk = gitRebase(targetBranch);
+	const rebaseOk = gitRebase(`origin/${targetBranch}`);
 
 	if (!rebaseOk) {
 		stopSpinner(s, pc.yellow(t("end.conflicts")));
@@ -115,14 +119,20 @@ export const endAction = async (options: EndActionProps) => {
 		return;
 	}
 
-	stopSpinner(s, pc.green("✔") + ` ${t("end.rebaseSuccess")}: ${pc.cyan(targetBranch)}`);
+	stopSpinner(
+		s,
+		`${pc.green("✔")} ${t("end.rebaseSuccess")}: ${pc.cyan(targetBranch)}`,
+	);
 
 	// ── Step 3: Push current branch ──
 
 	s.start(t("end.pushing"));
 	try {
 		gitPush("origin", currentBranch);
-		stopSpinner(s, pc.green("✔") + ` ${t("end.pushSuccess")}: ${pc.cyan(currentBranch)}`);
+		stopSpinner(
+			s,
+			`${pc.green("✔")} ${t("end.pushSuccess")}: ${pc.cyan(currentBranch)}`,
+		);
 	} catch (e: unknown) {
 		const msg = e instanceof Error ? e.message : String(e);
 		stopSpinner(s, pc.red(t("end.pushFailed")));
@@ -137,9 +147,13 @@ export const endAction = async (options: EndActionProps) => {
 	const ticketKeys = extractTicketKeys(messages);
 
 	if (ticketKeys.length === 0) {
-		stopSpinner(s, pc.yellow("⚠") + ` ${t("end.noTickets")}`);
+		stopSpinner(s, `${pc.yellow("⚠")} ${t("end.noTickets")}`);
 	} else {
-		stopSpinner(s, pc.green("✔") + ` ${t("end.foundTickets")}: ${pc.bold(ticketKeys.join(", "))}`);
+		stopSpinner(
+			s,
+			pc.green("✔") +
+				` ${t("end.foundTickets")}: ${pc.bold(ticketKeys.join(", "))}`,
+		);
 	}
 
 	// ── Step 5: Create Merge Request ──
@@ -163,14 +177,23 @@ export const endAction = async (options: EndActionProps) => {
 				// Fetch Jira issue summaries for description
 				const issues = await Promise.all(
 					ticketKeys.map(async (key) => {
-						try { return await jira.getIssue(key); } catch { return null; }
+						try {
+							return await jira.getIssue(key);
+						} catch {
+							return null;
+						}
 					}),
 				);
-				const validIssues = issues.filter((i): i is NonNullable<typeof i> => i !== null);
+				const validIssues = issues.filter(
+					(i): i is NonNullable<typeof i> => i !== null,
+				);
 
-				const description = validIssues.length > 0
-					? validIssues.map((i) => `- ${i.key} ${i.fields.summary}`).join("\n")
-					: messages.join("\n");
+				const description =
+					validIssues.length > 0
+						? validIssues
+								.map((i) => `- ${i.key} ${i.fields.summary}`)
+								.join("\n")
+						: messages.join("\n");
 
 				const mr = await gitlab.createMergeRequest(
 					project.id as number,
@@ -181,11 +204,13 @@ export const endAction = async (options: EndActionProps) => {
 				);
 
 				mrUrl = mr.web_url as string;
-				stopSpinner(s, pc.green("✔") + ` ${t("end.mrCreated")}`);
+				stopSpinner(s, `${pc.green("✔")} ${t("end.mrCreated")}`);
 
 				if (mrUrl) {
 					await clipboardy.write(mrUrl);
-					clack.log.success(`${pc.blue(mrUrl)} ${pc.dim("(copied to clipboard)")}`);
+					clack.log.success(
+						`${pc.blue(mrUrl)} ${pc.dim("(copied to clipboard)")}`,
+					);
 				}
 			} catch (e: unknown) {
 				const msg = e instanceof Error ? e.message : String(e);
@@ -228,11 +253,14 @@ export const endAction = async (options: EndActionProps) => {
 				}
 
 				// Prefer "完成" / "Done" transition, otherwise let user pick
-				const doneTransition = available.find((tr) =>
-					tr.name === "完成" || tr.name === "Done" || tr.name.toLowerCase().includes("done"),
+				const doneTransition = available.find(
+					(tr) =>
+						tr.name === "完成" ||
+						tr.name === "Done" ||
+						tr.name.toLowerCase().includes("done"),
 				);
 
-				let selectedTransition;
+				let selectedTransition: { id: string; name: string } | undefined;
 				if (doneTransition) {
 					selectedTransition = doneTransition;
 				} else {
@@ -246,7 +274,10 @@ export const endAction = async (options: EndActionProps) => {
 
 				if (selectedTransition) {
 					await jira.transitionIssue(key, selectedTransition.id);
-					stopSpinner(s, pc.green("✔") + ` ${key} → ${pc.bold(selectedTransition.name)}`);
+					stopSpinner(
+						s,
+						`${pc.green("✔")} ${key} → ${pc.bold(selectedTransition.name)}`,
+					);
 				}
 			} catch (e: unknown) {
 				const msg = e instanceof Error ? e.message : String(e);

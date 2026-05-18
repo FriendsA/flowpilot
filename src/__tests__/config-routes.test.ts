@@ -84,33 +84,51 @@ describe("Config routes – GET /api/config", () => {
 describe("Config routes – POST /api/config", () => {
 	it("saves config and returns ok", async () => {
 		mockSetConfig.mockImplementationOnce(() => {});
-		const res = await app.fetch(new Request("http://localhost/api/config", {
-			method: "POST",
-			body: JSON.stringify({ jiraHost: "https://jira.com", jiraName: "user" }),
-		}));
+		const res = await app.fetch(
+			new Request("http://localhost/api/config", {
+				method: "POST",
+				body: JSON.stringify({
+					jiraHost: "https://jira.com",
+					jiraName: "user",
+				}),
+			}),
+		);
 		expect(res.status).toBe(200);
 		const data = await res.json();
 		expect(data).toEqual({ ok: true });
-		expect(mockSetConfig).toHaveBeenCalledWith({ jiraHost: "https://jira.com", jiraName: "user" });
+		expect(mockSetConfig).toHaveBeenCalledWith({
+			jiraHost: "https://jira.com",
+			jiraName: "user",
+		});
 	});
 
 	it("saves empty config", async () => {
 		mockSetConfig.mockImplementationOnce(() => {});
-		const res = await app.fetch(new Request("http://localhost/api/config", {
-			method: "POST",
-			body: JSON.stringify({}),
-		}));
+		const res = await app.fetch(
+			new Request("http://localhost/api/config", {
+				method: "POST",
+				body: JSON.stringify({}),
+			}),
+		);
 		expect(res.status).toBe(200);
 		expect(mockSetConfig).toHaveBeenCalledWith({});
 	});
 
 	it("saves partial config (only gitlab fields)", async () => {
 		mockSetConfig.mockImplementationOnce(() => {});
-		const res = await app.fetch(new Request("http://localhost/api/config", {
-			method: "POST",
-			body: JSON.stringify({ gitlabHost: "https://gitlab.com", gitlabKey: "token" }),
-		}));
+		const res = await app.fetch(
+			new Request("http://localhost/api/config", {
+				method: "POST",
+				body: JSON.stringify({
+					gitlabHost: "https://gitlab.com",
+					gitlabKey: "token",
+				}),
+			}),
+		);
 		expect(res.status).toBe(200);
-		expect(mockSetConfig).toHaveBeenCalledWith({ gitlabHost: "https://gitlab.com", gitlabKey: "token" });
+		expect(mockSetConfig).toHaveBeenCalledWith({
+			gitlabHost: "https://gitlab.com",
+			gitlabKey: "token",
+		});
 	});
 });

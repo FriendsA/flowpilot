@@ -1,14 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { extractProjectPath } from "../utils/git";
-import { parsePomXml, cleanVersion } from "../utils/pom";
+import { cleanVersion, parsePomXml } from "../utils/pom";
 import { filterByRelevance } from "../utils/search";
 
 // ---------------------------------------------------------------------------
 // utils/config.ts – validateConfigOrWarn
 // ---------------------------------------------------------------------------
-const { mockConsoleError } = vi.hoisted(() => ({
-	mockConsoleError: vi.fn(),
-}));
 
 vi.mock("../config", () => ({
 	ConfigJson: class {
@@ -88,39 +85,57 @@ describe("validateConfigOrWarn", () => {
 // ---------------------------------------------------------------------------
 describe("extractProjectPath", () => {
 	it("extracts path from HTTPS URL", () => {
-		expect(extractProjectPath("https://gitlab.com/group/project.git")).toBe("group/project");
+		expect(extractProjectPath("https://gitlab.com/group/project.git")).toBe(
+			"group/project",
+		);
 	});
 
 	it("extracts path from HTTPS URL without .git suffix", () => {
-		expect(extractProjectPath("https://gitlab.com/group/project")).toBe("group/project");
+		expect(extractProjectPath("https://gitlab.com/group/project")).toBe(
+			"group/project",
+		);
 	});
 
 	it("extracts path from SSH URL", () => {
-		expect(extractProjectPath("git@gitlab.com:group/project.git")).toBe("group/project");
+		expect(extractProjectPath("git@gitlab.com:group/project.git")).toBe(
+			"group/project",
+		);
 	});
 
 	it("extracts path from SSH URL without .git suffix", () => {
-		expect(extractProjectPath("git@gitlab.com:group/project")).toBe("group/project");
+		expect(extractProjectPath("git@gitlab.com:group/project")).toBe(
+			"group/project",
+		);
 	});
 
 	it("extracts nested path from HTTPS URL", () => {
-		expect(extractProjectPath("https://gitlab.com/org/subgroup/project.git")).toBe("org/subgroup/project");
+		expect(
+			extractProjectPath("https://gitlab.com/org/subgroup/project.git"),
+		).toBe("org/subgroup/project");
 	});
 
 	it("extracts nested path from SSH URL", () => {
-		expect(extractProjectPath("git@gitlab.com:org/subgroup/project.git")).toBe("org/subgroup/project");
+		expect(extractProjectPath("git@gitlab.com:org/subgroup/project.git")).toBe(
+			"org/subgroup/project",
+		);
 	});
 
 	it("strips trailing slashes", () => {
-		expect(extractProjectPath("https://gitlab.com/group/project/")).toBe("group/project");
+		expect(extractProjectPath("https://gitlab.com/group/project/")).toBe(
+			"group/project",
+		);
 	});
 
 	it("throws on unrecognized URL format", () => {
-		expect(() => extractProjectPath("ftp://server/path")).toThrow("Cannot extract project path");
+		expect(() => extractProjectPath("ftp://server/path")).toThrow(
+			"Cannot extract project path",
+		);
 	});
 
 	it("handles HTTP (non-SSL) URL", () => {
-		expect(extractProjectPath("http://gitlab.internal/team/repo.git")).toBe("team/repo");
+		expect(extractProjectPath("http://gitlab.internal/team/repo.git")).toBe(
+			"team/repo",
+		);
 	});
 });
 

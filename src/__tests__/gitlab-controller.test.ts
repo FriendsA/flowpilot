@@ -9,10 +9,14 @@ let _testConfig = {
 vi.mock("../i18n/cli", () => ({
 	t: (key: string) => {
 		const translations: Record<string, string> = {
-			"error.gitlabHostMissing": "GitLab host not configured. Run `flowpilot config` first.",
-			"error.gitlabTokenMissing": "GitLab token not configured. Run `flowpilot config` first.",
-			"error.jiraHostMissing": "Jira host not configured. Run `flowpilot config` first.",
-			"error.jiraCredentialsMissing": "Jira credentials not configured. Run `flowpilot config` first.",
+			"error.gitlabHostMissing":
+				"GitLab host not configured. Run `flowpilot config` first.",
+			"error.gitlabTokenMissing":
+				"GitLab token not configured. Run `flowpilot config` first.",
+			"error.jiraHostMissing":
+				"Jira host not configured. Run `flowpilot config` first.",
+			"error.jiraCredentialsMissing":
+				"Jira credentials not configured. Run `flowpilot config` first.",
 		};
 		return translations[key] ?? key;
 	},
@@ -31,7 +35,12 @@ vi.mock("../config", () => ({
 const mockApi = {
 	Users: { showCurrentUser: vi.fn() },
 	Projects: { search: vi.fn(), show: vi.fn(), all: vi.fn() },
-	MergeRequests: { all: vi.fn(), show: vi.fn(), create: vi.fn(), accept: vi.fn() },
+	MergeRequests: {
+		all: vi.fn(),
+		show: vi.fn(),
+		create: vi.fn(),
+		accept: vi.fn(),
+	},
 	Branches: { all: vi.fn(), show: vi.fn(), create: vi.fn(), remove: vi.fn() },
 	Issues: { all: vi.fn(), show: vi.fn() },
 	Repositories: { allRepositoryTrees: vi.fn() },
@@ -52,7 +61,10 @@ vi.mock("@gitbeaker/rest", () => ({
 
 beforeEach(() => {
 	vi.clearAllMocks();
-	_testConfig = { gitlabHost: "https://test.gitlab.com", gitlabKey: "test-token" };
+	_testConfig = {
+		gitlabHost: "https://test.gitlab.com",
+		gitlabKey: "test-token",
+	};
 });
 
 // ---------------------------------------------------------------------------
@@ -114,7 +126,10 @@ describe("GitlabController – merge requests", () => {
 		mockApi.MergeRequests.all.mockResolvedValueOnce([]);
 		const ctrl = new GitlabController();
 		await ctrl.listMergeRequests({ projectId: 5, state: "opened" });
-		expect(mockApi.MergeRequests.all).toHaveBeenCalledWith({ projectId: 5, state: "opened" });
+		expect(mockApi.MergeRequests.all).toHaveBeenCalledWith({
+			projectId: 5,
+			state: "opened",
+		});
 	});
 
 	it("listMergeRequests with groupId", async () => {
@@ -134,8 +149,16 @@ describe("GitlabController – merge requests", () => {
 	it("createMergeRequest", async () => {
 		mockApi.MergeRequests.create.mockResolvedValueOnce({ id: 1 });
 		const ctrl = new GitlabController();
-		await ctrl.createMergeRequest(5, "feature", "main", "New feature", { description: "desc" });
-		expect(mockApi.MergeRequests.create).toHaveBeenCalledWith(5, "feature", "main", "New feature", { description: "desc" });
+		await ctrl.createMergeRequest(5, "feature", "main", "New feature", {
+			description: "desc",
+		});
+		expect(mockApi.MergeRequests.create).toHaveBeenCalledWith(
+			5,
+			"feature",
+			"main",
+			"New feature",
+			{ description: "desc" },
+		);
 	});
 
 	it("acceptMergeRequest", async () => {
@@ -191,16 +214,25 @@ describe("GitlabController – branches", () => {
 // ---------------------------------------------------------------------------
 describe("GitlabController – repositories", () => {
 	it("getFile", async () => {
-		mockApi.RepositoryFiles.show.mockResolvedValueOnce({ content: "base64..." });
+		mockApi.RepositoryFiles.show.mockResolvedValueOnce({
+			content: "base64...",
+		});
 		const ctrl = new GitlabController();
 		await ctrl.getFile(5, "pom.xml", "main");
-		expect(mockApi.RepositoryFiles.show).toHaveBeenCalledWith(5, "pom.xml", "main");
+		expect(mockApi.RepositoryFiles.show).toHaveBeenCalledWith(
+			5,
+			"pom.xml",
+			"main",
+		);
 	});
 
 	it("listTree", async () => {
 		mockApi.Repositories.allRepositoryTrees.mockResolvedValueOnce([]);
 		const ctrl = new GitlabController();
 		await ctrl.listTree(5, { path: "src", ref: "main" });
-		expect(mockApi.Repositories.allRepositoryTrees).toHaveBeenCalledWith(5, { path: "src", ref: "main" });
+		expect(mockApi.Repositories.allRepositoryTrees).toHaveBeenCalledWith(5, {
+			path: "src",
+			ref: "main",
+		});
 	});
 });

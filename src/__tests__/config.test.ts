@@ -1,11 +1,12 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockExistsSync, mockReadFileSync, mockWriteFileSync } = vi.hoisted(() => ({
-	mockExistsSync: vi.fn(),
-	mockReadFileSync: vi.fn(),
-	mockWriteFileSync: vi.fn(),
-}));
+const { mockExistsSync, mockReadFileSync, mockWriteFileSync } = vi.hoisted(
+	() => ({
+		mockExistsSync: vi.fn(),
+		mockReadFileSync: vi.fn(),
+		mockWriteFileSync: vi.fn(),
+	}),
+);
 
 vi.mock("node:fs", () => ({
 	default: {
@@ -51,7 +52,9 @@ describe("ConfigJson – read", () => {
 
 	it("reads valid JSON from config file", () => {
 		mockExistsSync.mockReturnValue(true);
-		mockReadFileSync.mockReturnValue(JSON.stringify({ jiraHost: "https://jira.com" }));
+		mockReadFileSync.mockReturnValue(
+			JSON.stringify({ jiraHost: "https://jira.com" }),
+		);
 		const cfg = new ConfigJson();
 		expect(cfg.getConfig()).toEqual({ jiraHost: "https://jira.com" });
 	});
@@ -60,10 +63,15 @@ describe("ConfigJson – read", () => {
 		mockExistsSync
 			.mockReturnValueOnce(false) // new path not found
 			.mockReturnValueOnce(true); // old path found
-		mockReadFileSync.mockReturnValue(JSON.stringify({ jiraHost: "https://jira.com" }));
+		mockReadFileSync.mockReturnValue(
+			JSON.stringify({ jiraHost: "https://jira.com" }),
+		);
 		const cfg = new ConfigJson();
 		expect(cfg.getConfig()).toEqual({ jiraHost: "https://jira.com" });
-		expect(mockWriteFileSync).toHaveBeenCalledWith(NEW_PATH, JSON.stringify({ jiraHost: "https://jira.com" }));
+		expect(mockWriteFileSync).toHaveBeenCalledWith(
+			NEW_PATH,
+			JSON.stringify({ jiraHost: "https://jira.com" }),
+		);
 	});
 
 	it("returns empty object on corrupt JSON", () => {
@@ -80,14 +88,18 @@ describe("ConfigJson – read", () => {
 describe("ConfigJson – get", () => {
 	it("returns value for existing key", () => {
 		mockExistsSync.mockReturnValue(true);
-		mockReadFileSync.mockReturnValue(JSON.stringify({ jiraHost: "https://jira.com" }));
+		mockReadFileSync.mockReturnValue(
+			JSON.stringify({ jiraHost: "https://jira.com" }),
+		);
 		const cfg = new ConfigJson();
 		expect(cfg.get("jiraHost")).toBe("https://jira.com");
 	});
 
 	it("returns undefined for missing key", () => {
 		mockExistsSync.mockReturnValue(true);
-		mockReadFileSync.mockReturnValue(JSON.stringify({ jiraHost: "https://jira.com" }));
+		mockReadFileSync.mockReturnValue(
+			JSON.stringify({ jiraHost: "https://jira.com" }),
+		);
 		const cfg = new ConfigJson();
 		expect(cfg.get("gitlabHost")).toBeUndefined();
 	});
@@ -96,14 +108,19 @@ describe("ConfigJson – get", () => {
 describe("ConfigJson – set", () => {
 	it("sets a single key and persists", () => {
 		mockExistsSync.mockReturnValue(true);
-		mockReadFileSync.mockReturnValue(JSON.stringify({ jiraHost: "https://jira.com" }));
+		mockReadFileSync.mockReturnValue(
+			JSON.stringify({ jiraHost: "https://jira.com" }),
+		);
 		const cfg = new ConfigJson();
 		cfg.set("gitlabHost", "https://gitlab.com");
 		expect(cfg.get("gitlabHost")).toBe("https://gitlab.com");
 		expect(cfg.get("jiraHost")).toBe("https://jira.com");
 		expect(mockWriteFileSync).toHaveBeenCalledWith(
 			NEW_PATH,
-			JSON.stringify({ jiraHost: "https://jira.com", gitlabHost: "https://gitlab.com" }),
+			JSON.stringify({
+				jiraHost: "https://jira.com",
+				gitlabHost: "https://gitlab.com",
+			}),
 		);
 	});
 });
@@ -111,7 +128,9 @@ describe("ConfigJson – set", () => {
 describe("ConfigJson – setConfig", () => {
 	it("merges partial config and persists", () => {
 		mockExistsSync.mockReturnValue(true);
-		mockReadFileSync.mockReturnValue(JSON.stringify({ jiraHost: "https://jira.com" }));
+		mockReadFileSync.mockReturnValue(
+			JSON.stringify({ jiraHost: "https://jira.com" }),
+		);
 		const cfg = new ConfigJson();
 		cfg.setConfig({ gitlabHost: "https://gitlab.com", gitlabKey: "token123" });
 		const config = cfg.getConfig();
@@ -120,12 +139,17 @@ describe("ConfigJson – setConfig", () => {
 			gitlabHost: "https://gitlab.com",
 			gitlabKey: "token123",
 		});
-		expect(mockWriteFileSync).toHaveBeenCalledWith(NEW_PATH, JSON.stringify(config));
+		expect(mockWriteFileSync).toHaveBeenCalledWith(
+			NEW_PATH,
+			JSON.stringify(config),
+		);
 	});
 
 	it("overwrites existing keys", () => {
 		mockExistsSync.mockReturnValue(true);
-		mockReadFileSync.mockReturnValue(JSON.stringify({ jiraHost: "https://old.jira.com" }));
+		mockReadFileSync.mockReturnValue(
+			JSON.stringify({ jiraHost: "https://old.jira.com" }),
+		);
 		const cfg = new ConfigJson();
 		cfg.setConfig({ jiraHost: "https://new.jira.com" });
 		expect(cfg.get("jiraHost")).toBe("https://new.jira.com");

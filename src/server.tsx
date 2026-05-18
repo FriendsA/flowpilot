@@ -9,7 +9,13 @@ import { configRoutes } from "./commands/config/routes";
 import { endRoutes } from "./commands/end/routes";
 import { releaseRoutes } from "./commands/release/routes";
 import { PID_FILE, PORT, SERVER_URL } from "./constants";
-import { initI18n, detectLocaleFromCookie, detectLocaleFromHeader, getLocaleResources, type Locale } from "./i18n/web";
+import {
+	detectLocaleFromCookie,
+	detectLocaleFromHeader,
+	getLocaleResources,
+	initI18n,
+	type Locale,
+} from "./i18n/web";
 import { Layout } from "./shared/layout";
 
 declare module "hono" {
@@ -29,7 +35,9 @@ const app = new Hono();
 // i18n middleware: detect locale, init i18next, inject into renderer
 app.use("/*", async (c, next) => {
 	const cookieLocale = detectLocaleFromCookie(c.req.header("cookie"));
-	const headerLocale = detectLocaleFromHeader(c.req.header("accept-language") ?? "");
+	const headerLocale = detectLocaleFromHeader(
+		c.req.header("accept-language") ?? "",
+	);
 	const locale = cookieLocale ?? headerLocale;
 
 	await initI18n(locale);
@@ -84,7 +92,9 @@ app.get("/public/*", async (c) => {
 		const content = fs.readFileSync(filePath);
 		const ext = filePath.slice(filePath.lastIndexOf("."));
 		return new Response(content, {
-			headers: { "Content-Type": MIME_TYPES[ext] ?? "application/octet-stream" },
+			headers: {
+				"Content-Type": MIME_TYPES[ext] ?? "application/octet-stream",
+			},
 		});
 	} catch {
 		return c.notFound();

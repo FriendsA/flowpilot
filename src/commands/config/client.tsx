@@ -1,8 +1,12 @@
-import i18next from "i18next";
 import { type FC, useEffect, useState } from "hono/jsx";
 import { render } from "hono/jsx/dom";
+import i18next from "i18next";
 
-if (typeof window !== "undefined" && window.__I18N_LOCALE__ && window.__I18N_RESOURCES__) {
+if (
+	typeof window !== "undefined" &&
+	window.__I18N_LOCALE__ &&
+	window.__I18N_RESOURCES__
+) {
 	i18next.init({
 		lng: window.__I18N_LOCALE__,
 		fallbackLng: "zh-CN",
@@ -15,7 +19,10 @@ const t = i18next.t;
 declare global {
 	interface Window {
 		__I18N_LOCALE__: string;
-		__I18N_RESOURCES__: Record<string, { translation: Record<string, unknown> }>;
+		__I18N_RESOURCES__: Record<
+			string,
+			{ translation: Record<string, unknown> }
+		>;
 	}
 }
 
@@ -312,7 +319,9 @@ const ConfigClient: FC = () => {
 									type="button"
 									aria-label={showPassword ? "Hide password" : "Show password"}
 									onClick={() => setShowPassword(!showPassword)}
-									dangerouslySetInnerHTML={{ __html: showPassword ? EYE_OFF_SVG : EYE_SVG }}
+									dangerouslySetInnerHTML={{
+										__html: showPassword ? EYE_OFF_SVG : EYE_SVG,
+									}}
 								/>
 							</div>
 						</div>

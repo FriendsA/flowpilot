@@ -19,7 +19,9 @@ router.get("/", async (c) => {
 	if (missing.length > 0) {
 		return c.redirect("/config");
 	}
-	return c.render(<div id="app">{t("web.loading")}</div>, { title: t("web.endTitle") });
+	return c.render(<div id="app">{t("web.loading")}</div>, {
+		title: t("web.endTitle"),
+	});
 });
 
 export const endRoutes = router;

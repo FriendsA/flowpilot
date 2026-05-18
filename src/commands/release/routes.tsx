@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { ConfigJson } from "../../config";
 import { GitlabController } from "../../gitlab-controller";
-import { JiraController } from "../../jira-controller";
 import { t } from "../../i18n/web";
+import { JiraController } from "../../jira-controller";
 import type { Config } from "../../types";
 
 const REQUIRED_KEYS: (keyof Config)[] = [
@@ -21,12 +21,17 @@ router.get("/", async (c) => {
 	if (missing.length > 0) {
 		return c.redirect("/config");
 	}
-	return c.render(<div id="app">{t("web.loading")}</div>, { title: t("web.releaseTitle") });
+	return c.render(<div id="app">{t("web.loading")}</div>, {
+		title: t("web.releaseTitle"),
+	});
 });
 
 router.get("/api/config", async (c) => {
 	const config = new ConfigJson().getConfig();
-	return c.json({ jiraHost: config.jiraHost ?? "", gitlabHost: config.gitlabHost ?? "" });
+	return c.json({
+		jiraHost: config.jiraHost ?? "",
+		gitlabHost: config.gitlabHost ?? "",
+	});
 });
 
 router.get("/api/projects", async (c) => {
@@ -82,7 +87,10 @@ router.get("/api/projects/:id/pom-version", async (c) => {
 
 router.post("/api/jira/search", async (c) => {
 	try {
-		const { jql, maxResults } = await c.req.json<{ jql: string; maxResults?: number }>();
+		const { jql, maxResults } = await c.req.json<{
+			jql: string;
+			maxResults?: number;
+		}>();
 		const jira = new JiraController();
 		const result = await jira.search(jql, maxResults ?? 5);
 		return c.json(result);

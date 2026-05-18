@@ -14,4 +14,3 @@ export const PORT = 8787;
 export const SERVER_URL = `http://127.0.0.1:${PORT}`;
 
 export const PID_FILE = `${os.homedir()}/.flowpilot.pid`;
-

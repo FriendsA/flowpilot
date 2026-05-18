@@ -4,10 +4,14 @@ import { JiraController } from "../jira-controller";
 vi.mock("../i18n/cli", () => ({
 	t: (key: string) => {
 		const translations: Record<string, string> = {
-			"error.jiraHostMissing": "Jira host not configured. Run `flowpilot config` first.",
-			"error.jiraCredentialsMissing": "Jira credentials not configured. Run `flowpilot config` first.",
-			"error.gitlabHostMissing": "GitLab host not configured. Run `flowpilot config` first.",
-			"error.gitlabTokenMissing": "GitLab token not configured. Run `flowpilot config` first.",
+			"error.jiraHostMissing":
+				"Jira host not configured. Run `flowpilot config` first.",
+			"error.jiraCredentialsMissing":
+				"Jira credentials not configured. Run `flowpilot config` first.",
+			"error.gitlabHostMissing":
+				"GitLab host not configured. Run `flowpilot config` first.",
+			"error.gitlabTokenMissing":
+				"GitLab token not configured. Run `flowpilot config` first.",
 		};
 		return translations[key] ?? key;
 	},

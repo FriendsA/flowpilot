@@ -5,7 +5,9 @@ import { t } from "../../i18n/web";
 const router = new Hono();
 
 router.get("/", (c) =>
-	c.render(<div id="app">{t("web.loading")}</div>, { title: t("web.settingsTitle") }),
+	c.render(<div id="app">{t("web.loading")}</div>, {
+		title: t("web.settingsTitle"),
+	}),
 );
 
 router.get("/api/config", (c) => {

@@ -1,9 +1,13 @@
-import i18next from "i18next";
 import { type FC, useEffect, useReducer, useRef } from "hono/jsx";
 import { render } from "hono/jsx/dom";
+import i18next from "i18next";
 import { filterByRelevance } from "../../utils/search";
 
-if (typeof window !== "undefined" && window.__I18N_LOCALE__ && window.__I18N_RESOURCES__) {
+if (
+	typeof window !== "undefined" &&
+	window.__I18N_LOCALE__ &&
+	window.__I18N_RESOURCES__
+) {
 	i18next.init({
 		lng: window.__I18N_LOCALE__,
 		fallbackLng: "zh-CN",
@@ -16,7 +20,10 @@ const t = i18next.t;
 declare global {
 	interface Window {
 		__I18N_LOCALE__: string;
-		__I18N_RESOURCES__: Record<string, { translation: Record<string, unknown> }>;
+		__I18N_RESOURCES__: Record<
+			string,
+			{ translation: Record<string, unknown> }
+		>;
 	}
 }
 
@@ -286,9 +293,20 @@ const releaseStyle = `
   .jira-error { margin-top: 12px; color: var(--error); font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
 `;
 
-type Project = { id: number; name: string; path?: string; pathWithNamespace?: string; description?: string; defaultBranch?: string };
+type Project = {
+	id: number;
+	name: string;
+	path?: string;
+	pathWithNamespace?: string;
+	description?: string;
+	defaultBranch?: string;
+};
 type Branch = { name: string; default?: boolean };
-type PomInfo = { version: string | null; groupId: string | null; artifactId: string | null };
+type PomInfo = {
+	version: string | null;
+	groupId: string | null;
+	artifactId: string | null;
+};
 type JiraProject = { key: string; id: string; name?: string };
 
 // ── State ──
@@ -381,7 +399,10 @@ type Action =
 	| { type: "CLEAR_JIRA_PROJECT" }
 	| { type: "JIRA_CHECKING" }
 	| { type: "JIRA_CREATING" }
-	| { type: "JIRA_DONE"; result: { key: string; exists: boolean; versionName: string } }
+	| {
+			type: "JIRA_DONE";
+			result: { key: string; exists: boolean; versionName: string };
+	  }
 	| { type: "JIRA_ERROR"; error: string }
 	| { type: "JIRA_RESET" };
 
@@ -394,7 +415,11 @@ const reducer = (state: State, action: Action): State => {
 		case "PROJECTS_ERROR":
 			return { ...state, projectsError: action.error, projectsLoading: false };
 		case "SET_PROJECT_OPEN":
-			return { ...state, projectOpen: action.open, ...(action.open ? {} : { projectSearch: "", projectIndex: -1 }) };
+			return {
+				...state,
+				projectOpen: action.open,
+				...(action.open ? {} : { projectSearch: "", projectIndex: -1 }),
+			};
 		case "SET_PROJECT_SEARCH":
 			return { ...state, projectSearch: action.search, projectIndex: -1 };
 		case "SET_PROJECT_INDEX":
@@ -437,17 +462,32 @@ const reducer = (state: State, action: Action): State => {
 				jiraError: "",
 			};
 		case "BRANCHES_LOADING":
-			return { ...state, branchesLoading: true, branches: [], selectedBranch: "" };
+			return {
+				...state,
+				branchesLoading: true,
+				branches: [],
+				selectedBranch: "",
+			};
 		case "BRANCHES_LOADED":
 			return { ...state, branches: action.branches, branchesLoading: false };
 		case "SET_BRANCH_OPEN":
-			return { ...state, branchOpen: action.open, ...(action.open ? {} : { branchSearch: "", branchIndex: -1 }) };
+			return {
+				...state,
+				branchOpen: action.open,
+				...(action.open ? {} : { branchSearch: "", branchIndex: -1 }),
+			};
 		case "SET_BRANCH_SEARCH":
 			return { ...state, branchSearch: action.search, branchIndex: -1 };
 		case "SET_BRANCH_INDEX":
 			return { ...state, branchIndex: action.index };
 		case "SELECT_BRANCH":
-			return { ...state, selectedBranch: action.branch, branchOpen: false, branchSearch: "", branchIndex: -1 };
+			return {
+				...state,
+				selectedBranch: action.branch,
+				branchOpen: false,
+				branchSearch: "",
+				branchIndex: -1,
+			};
 		case "POM_LOADING":
 			return { ...state, pomLoading: true, pomError: "", pomInfo: null };
 		case "POM_LOADED":
@@ -457,21 +497,56 @@ const reducer = (state: State, action: Action): State => {
 		case "JIRA_PROJECTS_LOADING":
 			return { ...state, jiraProjectsLoading: true };
 		case "JIRA_PROJECTS_LOADED":
-			return { ...state, jiraProjects: action.projects, jiraProjectsLoading: false };
+			return {
+				...state,
+				jiraProjects: action.projects,
+				jiraProjectsLoading: false,
+			};
 		case "JIRA_PROJECTS_ERROR":
 			return { ...state, jiraProjectsLoading: false };
 		case "SET_JIRA_PROJECT_OPEN":
-			return { ...state, jiraProjectOpen: action.open, ...(action.open ? {} : { jiraProjectSearch: "", jiraProjectIndex: -1 }) };
+			return {
+				...state,
+				jiraProjectOpen: action.open,
+				...(action.open ? {} : { jiraProjectSearch: "", jiraProjectIndex: -1 }),
+			};
 		case "SET_JIRA_PROJECT_SEARCH":
-			return { ...state, jiraProjectSearch: action.search, jiraProjectIndex: -1 };
+			return {
+				...state,
+				jiraProjectSearch: action.search,
+				jiraProjectIndex: -1,
+			};
 		case "SET_JIRA_PROJECT_INDEX":
 			return { ...state, jiraProjectIndex: action.index };
 		case "SELECT_JIRA_PROJECT":
-			return { ...state, selectedJiraProject: action.project, jiraProjectOpen: false, jiraProjectSearch: "", jiraProjectIndex: -1, jiraStatus: "idle", jiraResult: null, jiraError: "" };
+			return {
+				...state,
+				selectedJiraProject: action.project,
+				jiraProjectOpen: false,
+				jiraProjectSearch: "",
+				jiraProjectIndex: -1,
+				jiraStatus: "idle",
+				jiraResult: null,
+				jiraError: "",
+			};
 		case "CLEAR_JIRA_PROJECT":
-			return { ...state, selectedJiraProject: null, jiraProjectOpen: false, jiraProjectSearch: "", jiraProjectIndex: -1, jiraStatus: "idle", jiraResult: null, jiraError: "" };
+			return {
+				...state,
+				selectedJiraProject: null,
+				jiraProjectOpen: false,
+				jiraProjectSearch: "",
+				jiraProjectIndex: -1,
+				jiraStatus: "idle",
+				jiraResult: null,
+				jiraError: "",
+			};
 		case "JIRA_CHECKING":
-			return { ...state, jiraStatus: "checking", jiraResult: null, jiraError: "" };
+			return {
+				...state,
+				jiraStatus: "checking",
+				jiraResult: null,
+				jiraError: "",
+			};
 		case "JIRA_CREATING":
 			return { ...state, jiraStatus: "creating" };
 		case "JIRA_DONE":
@@ -488,15 +563,28 @@ const reducer = (state: State, action: Action): State => {
 const cleanVersion = (v: string | null) => (v ?? "").split("-")[0];
 
 const selKeyDown = (
-	e: KeyboardEvent, open: boolean, len: number, idx: number,
-	onSelect: (i: number) => void, onClose: () => void,
+	e: KeyboardEvent,
+	open: boolean,
+	len: number,
+	idx: number,
+	onSelect: (i: number) => void,
+	onClose: () => void,
 ): number | undefined => {
 	if (!open || len === 0) return undefined;
 	switch (e.key) {
-		case "ArrowDown": e.preventDefault(); return Math.min(idx + 1, len - 1);
-		case "ArrowUp": e.preventDefault(); return Math.max(idx - 1, -1);
-		case "Enter": e.preventDefault(); if (idx >= 0) onSelect(idx); return undefined;
-		case "Escape": onClose(); return undefined;
+		case "ArrowDown":
+			e.preventDefault();
+			return Math.min(idx + 1, len - 1);
+		case "ArrowUp":
+			e.preventDefault();
+			return Math.max(idx - 1, -1);
+		case "Enter":
+			e.preventDefault();
+			if (idx >= 0) onSelect(idx);
+			return undefined;
+		case "Escape":
+			onClose();
+			return undefined;
 	}
 	return undefined;
 };
@@ -504,7 +592,11 @@ const selKeyDown = (
 // ── Pipeline step class helper ──
 
 const pipelineStepClass = (done: boolean, active: boolean) =>
-	done ? "pipeline-step done" : active ? "pipeline-step active" : "pipeline-step";
+	done
+		? "pipeline-step done"
+		: active
+			? "pipeline-step active"
+			: "pipeline-step";
 
 const pipelineLineClass = (done: boolean) =>
 	done ? "pipeline-line done" : "pipeline-line";
@@ -520,14 +612,19 @@ const ReleaseClient: FC = () => {
 	useEffect(() => {
 		fetch("/release/api/config")
 			.then((r) => r.json())
-			.then((data) => { if (data.jiraHost) d({ type: "SET_JIRA_HOST", host: data.jiraHost }); })
+			.then((data) => {
+				if (data.jiraHost) d({ type: "SET_JIRA_HOST", host: data.jiraHost });
+			})
 			.catch(() => {});
 	}, []);
 
 	useEffect(() => {
 		fetch("/release/api/projects")
 			.then((r) => r.json())
-			.then((data) => { if (data.error) d({ type: "PROJECTS_ERROR", error: data.error }); else d({ type: "PROJECTS_LOADED", projects: data }); })
+			.then((data) => {
+				if (data.error) d({ type: "PROJECTS_ERROR", error: data.error });
+				else d({ type: "PROJECTS_LOADED", projects: data });
+			})
 			.catch((e) => d({ type: "PROJECTS_ERROR", error: e.message }));
 	}, []);
 
@@ -552,19 +649,33 @@ const ReleaseClient: FC = () => {
 	}, [s.projectOpen, s.branchOpen, s.jiraProjectOpen]);
 
 	useEffect(() => {
-		if (!s.pomInfo?.version || s.jiraProjects.length > 0 || s.jiraProjectsLoading) return;
+		if (
+			!s.pomInfo?.version ||
+			s.jiraProjects.length > 0 ||
+			s.jiraProjectsLoading
+		)
+			return;
 		d({ type: "JIRA_PROJECTS_LOADING" });
 		fetch("/release/api/jira/projects")
 			.then((r) => r.json())
-			.then((data) => { if (Array.isArray(data)) d({ type: "JIRA_PROJECTS_LOADED", projects: data }); else d({ type: "JIRA_PROJECTS_ERROR", error: data.error ?? "Failed" }); })
+			.then((data) => {
+				if (Array.isArray(data))
+					d({ type: "JIRA_PROJECTS_LOADED", projects: data });
+				else d({ type: "JIRA_PROJECTS_ERROR", error: data.error ?? "Failed" });
+			})
 			.catch(() => d({ type: "JIRA_PROJECTS_ERROR", error: "Failed" }));
 	}, [s.pomInfo?.version]);
 
 	const fetchPom = (projectId: number, ref: string) => {
 		d({ type: "POM_LOADING" });
-		fetch(`/release/api/projects/${projectId}/pom-version?ref=${encodeURIComponent(ref)}`)
+		fetch(
+			`/release/api/projects/${projectId}/pom-version?ref=${encodeURIComponent(ref)}`,
+		)
 			.then((r) => r.json())
-			.then((data) => { if (data.error) d({ type: "POM_ERROR", error: data.error }); else d({ type: "POM_LOADED", info: data }); })
+			.then((data) => {
+				if (data.error) d({ type: "POM_ERROR", error: data.error });
+				else d({ type: "POM_LOADED", info: data });
+			})
 			.catch(() => d({ type: "POM_ERROR", error: "Failed to fetch version" }));
 	};
 
@@ -597,12 +708,21 @@ const ReleaseClient: FC = () => {
 			const searchRes = await fetch("/release/api/jira/search", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ jql: `summary ~ "${summary}" AND project = ${s.selectedJiraProject.key}`, maxResults: 1 }),
+				body: JSON.stringify({
+					jql: `summary ~ "${summary}" AND project = ${s.selectedJiraProject.key}`,
+					maxResults: 1,
+				}),
 			});
 			const searchData = await searchRes.json();
-			if (searchData.error) { d({ type: "JIRA_ERROR", error: searchData.error }); return; }
+			if (searchData.error) {
+				d({ type: "JIRA_ERROR", error: searchData.error });
+				return;
+			}
 			if (searchData.total > 0 && searchData.issues?.[0]) {
-				d({ type: "JIRA_DONE", result: { key: searchData.issues[0].key, exists: true, versionName } });
+				d({
+					type: "JIRA_DONE",
+					result: { key: searchData.issues[0].key, exists: true, versionName },
+				});
 				return;
 			}
 
@@ -610,10 +730,16 @@ const ReleaseClient: FC = () => {
 			const verRes = await fetch("/release/api/jira/ensure-version", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ projectKey: s.selectedJiraProject.key, versionName }),
+				body: JSON.stringify({
+					projectKey: s.selectedJiraProject.key,
+					versionName,
+				}),
 			});
 			const verData = await verRes.json();
-			if (verData.error) { d({ type: "JIRA_ERROR", error: verData.error }); return; }
+			if (verData.error) {
+				d({ type: "JIRA_ERROR", error: verData.error });
+				return;
+			}
 
 			const issueRes = await fetch("/release/api/jira/create-issue", {
 				method: "POST",
@@ -624,21 +750,50 @@ const ReleaseClient: FC = () => {
 					issuetypeId: "10000",
 					customfield_15800: "无",
 					customfield_13410: [{ id: verData.id }],
-				customfield_13341: [{ name: "licheng.li" }],
+					customfield_13341: [{ name: "licheng.li" }],
 				}),
 			});
 			const issueData = await issueRes.json();
-			if (issueData.error) { d({ type: "JIRA_ERROR", error: issueData.error }); return; }
-			d({ type: "JIRA_DONE", result: { key: issueData.key, exists: false, versionName: verData.name } });
+			if (issueData.error) {
+				d({ type: "JIRA_ERROR", error: issueData.error });
+				return;
+			}
+			d({
+				type: "JIRA_DONE",
+				result: {
+					key: issueData.key,
+					exists: false,
+					versionName: verData.name,
+				},
+			});
 		} catch (e) {
-			d({ type: "JIRA_ERROR", error: e instanceof Error ? e.message : String(e) });
+			d({
+				type: "JIRA_ERROR",
+				error: e instanceof Error ? e.message : String(e),
+			});
 		}
 	};
 
-	const fp = filterByRelevance(s.projects.map((p) => ({ ...p, name: p.name, path: p.pathWithNamespace ?? "" })), s.projectSearch);
-	const fb = filterByRelevance(s.branches.map((b) => ({ ...b, name: b.name })), s.branchSearch);
-	const fj = filterByRelevance(s.jiraProjects.map((p) => ({ ...p, name: `${p.key} ${p.name ?? ""}` })), s.jiraProjectSearch);
-	const jiraUrl = s.jiraResult && s.jiraHost ? `${s.jiraHost}/browse/${s.jiraResult.key}` : "";
+	const fp = filterByRelevance(
+		s.projects.map((p) => ({
+			...p,
+			name: p.name,
+			path: p.pathWithNamespace ?? "",
+		})),
+		s.projectSearch,
+	);
+	const fb = filterByRelevance(
+		s.branches.map((b) => ({ ...b, name: b.name })),
+		s.branchSearch,
+	);
+	const fj = filterByRelevance(
+		s.jiraProjects.map((p) => ({ ...p, name: `${p.key} ${p.name ?? ""}` })),
+		s.jiraProjectSearch,
+	);
+	const jiraUrl =
+		s.jiraResult && s.jiraHost
+			? `${s.jiraHost}/browse/${s.jiraResult.key}`
+			: "";
 
 	// Pipeline step states
 	const step1Done = !!s.selected;
@@ -652,176 +807,438 @@ const ReleaseClient: FC = () => {
 	const step5Done = !!s.jiraResult;
 	const step5Active = !!s.selectedJiraProject && !step5Done;
 
-	if (s.projectsLoading) return <div><style>{releaseStyle}</style><div class="loading-row"><span class="spinner" />{t("web.loadingProjects")}</div></div>;
-	if (s.projectsError) return <div><style>{releaseStyle}</style><div class="state-error">{s.projectsError}</div></div>;
+	if (s.projectsLoading)
+		return (
+			<div>
+				<style>{releaseStyle}</style>
+				<div class="loading-row">
+					<span class="spinner" />
+					{t("web.loadingProjects")}
+				</div>
+			</div>
+		);
+	if (s.projectsError)
+		return (
+			<div>
+				<style>{releaseStyle}</style>
+				<div class="state-error">{s.projectsError}</div>
+			</div>
+		);
 
 	return (
 		<div>
 			<style>{releaseStyle}</style>
-			<div class="page-header"><h2>{t("web.releaseTitle")}</h2><p>{t("web.releaseDesc")}</p></div>
+			<div class="page-header">
+				<h2>{t("web.releaseTitle")}</h2>
+				<p>{t("web.releaseDesc")}</p>
+			</div>
 
 			{/* ── Pipeline ── */}
 			<div class="pipeline">
 				<div class={pipelineStepClass(step1Done, step1Active)}>
-					<span class="pipeline-node" />{t("web.projectLabel")}
+					<span class="pipeline-node" />
+					{t("web.projectLabel")}
 				</div>
 				<div class={pipelineLineClass(step1Done)} />
 				<div class={pipelineStepClass(step2Done, step2Active)}>
-					<span class="pipeline-node" />{t("web.branchLabel")}
+					<span class="pipeline-node" />
+					{t("web.branchLabel")}
 				</div>
 				<div class={pipelineLineClass(step2Done)} />
 				<div class={pipelineStepClass(step3Done, step3Active)}>
-					<span class="pipeline-node" />{t("web.versionTag")}
+					<span class="pipeline-node" />
+					{t("web.versionTag")}
 				</div>
 				<div class={pipelineLineClass(step3Done)} />
 				<div class={pipelineStepClass(step4Done, step4Active)}>
-					<span class="pipeline-node" />{t("web.jiraProjectLabel")}
+					<span class="pipeline-node" />
+					{t("web.jiraProjectLabel")}
 				</div>
 				<div class={pipelineLineClass(step4Done)} />
 				<div class={pipelineStepClass(step5Done, step5Active)}>
-					<span class="pipeline-node" />{t("web.createBtn")}
+					<span class="pipeline-node" />
+					{t("web.createBtn")}
 				</div>
 			</div>
 
 			{/* ── Project ── */}
-			<div class="sel" data-sel="project" style={`z-index:${s.projectOpen ? 100 : 1}`}>
-				<button class={`sel-trigger${s.projectOpen ? " open" : ""}`} type="button"
-					role="combobox" aria-expanded={s.projectOpen} aria-haspopup="listbox"
-					onClick={() => { d({ type: "SET_BRANCH_OPEN", open: false }); d({ type: "SET_JIRA_PROJECT_OPEN", open: false }); d({ type: "SET_PROJECT_OPEN", open: !s.projectOpen }); }}>
+			<div
+				class="sel"
+				data-sel="project"
+				style={`z-index:${s.projectOpen ? 100 : 1}`}
+			>
+				<button
+					class={`sel-trigger${s.projectOpen ? " open" : ""}`}
+					type="button"
+					role="combobox"
+					aria-expanded={s.projectOpen}
+					aria-haspopup="listbox"
+					onClick={() => {
+						d({ type: "SET_BRANCH_OPEN", open: false });
+						d({ type: "SET_JIRA_PROJECT_OPEN", open: false });
+						d({ type: "SET_PROJECT_OPEN", open: !s.projectOpen });
+					}}
+				>
 					<span class="sel-trigger-label">{t("web.projectLabel")}</span>
-					<span class={`sel-trigger-value${s.selected ? "" : " empty"}`}>{s.selected ? s.selected.name : t("web.selectProject")}</span>
+					<span class={`sel-trigger-value${s.selected ? "" : " empty"}`}>
+						{s.selected ? s.selected.name : t("web.selectProject")}
+					</span>
 					<span class="sel-trigger-arrow">▼</span>
 				</button>
 				{s.projectOpen && (
-					<div class="sel-dropdown" role="listbox" aria-label={t("web.selectProject")}>
+					<div
+						class="sel-dropdown"
+						role="listbox"
+						aria-label={t("web.selectProject")}
+					>
 						<div class="sel-search">
-							<input ref={projectSearchRef} class="sel-search-input" type="text" placeholder={t("web.searchProjects")} value={s.projectSearch}
-								onChange={(e: Event) => d({ type: "SET_PROJECT_SEARCH", search: (e.target as HTMLInputElement).value })}
+							<input
+								ref={projectSearchRef}
+								class="sel-search-input"
+								type="text"
+								placeholder={t("web.searchProjects")}
+								value={s.projectSearch}
+								onChange={(e: Event) =>
+									d({
+										type: "SET_PROJECT_SEARCH",
+										search: (e.target as HTMLInputElement).value,
+									})
+								}
 								onKeyDown={(e: KeyboardEvent) => {
-									const n = selKeyDown(e, s.projectOpen, fp.length, s.projectIndex,
-										(i) => { const p = fp[i]; if (p) handleSelectProject(p as Project); },
-										() => d({ type: "SET_PROJECT_OPEN", open: false }));
-									if (n !== undefined) d({ type: "SET_PROJECT_INDEX", index: n });
-								}} />
+									const n = selKeyDown(
+										e,
+										s.projectOpen,
+										fp.length,
+										s.projectIndex,
+										(i) => {
+											const p = fp[i];
+											if (p) handleSelectProject(p as Project);
+										},
+										() => d({ type: "SET_PROJECT_OPEN", open: false }),
+									);
+									if (n !== undefined)
+										d({ type: "SET_PROJECT_INDEX", index: n });
+								}}
+							/>
 						</div>
-						{fp.length > 0 ? fp.map((p, i) => (
-							<div class={`sel-item${s.selected?.id === (p as Project).id ? " active" : ""}${i === s.projectIndex ? " highlighted" : ""}`}
-								onMouseEnter={() => d({ type: "SET_PROJECT_INDEX", index: i })}
-								onClick={() => handleSelectProject(p as Project)}>
-								<div class="sel-item-name">{(p as Project).name}</div>
-								<div class="sel-item-sub">{(p as Project).pathWithNamespace}</div>
-							</div>
-						)) : <div class="sel-empty">{t("web.noProjects")}</div>}
+						{fp.length > 0 ? (
+							fp.map((p, i) => (
+								<button
+									type="button"
+									class={`sel-item${s.selected?.id === (p as Project).id ? " active" : ""}${i === s.projectIndex ? " highlighted" : ""}`}
+									onMouseEnter={() =>
+										d({ type: "SET_PROJECT_INDEX", index: i })
+									}
+									onClick={() => handleSelectProject(p as Project)}
+								>
+									<div class="sel-item-name">{(p as Project).name}</div>
+									<div class="sel-item-sub">
+										{(p as Project).pathWithNamespace}
+									</div>
+								</button>
+							))
+						) : (
+							<div class="sel-empty">{t("web.noProjects")}</div>
+						)}
 					</div>
 				)}
 			</div>
 
 			{/* ── Branch ── */}
-			{s.selected && (s.branchesLoading ? (
-				<div class="loading-row"><span class="spinner" />{t("web.loadingBranches")}</div>
-			) : s.branches.length > 0 && (
-				<div class="sel" data-sel="branch" style={`z-index:${s.branchOpen ? 100 : 1}`}>
-					<button class={`sel-trigger${s.branchOpen ? " open" : ""}`} type="button"
-						role="combobox" aria-expanded={s.branchOpen} aria-haspopup="listbox"
-						onClick={() => { d({ type: "SET_PROJECT_OPEN", open: false }); d({ type: "SET_JIRA_PROJECT_OPEN", open: false }); d({ type: "SET_BRANCH_OPEN", open: !s.branchOpen }); }}>
-						<span class="sel-trigger-label">{t("web.branchLabel")}</span>
-						<span class={`sel-trigger-value${s.selectedBranch ? "" : " empty"}`}>{s.selectedBranch || t("web.selectBranch")}</span>
-						<span class="sel-trigger-arrow">▼</span>
-					</button>
-					{s.branchOpen && (
-						<div class="sel-dropdown" role="listbox" aria-label={t("web.selectBranch")}>
-							<div class="sel-search">
-								<input ref={branchSearchRef} class="sel-search-input" type="text" placeholder={t("web.filterBranches")} value={s.branchSearch}
-									onChange={(e: Event) => d({ type: "SET_BRANCH_SEARCH", search: (e.target as HTMLInputElement).value })}
-									onKeyDown={(e: KeyboardEvent) => {
-										const n = selKeyDown(e, s.branchOpen, fb.length, s.branchIndex,
-											(i) => { const b = fb[i]; if (b) handleSelectBranch((b as Branch).name); },
-											() => d({ type: "SET_BRANCH_OPEN", open: false }));
-										if (n !== undefined) d({ type: "SET_BRANCH_INDEX", index: n });
-									}} />
-							</div>
-							{fb.length > 0 ? fb.map((b, i) => (
-								<div class={`sel-item${(b as Branch).name === s.selectedBranch ? " active" : ""}${i === s.branchIndex ? " highlighted" : ""}`}
-									onMouseEnter={() => d({ type: "SET_BRANCH_INDEX", index: i })}
-									onClick={() => handleSelectBranch((b as Branch).name)}>
-									<span class="sel-item-name">{(b as Branch).name}</span>
-									{(b as Branch).default && <span style="font-size:10px;color:var(--neon);margin-left:6px">{t("web.defaultBranch")}</span>}
+			{s.selected &&
+				(s.branchesLoading ? (
+					<div class="loading-row">
+						<span class="spinner" />
+						{t("web.loadingBranches")}
+					</div>
+				) : (
+					s.branches.length > 0 && (
+						<div
+							class="sel"
+							data-sel="branch"
+							style={`z-index:${s.branchOpen ? 100 : 1}`}
+						>
+							<button
+								class={`sel-trigger${s.branchOpen ? " open" : ""}`}
+								type="button"
+								role="combobox"
+								aria-expanded={s.branchOpen}
+								aria-haspopup="listbox"
+								onClick={() => {
+									d({ type: "SET_PROJECT_OPEN", open: false });
+									d({ type: "SET_JIRA_PROJECT_OPEN", open: false });
+									d({ type: "SET_BRANCH_OPEN", open: !s.branchOpen });
+								}}
+							>
+								<span class="sel-trigger-label">{t("web.branchLabel")}</span>
+								<span
+									class={`sel-trigger-value${s.selectedBranch ? "" : " empty"}`}
+								>
+									{s.selectedBranch || t("web.selectBranch")}
+								</span>
+								<span class="sel-trigger-arrow">▼</span>
+							</button>
+							{s.branchOpen && (
+								<div
+									class="sel-dropdown"
+									role="listbox"
+									aria-label={t("web.selectBranch")}
+								>
+									<div class="sel-search">
+										<input
+											ref={branchSearchRef}
+											class="sel-search-input"
+											type="text"
+											placeholder={t("web.filterBranches")}
+											value={s.branchSearch}
+											onChange={(e: Event) =>
+												d({
+													type: "SET_BRANCH_SEARCH",
+													search: (e.target as HTMLInputElement).value,
+												})
+											}
+											onKeyDown={(e: KeyboardEvent) => {
+												const n = selKeyDown(
+													e,
+													s.branchOpen,
+													fb.length,
+													s.branchIndex,
+													(i) => {
+														const b = fb[i];
+														if (b) handleSelectBranch((b as Branch).name);
+													},
+													() => d({ type: "SET_BRANCH_OPEN", open: false }),
+												);
+												if (n !== undefined)
+													d({ type: "SET_BRANCH_INDEX", index: n });
+											}}
+										/>
+									</div>
+									{fb.length > 0 ? (
+										fb.map((b, i) => (
+											<button
+												type="button"
+												class={`sel-item${(b as Branch).name === s.selectedBranch ? " active" : ""}${i === s.branchIndex ? " highlighted" : ""}`}
+												onMouseEnter={() =>
+													d({ type: "SET_BRANCH_INDEX", index: i })
+												}
+												onClick={() => handleSelectBranch((b as Branch).name)}
+											>
+												<span class="sel-item-name">{(b as Branch).name}</span>
+												{(b as Branch).default && (
+													<span style="font-size:10px;color:var(--neon);margin-left:6px">
+														{t("web.defaultBranch")}
+													</span>
+												)}
+											</button>
+										))
+									) : (
+										<div class="sel-empty">{t("web.noBranches")}</div>
+									)}
 								</div>
-							)) : <div class="sel-empty">{t("web.noBranches")}</div>}
+							)}
 						</div>
-					)}
-				</div>
-			))}
+					)
+				))}
 
 			{/* ── Version ── */}
-			{s.selected && s.selectedBranch && !s.branchesLoading &&
-				(s.pomLoading ? <div class="loading-row"><span class="spinner" />{t("web.loadingVersion")}</div>
-				: s.pomError ? <div class="version-error" role="alert">{s.pomError.includes("404") ? t("web.noPom") : s.pomError}</div>
-				: s.pomInfo && <div class="version-display"><span class="version-tag">{t("web.versionTag")}</span><span class="version-number">{cleanVersion(s.pomInfo.version)}</span></div>)}
+			{s.selected &&
+				s.selectedBranch &&
+				!s.branchesLoading &&
+				(s.pomLoading ? (
+					<div class="loading-row">
+						<span class="spinner" />
+						{t("web.loadingVersion")}
+					</div>
+				) : s.pomError ? (
+					<div class="version-error" role="alert">
+						{s.pomError.includes("404") ? t("web.noPom") : s.pomError}
+					</div>
+				) : (
+					s.pomInfo && (
+						<div class="version-display">
+							<span class="version-tag">{t("web.versionTag")}</span>
+							<span class="version-number">
+								{cleanVersion(s.pomInfo.version)}
+							</span>
+						</div>
+					)
+				))}
 
 			{/* ── Jira ── */}
 			{s.selected && s.pomInfo?.version && !s.pomLoading && (
 				<div class="jira-section">
 					{s.jiraProjectsLoading ? (
-						<div class="loading-row"><span class="spinner" />{t("web.loadingJiraProjects")}</div>
+						<div class="loading-row">
+							<span class="spinner" />
+							{t("web.loadingJiraProjects")}
+						</div>
 					) : (
-						<div class="sel" data-sel="jira" style={`z-index:${s.jiraProjectOpen ? 100 : 1}`}>
-							<button class={`sel-trigger${s.jiraProjectOpen ? " open" : ""}`} type="button"
-								role="combobox" aria-expanded={s.jiraProjectOpen} aria-haspopup="listbox"
-								onClick={() => { d({ type: "SET_PROJECT_OPEN", open: false }); d({ type: "SET_BRANCH_OPEN", open: false }); d({ type: "SET_JIRA_PROJECT_OPEN", open: !s.jiraProjectOpen }); }}>
-								<span class="sel-trigger-label">{t("web.jiraProjectLabel")}</span>
-								<span class={`sel-trigger-value${s.selectedJiraProject ? "" : " empty"}`}>{s.selectedJiraProject ? `${s.selectedJiraProject.key} - ${s.selectedJiraProject.name ?? ""}` : t("web.selectJiraProject")}</span>
+						<div
+							class="sel"
+							data-sel="jira"
+							style={`z-index:${s.jiraProjectOpen ? 100 : 1}`}
+						>
+							<button
+								class={`sel-trigger${s.jiraProjectOpen ? " open" : ""}`}
+								type="button"
+								role="combobox"
+								aria-expanded={s.jiraProjectOpen}
+								aria-haspopup="listbox"
+								onClick={() => {
+									d({ type: "SET_PROJECT_OPEN", open: false });
+									d({ type: "SET_BRANCH_OPEN", open: false });
+									d({
+										type: "SET_JIRA_PROJECT_OPEN",
+										open: !s.jiraProjectOpen,
+									});
+								}}
+							>
+								<span class="sel-trigger-label">
+									{t("web.jiraProjectLabel")}
+								</span>
+								<span
+									class={`sel-trigger-value${s.selectedJiraProject ? "" : " empty"}`}
+								>
+									{s.selectedJiraProject
+										? `${s.selectedJiraProject.key} - ${s.selectedJiraProject.name ?? ""}`
+										: t("web.selectJiraProject")}
+								</span>
 								<span class="sel-trigger-arrow">▼</span>
 							</button>
 							{s.jiraProjectOpen && (
-								<div class="sel-dropdown" role="listbox" aria-label={t("web.selectJiraProject")}>
+								<div
+									class="sel-dropdown"
+									role="listbox"
+									aria-label={t("web.selectJiraProject")}
+								>
 									<div class="sel-search">
-										<input ref={jiraSearchRef} class="sel-search-input" type="text" placeholder={t("web.searchJiraProject")} value={s.jiraProjectSearch}
-											onChange={(e: Event) => d({ type: "SET_JIRA_PROJECT_SEARCH", search: (e.target as HTMLInputElement).value })}
+										<input
+											ref={jiraSearchRef}
+											class="sel-search-input"
+											type="text"
+											placeholder={t("web.searchJiraProject")}
+											value={s.jiraProjectSearch}
+											onChange={(e: Event) =>
+												d({
+													type: "SET_JIRA_PROJECT_SEARCH",
+													search: (e.target as HTMLInputElement).value,
+												})
+											}
 											onKeyDown={(e: KeyboardEvent) => {
-												const n = selKeyDown(e, s.jiraProjectOpen, fj.length, s.jiraProjectIndex,
-													(i) => { const p = fj[i]; if (p) d({ type: "SELECT_JIRA_PROJECT", project: p as JiraProject }); },
-													() => d({ type: "SET_JIRA_PROJECT_OPEN", open: false }));
-												if (n !== undefined) d({ type: "SET_JIRA_PROJECT_INDEX", index: n });
-											}} />
+												const n = selKeyDown(
+													e,
+													s.jiraProjectOpen,
+													fj.length,
+													s.jiraProjectIndex,
+													(i) => {
+														const p = fj[i];
+														if (p)
+															d({
+																type: "SELECT_JIRA_PROJECT",
+																project: p as JiraProject,
+															});
+													},
+													() =>
+														d({ type: "SET_JIRA_PROJECT_OPEN", open: false }),
+												);
+												if (n !== undefined)
+													d({ type: "SET_JIRA_PROJECT_INDEX", index: n });
+											}}
+										/>
 									</div>
-									{fj.length > 0 ? fj.map((p, i) => (
-										<div class={`sel-item${s.selectedJiraProject?.key === (p as JiraProject).key ? " active" : ""}${i === s.jiraProjectIndex ? " highlighted" : ""}`}
-											onMouseEnter={() => d({ type: "SET_JIRA_PROJECT_INDEX", index: i })}
-											onClick={() => d({ type: "SELECT_JIRA_PROJECT", project: p as JiraProject })}>
-											<span class="sel-item-name">{(p as JiraProject).key}</span>
-											{(p as JiraProject).name && <div class="sel-item-sub">{(p as JiraProject).name}</div>}
-										</div>
-									)) : <div class="sel-empty">{t("web.noJiraProjects")}</div>}
+									{fj.length > 0 ? (
+										fj.map((p, i) => (
+											<button
+												type="button"
+												class={`sel-item${s.selectedJiraProject?.key === (p as JiraProject).key ? " active" : ""}${i === s.jiraProjectIndex ? " highlighted" : ""}`}
+												onMouseEnter={() =>
+													d({ type: "SET_JIRA_PROJECT_INDEX", index: i })
+												}
+												onClick={() =>
+													d({
+														type: "SELECT_JIRA_PROJECT",
+														project: p as JiraProject,
+													})
+												}
+											>
+												<span class="sel-item-name">
+													{(p as JiraProject).key}
+												</span>
+												{(p as JiraProject).name && (
+													<div class="sel-item-sub">
+														{(p as JiraProject).name}
+													</div>
+												)}
+											</button>
+										))
+									) : (
+										<div class="sel-empty">{t("web.noJiraProjects")}</div>
+									)}
 								</div>
 							)}
 						</div>
 					)}
 
-					<button class="jira-btn" type="button"
-						disabled={!s.selectedJiraProject || s.jiraStatus === "checking" || s.jiraStatus === "creating"}
-						onClick={handleCreateIssue}>
-						{s.jiraStatus === "checking" ? t("web.checkingBtn") : s.jiraStatus === "creating" ? t("web.creatingBtn") : t("web.createBtn")}
+					<button
+						class="jira-btn"
+						type="button"
+						disabled={
+							!s.selectedJiraProject ||
+							s.jiraStatus === "checking" ||
+							s.jiraStatus === "creating"
+						}
+						onClick={handleCreateIssue}
+					>
+						{s.jiraStatus === "checking"
+							? t("web.checkingBtn")
+							: s.jiraStatus === "creating"
+								? t("web.creatingBtn")
+								: t("web.createBtn")}
 					</button>
 
 					{(s.jiraStatus === "checking" || s.jiraStatus === "creating") && (
-						<div class="loading-row" style="margin-top:12px"><span class="spinner" />
-							{s.jiraStatus === "checking" ? t("web.checkingIssues") : t("web.creatingIssue")}
+						<div class="loading-row" style="margin-top:12px">
+							<span class="spinner" />
+							{s.jiraStatus === "checking"
+								? t("web.checkingIssues")
+								: t("web.creatingIssue")}
 						</div>
 					)}
 
 					{s.jiraResult && (
 						<div class="jira-result">
 							<div class="jira-result-label">
-								{s.jiraResult.exists ? t("web.versionExistsResult", { version: s.jiraResult.versionName }) : t("web.versionCreatedResult", { version: s.jiraResult.versionName })}
+								{s.jiraResult.exists
+									? t("web.versionExistsResult", {
+											version: s.jiraResult.versionName,
+										})
+									: t("web.versionCreatedResult", {
+											version: s.jiraResult.versionName,
+										})}
 							</div>
-							<a class="jira-result-key" href={jiraUrl} target="_blank" rel="noreferrer">{s.jiraResult.key}</a>
-							<span class={`jira-result-badge ${s.jiraResult.exists ? "exists" : "created"}`}>
-								{s.jiraResult.exists ? t("web.existsBadge") : t("web.createdBadge")}
+							<a
+								class="jira-result-key"
+								href={jiraUrl}
+								target="_blank"
+								rel="noreferrer"
+							>
+								{s.jiraResult.key}
+							</a>
+							<span
+								class={`jira-result-badge ${s.jiraResult.exists ? "exists" : "created"}`}
+							>
+								{s.jiraResult.exists
+									? t("web.existsBadge")
+									: t("web.createdBadge")}
 							</span>
 						</div>
 					)}
-					{s.jiraError && <div class="jira-error" role="alert">{s.jiraError}</div>}
+					{s.jiraError && (
+						<div class="jira-error" role="alert">
+							{s.jiraError}
+						</div>
+					)}
 				</div>
 			)}
 
@@ -830,4 +1247,6 @@ const ReleaseClient: FC = () => {
 	);
 };
 
-export const mount = (el: HTMLElement) => { render(<ReleaseClient />, el); };
+export const mount = (el: HTMLElement) => {
+	render(<ReleaseClient />, el);
+};

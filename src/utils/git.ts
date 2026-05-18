@@ -27,13 +27,13 @@ export function getGitRemoteUrl(): string {
 }
 
 export function extractProjectPath(remoteUrl: string): string {
-	let cleaned = remoteUrl.replace(/\.git$/, "").replace(/\/+$/, "");
+	const cleaned = remoteUrl.replace(/\.git$/, "").replace(/\/+$/, "");
 
 	const sshMatch = cleaned.match(/^git@[^:]+:(.+)$/);
-	if (sshMatch) return sshMatch[1]!;
+	if (sshMatch?.[1]) return sshMatch[1];
 
-	const httpsMatch = cleaned.match(/^https?:\/\/[^\/]+\/(.+)$/);
-	if (httpsMatch) return httpsMatch[1]!;
+	const httpsMatch = cleaned.match(/^https?:\/\/[^/]+\/(.+)$/);
+	if (httpsMatch?.[1]) return httpsMatch[1];
 
 	throw new Error(`Cannot extract project path from remote URL: ${remoteUrl}`);
 }
@@ -46,11 +46,19 @@ export function getCurrentBranch(): string {
 
 export function getReflogSourceBranch(currentBranch: string): string | null {
 	try {
-		const reflog = execSync("git reflog --date=local", { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 });
-		const reg = new RegExp(`checkout: moving from (.*) to ${currentBranch}`, "g");
+		const reflog = execSync("git reflog --date=local", {
+			encoding: "utf-8",
+			maxBuffer: 10 * 1024 * 1024,
+		});
+		const reg = new RegExp(
+			`checkout: moving from (.*) to ${currentBranch}`,
+			"g",
+		);
 		const lines = reflog.split("\n").filter((x) => reg.test(x));
 		if (lines.length === 0) return null;
-		const result = new RegExp(`checkout: moving from (.*) to ${currentBranch}`).exec(lines[lines.length - 1]!);
+		const result = new RegExp(
+			`checkout: moving from (.*) to ${currentBranch}`,
+		).exec(lines[lines.length - 1]);
 		return result?.[1] ?? null;
 	} catch {
 		return null;
@@ -70,7 +78,7 @@ export function getLocalBranches(): string[] {
 }
 
 export function gitFetch(remote: string, branch: string): void {
-	execSync(`git fetch ${remote} ${branch}:${branch}`, { stdio: "pipe" });
+	execSync(`git fetch ${remote} ${branch}`, { stdio: "pipe" });
 }
 
 export function gitRebase(branch: string): boolean {
@@ -81,7 +89,11 @@ export function gitRebase(branch: string): boolean {
 		// Check if there are conflicts
 		try {
 			const status = execSync("git status --porcelain", { encoding: "utf-8" });
-			return !status.split("\n").some((l) => l.startsWith("UU") || l.startsWith("AA") || l.startsWith("DU"));
+			return !status
+				.split("\n")
+				.some(
+					(l) => l.startsWith("UU") || l.startsWith("AA") || l.startsWith("DU"),
+				);
 		} catch {
 			return false;
 		}
@@ -94,7 +106,9 @@ export function gitPush(remote: string, branch: string): void {
 
 export function getCommitMessagesSince(baseRef: string): string[] {
 	try {
-		const output = execSync(`git log ${baseRef}..HEAD --pretty=format:%s`, { encoding: "utf-8" });
+		const output = execSync(`git log ${baseRef}..HEAD --pretty=format:%s`, {
+			encoding: "utf-8",
+		});
 		return output.split("\n").filter(Boolean);
 	} catch {
 		return [];
@@ -103,7 +117,7 @@ export function getCommitMessagesSince(baseRef: string): string[] {
 
 export function extractTicketKeys(messages: string[]): string[] {
 	const keys = messages
-		.map((msg) => (msg.split(" ")[0] ?? ""))
+		.map((msg) => msg.split(" ")[0] ?? "")
 		.filter((key) => /^[A-Z][A-Z0_-]+-\d+$/i.test(key));
 	return [...new Set(keys)];
 }

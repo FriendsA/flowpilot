@@ -1,7 +1,7 @@
 import type { Child, FC } from "hono/jsx";
 import { VERSION } from "../constants";
-import { t } from "../i18n/web";
 import type { Locale } from "../i18n/web";
+import { t } from "../i18n/web";
 import { menus } from "./menus";
 import { globalStyle } from "./style";
 
@@ -32,20 +32,43 @@ export const Layout: FC<LayoutProps> = ({
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
 				<title>FlowPilot</title>
 				<link rel="icon" type="image/x-icon" href="/public/favicon.ico" />
-				<link rel="icon" type="image/png" sizes="32x32" href="/public/favicon-32x32.png" />
-				<link rel="icon" type="image/png" sizes="16x16" href="/public/favicon-16x16.png" />
-				<link rel="apple-touch-icon" sizes="180x180" href="/public/apple-touch-icon.png" />
+				<link
+					rel="icon"
+					type="image/png"
+					sizes="32x32"
+					href="/public/favicon-32x32.png"
+				/>
+				<link
+					rel="icon"
+					type="image/png"
+					sizes="16x16"
+					href="/public/favicon-16x16.png"
+				/>
+				<link
+					rel="apple-touch-icon"
+					sizes="180x180"
+					href="/public/apple-touch-icon.png"
+				/>
 				<link rel="manifest" href="/public/site.webmanifest" />
-								<style>{globalStyle}</style>
+				<style>{globalStyle}</style>
 				<script type="module" src="/client/client.js" defer />
-				<script dangerouslySetInnerHTML={{ __html: `window.__I18N_LOCALE__='${locale}';window.__I18N_RESOURCES__=${JSON.stringify({ [locale]: localeResources })}` }} />
+				<script
+					dangerouslySetInnerHTML={{
+						__html: `window.__I18N_LOCALE__='${locale}';window.__I18N_RESOURCES__=${JSON.stringify({ [locale]: localeResources })}`,
+					}}
+				/>
 			</head>
 			<body>
-				<a href="#main-content" class="skip-link">{t("web.skipToContent") ?? "Skip to content"}</a>
+				<a href="#main-content" class="skip-link">
+					{t("web.skipToContent") ?? "Skip to content"}
+				</a>
 
-				<header class="header" role="banner">
+				<header class="header">
 					<div class="header-brand">
-						<div class="brand-icon" dangerouslySetInnerHTML={{ __html: BRAND_SVG }} />
+						<div
+							class="brand-icon"
+							dangerouslySetInnerHTML={{ __html: BRAND_SVG }}
+						/>
 						<span class="brand-name">FlowPilot</span>
 						<span class="brand-version">v{VERSION}</span>
 					</div>
@@ -56,18 +79,25 @@ export const Layout: FC<LayoutProps> = ({
 								<a
 									href={m.href}
 									class={`nav-item${isCurrent ? " active" : ""}`}
-									{...(isCurrent ? { "aria-current": "page" as any } : {})}
+									{...(isCurrent ? { "aria-current": "page" as const } : {})}
 								>
 									{t(m.titleKey)}
 								</a>
 							);
 						})}
 					</nav>
-					<a class={`header-settings${isConfig ? " active" : ""}`} href="/config" aria-label={t("web.settingsAria")} dangerouslySetInnerHTML={{ __html: SETTINGS_SVG }} />
+					<a
+						class={`header-settings${isConfig ? " active" : ""}`}
+						href="/config"
+						aria-label={t("web.settingsAria")}
+						dangerouslySetInnerHTML={{ __html: SETTINGS_SVG }}
+					/>
 				</header>
 
-				<main class="main" id="main-content" role="main">
-					<div class="content" tabindex="-1">{children}</div>
+				<main class="main" id="main-content">
+					<div class="content" tabindex="-1">
+						{children}
+					</div>
 				</main>
 			</body>
 		</html>
