@@ -129,7 +129,24 @@ export const isPortInUse = (port: number): Promise<boolean> => {
 	});
 };
 
+function migrateOldPid() {
+	if (fs.existsSync(PID_FILE)) return;
+	if (!fs.existsSync(OLD_PID_FILE)) return;
+	if (!fs.existsSync(DATA_DIR)) {
+		fs.mkdirSync(DATA_DIR, { recursive: true });
+	}
+	try {
+		const oldPid = Number(fs.readFileSync(OLD_PID_FILE, "utf-8").trim());
+		fs.writeFileSync(PID_FILE, JSON.stringify({ pid: oldPid }));
+		fs.unlinkSync(OLD_PID_FILE);
+	} catch {
+		// migration failed — proceed without old pid
+	}
+}
+
 export const startServerInBackground = async () => {
+	migrateOldPid();
+
 	if (await isPortInUse(PORT)) return;
 
 	const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -151,14 +168,22 @@ export const startServerInBackground = async () => {
 };
 
 export const stopServer = (): boolean => {
-	if (!fs.existsSync(PID_FILE)) {
+	migrateOldPid();
+
+	const pidSource = fs.existsSync(PID_FILE) ? PID_FILE : fs.existsSync(OLD_PID_FILE) ? OLD_PID_FILE : null;
+	if (!pidSource) {
 		return false;
 	}
 
 	try {
-		const raw = fs.readFileSync(PID_FILE, "utf-8");
-		const parsed = JSON.parse(raw);
-		const pid = parsed.pid ?? Number(raw.trim());
+		const raw = fs.readFileSync(pidSource, "utf-8");
+		let pid: number;
+		if (pidSource === PID_FILE) {
+			const parsed = JSON.parse(raw);
+			pid = parsed.pid ?? Number(raw.trim());
+		} else {
+			pid = Number(raw.trim());
+		}
 		process.kill(pid, "SIGTERM");
 	} catch {
 		// process already dead or file corrupt
