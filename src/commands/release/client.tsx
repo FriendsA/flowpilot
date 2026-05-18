@@ -441,8 +441,6 @@ const releaseStyle = `
   .modal-content {
     width: 90%;
     max-width: 560px;
-    max-height: 80vh;
-    overflow-y: auto;
     background: var(--bg-void);
     border: 1px solid var(--border);
     border-radius: 12px;
@@ -521,8 +519,8 @@ type State = {
 	history: ReleaseHistoryEntry[];
 	historyLoading: boolean;
 	quickExecuting: string | null;
-	quickResult: { id: string; data: QuickResult } | null;
-	quickError: { id: string; error: string } | null;
+	quickResults: Record<string, QuickResult>;
+	quickErrors: Record<string, string>;
 	showNewModal: boolean;
 	clearConfirm: boolean;
 };
@@ -557,8 +555,8 @@ const initial: State = {
 	history: [],
 	historyLoading: true,
 	quickExecuting: null,
-	quickResult: null,
-	quickError: null,
+	quickResults: {},
+	quickErrors: {},
 	showNewModal: false,
 	clearConfirm: false,
 };
@@ -765,20 +763,18 @@ const reducer = (state: State, action: Action): State => {
 			return {
 				...state,
 				quickExecuting: action.id,
-				quickResult: null,
-				quickError: null,
 			};
 		case "QUICK_EXEC_SUCCESS":
 			return {
 				...state,
 				quickExecuting: null,
-				quickResult: { id: action.id, data: action.result },
+				quickResults: { ...state.quickResults, [action.id]: action.result },
 			};
 		case "QUICK_EXEC_FAIL":
 			return {
 				...state,
 				quickExecuting: null,
-				quickError: { id: action.id, error: action.error },
+				quickErrors: { ...state.quickErrors, [action.id]: action.error },
 			};
 		case "SHOW_NEW_MODAL":
 			return { ...state, showNewModal: true };
@@ -787,7 +783,7 @@ const reducer = (state: State, action: Action): State => {
 		case "CLEAR_CONFIRM_TOGGLE":
 			return { ...state, clearConfirm: !state.clearConfirm };
 		case "CLEAR_HISTORY_DONE":
-			return { ...state, history: [], clearConfirm: false };
+			return { ...state, history: [], clearConfirm: false, quickResults: {}, quickErrors: {} };
 	}
 };
 
@@ -897,28 +893,28 @@ const HistoryList: FC<{ s: State; d: (action: Action) => void }> = ({
 									</button>
 								</div>
 							</div>
-							{s.quickResult?.id === entry.id && (
+							{s.quickResults[entry.id] && (
 								<div class="history-result">
 									<a
 										class="history-result-key"
-										href={s.quickResult.data.issueUrl}
+										href={s.quickResults[entry.id].issueUrl}
 										target="_blank"
 										rel="noreferrer"
 									>
-										{s.quickResult.data.issueKey}
+										{s.quickResults[entry.id].issueKey}
 									</a>
 									<span style="font-size:12px;color:var(--text-3);margin-left:8px">
-										v{s.quickResult.data.version}
+										v{s.quickResults[entry.id].version}
 									</span>
-									{s.quickResult.data.versionCreated && (
+									{s.quickResults[entry.id].versionCreated && (
 										<span style="font-size:10px;color:var(--neon);margin-left:4px">
 											{t("web.createdBadge")}
 										</span>
 									)}
 								</div>
 							)}
-							{s.quickError?.id === entry.id && (
-								<div class="history-result-error">{s.quickError.error}</div>
+							{s.quickErrors[entry.id] && (
+								<div class="history-result-error">{s.quickErrors[entry.id]}</div>
 							)}
 						</div>
 					))}

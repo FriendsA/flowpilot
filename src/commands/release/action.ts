@@ -111,15 +111,17 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 	// ── Step 1: Resolve GitLab project ──
 
 	if (!fromHistory) {
+		let autoResolved = false;
 		if (isGitRepo() && hasGitRemoteOrigin()) {
 			const s = clack.spinner();
 			s.start(t("release.autoResolving"));
 			const remoteUrl = getGitRemoteUrl();
-			const projectPath = extractProjectPath(remoteUrl);
 			try {
+				const projectPath = extractProjectPath(remoteUrl);
 				const project = await gitlab.getProject(projectPath);
 				projectId = project.id as number;
 				projectName = project.name as string;
+				autoResolved = true;
 				stopSpinner(
 					s,
 					pc.green("✔") +
@@ -127,11 +129,12 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 				);
 			} catch (e: unknown) {
 				const msg = e instanceof Error ? e.message : String(e);
-				stopSpinner(s, pc.red(t("release.resolveFailed")));
-				clack.log.error(pc.dim(msg));
-				return;
+				stopSpinner(s, pc.yellow("⚠") + ` ${t("release.resolveFailed")}`);
+				clack.log.warn(pc.dim(msg));
 			}
-		} else {
+		}
+
+		if (!autoResolved) {
 			const s = clack.spinner();
 			s.start(t("release.fetchingProjects"));
 			let allProjects: {
