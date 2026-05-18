@@ -949,7 +949,7 @@ const HistoryList: FC<{ s: State; d: (action: Action) => void }> = ({
 								type="button"
 								onClick={() => d({ type: "CLEAR_CONFIRM_TOGGLE" })}
 							>
-								Cancel
+								{t("web.cancel")}
 							</button>
 						</div>
 					) : (
@@ -1655,8 +1655,15 @@ const ReleaseClient: FC = () => {
 				<div
 					class="modal-overlay"
 					onClick={(e: Event) => {
-						if ((e.target as HTMLElement).classList.contains("modal-overlay"))
-							d({ type: "HIDE_NEW_MODAL" });
+						if ((e.target as HTMLElement).classList.contains("modal-overlay")) {
+							fetch("/release/api/history")
+								.then((r) => r.json())
+								.then((data) => {
+									d({ type: "SET_HISTORY", history: Array.isArray(data) ? data : [] });
+									d({ type: "HIDE_NEW_MODAL" });
+								})
+							.catch(() => d({ type: "HIDE_NEW_MODAL" }));
+						}
 					}}
 				>
 					<div class="modal-content">
@@ -1665,7 +1672,15 @@ const ReleaseClient: FC = () => {
 							<button
 								class="modal-close"
 								type="button"
-								onClick={() => d({ type: "HIDE_NEW_MODAL" })}
+								onClick={() => {
+									fetch("/release/api/history")
+										.then((r) => r.json())
+										.then((data) => {
+											d({ type: "SET_HISTORY", history: Array.isArray(data) ? data : [] });
+											d({ type: "HIDE_NEW_MODAL" });
+										})
+										.catch(() => d({ type: "HIDE_NEW_MODAL" }));
+								}}
 							>
 								✕
 							</button>

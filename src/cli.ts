@@ -9,6 +9,16 @@ import {
 	stopServer,
 } from "./server";
 
+// Gracefully handle Ctrl+C during interactive prompts
+// @inquirer/search throws ExitPromptError on SIGINT instead of returning cancel
+process.on("uncaughtException", (err) => {
+	if (err.name === "ExitPromptError") {
+		console.log(pc.dim("\n已取消。"));
+		process.exit(0);
+	}
+	throw err;
+});
+
 const cli = cac("flowpilot");
 
 cli

@@ -43,7 +43,7 @@
 		"branchSelected": "分支已选择",
 		"fetchingPom": "正在获取 pom.xml...",
 		"noPomFound": "此分支上未找到 pom.xml。",
-		"fetchPomFailed": "获取 pom.xml 头败",
+		"fetchPomFailed": "获取 pom.xml 失败",
 		"versionLabel": "版本",
 		"artifactLabel": "Artifact",
 		"versionNameLabel": "版本名称",
@@ -135,6 +135,7 @@
 		"historyEntry": "历史记录",
 		"newModalTitle": "新建发布申请",
 		"clearSuccess": "历史已清空",
+		"cancel": "取消",
 		"endTitle": "End",
 		"endDesc": "结束当前任务：rebase、推送、创建 MR、更新 Jira。"
 	},
@@ -176,6 +177,21 @@
 		"configMissing": "缺少配置",
 		"runConfig": "请运行 `flowpilot config` 设置这些值。",
 		"noRemoteOrigin": "此仓库未配置 git remote 'origin'。",
-		"extractPathFailed": "无法从 remote URL 提取项目路径"
+		"extractPathFailed": "无法从 remote URL 提取项目路径",
+		"http401": "认证失败，请检查凭证配置",
+		"http403": "权限不足，无法访问该资源",
+		"http404": "未找到请求的资源",
+		"http404Project": "未找到该项目，请确认项目路径或权限",
+		"http404File": "未找到该文件",
+		"http500": "服务器内部错误，请稍后重试",
+		"network": "网络连接失败，请检查服务地址是否正确",
+		"fetchPomFailed": "获取 pom.xml 失败",
+		"fetchProjectsFailed": "获取项目列表失败",
+		"fetchBranchesFailed": "获取分支列表失败",
+		"fetchJiraProjectsFailed": "获取 Jira 项目列表失败",
+		"jiraSearchFailed": "搜索 Jira issue 失败",
+		"jiraVersionFailed": "创建/获取 Jira 版本失败",
+		"jiraCreateIssueFailed": "创建 Jira issue 失败",
+		"gitlabApiFailed": "GitLab API 调用失败"
 	}
 }

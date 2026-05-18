@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { ConfigJson } from "../../config";
 import { GitlabController } from "../../gitlab-controller";
+import { translateApiError } from "../../i18n/translate-error";
 import { t } from "../../i18n/web";
 import { JiraController } from "../../jira-controller";
 import { Store } from "../../store";
@@ -72,7 +73,7 @@ router.post("/api/history/:id/execute", async (c) => {
 	const history = releaseStore.getAll();
 	const entry = history.find((h) => h.id === id);
 	if (!entry) {
-		return c.json({ error: "History entry not found" }, 404);
+		return c.json({ error: t("error.http404") }, 404);
 	}
 
 	const git = new GitlabController();
@@ -92,8 +93,8 @@ router.post("/api/history/:id/execute", async (c) => {
 			"base64",
 		).toString("utf-8");
 		pomInfo = parsePomXml(raw);
-	} catch {
-		return c.json({ error: "Failed to fetch pom.xml" }, 500);
+	} catch (e: unknown) {
+		return c.json({ error: translateApiError(e, "gitlabFile") }, 500);
 	}
 
 	const displayVersion = cleanVersion(pomInfo.version ?? "");
@@ -143,8 +144,8 @@ router.post("/api/history/:id/execute", async (c) => {
 			versionId = created.id;
 			versionCreated = true;
 		}
-	} catch {
-		return c.json({ error: "Failed to ensure version" }, 500);
+	} catch (e: unknown) {
+		return c.json({ error: translateApiError(e, "jiraVersion") }, 500);
 	}
 
 	// Create issue
@@ -172,8 +173,7 @@ router.post("/api/history/:id/execute", async (c) => {
 			versionCreated,
 		});
 	} catch (e: unknown) {
-		const message = e instanceof Error ? e.message : String(e);
-		return c.json({ error: message }, 500);
+		return c.json({ error: translateApiError(e, "jiraCreateIssue") }, 500);
 	}
 });
 
@@ -183,8 +183,7 @@ router.get("/api/projects", async (c) => {
 		const projects = await git.listProjects({ membership: true });
 		return c.json(projects);
 	} catch (e: unknown) {
-		const message = e instanceof Error ? e.message : String(e);
-		return c.json({ error: message }, 500);
+		return c.json({ error: translateApiError(e, "gitlabProject") }, 500);
 	}
 });
 
@@ -195,8 +194,7 @@ router.get("/api/projects/:id/branches", async (c) => {
 		const branches = await git.listBranches(projectId);
 		return c.json(branches);
 	} catch (e: unknown) {
-		const message = e instanceof Error ? e.message : String(e);
-		return c.json({ error: message }, 500);
+		return c.json({ error: translateApiError(e, "gitlabBranch") }, 500);
 	}
 });
 
@@ -223,9 +221,7 @@ router.get("/api/projects/:id/pom-version", async (c) => {
 			artifactId: pick(stripped, "artifactId") ?? pick(raw, "artifactId"),
 		});
 	} catch (e: unknown) {
-		const message =
-			e instanceof Error ? (e.message ? e.message : String(e)) : String(e);
-		return c.json({ error: message }, 500);
+		return c.json({ error: translateApiError(e, "gitlabFile") }, 500);
 	}
 });
 
@@ -239,8 +235,7 @@ router.post("/api/jira/search", async (c) => {
 		const result = await jira.search(jql, maxResults ?? 5);
 		return c.json(result);
 	} catch (e: unknown) {
-		const message = e instanceof Error ? e.message : String(e);
-		return c.json({ error: message }, 500);
+		return c.json({ error: translateApiError(e, "jiraSearch") }, 500);
 	}
 });
 
@@ -259,8 +254,7 @@ router.post("/api/jira/ensure-version", async (c) => {
 		const created = await jira.createVersion(projectKey, versionName);
 		return c.json({ id: created.id, name: created.name, created: true });
 	} catch (e: unknown) {
-		const message = e instanceof Error ? e.message : String(e);
-		return c.json({ error: message }, 500);
+		return c.json({ error: translateApiError(e, "jiraVersion") }, 500);
 	}
 });
 
@@ -286,8 +280,7 @@ router.post("/api/jira/create-issue", async (c) => {
 		});
 		return c.json({ key: issue.key });
 	} catch (e: unknown) {
-		const message = e instanceof Error ? e.message : String(e);
-		return c.json({ error: message }, 500);
+		return c.json({ error: translateApiError(e, "jiraCreateIssue") }, 500);
 	}
 });
 
@@ -297,8 +290,7 @@ router.get("/api/jira/projects", async (c) => {
 		const projects = await jira.listProjectKeys();
 		return c.json(projects);
 	} catch (e: unknown) {
-		const message = e instanceof Error ? e.message : String(e);
-		return c.json({ error: message }, 500);
+		return c.json({ error: translateApiError(e, "jiraProject") }, 500);
 	}
 });
 

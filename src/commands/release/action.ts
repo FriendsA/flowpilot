@@ -4,6 +4,7 @@ import clipboardy from "clipboardy";
 import pc from "picocolors";
 import { ConfigJson } from "../../config";
 import { GitlabController } from "../../gitlab-controller";
+import { translateApiError } from "../../i18n/translate-error";
 import { t } from "../../i18n/cli";
 import { JiraController } from "../../jira-controller";
 import { openPage } from "../../server";
@@ -128,9 +129,8 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 						` ${t("release.projectResolved")}: ${pc.bold(project.name)} (${project.pathWithNamespace ?? projectPath})`,
 				);
 			} catch (e: unknown) {
-				const msg = e instanceof Error ? e.message : String(e);
 				stopSpinner(s, pc.yellow("⚠") + ` ${t("release.resolveFailed")}`);
-				clack.log.warn(pc.dim(msg));
+				clack.log.warn(pc.dim(translateApiError(e, "gitlabProject")));
 			}
 		}
 
@@ -147,9 +147,8 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 					membership: true,
 				})) as unknown as typeof allProjects;
 			} catch (e: unknown) {
-				const msg = e instanceof Error ? e.message : String(e);
 				stopSpinner(s, pc.red(`${t("release.fetchProjectsFailed")}`));
-				clack.log.error(pc.dim(msg));
+				clack.log.error(pc.dim(translateApiError(e, "gitlabProject")));
 				return;
 			}
 			stopSpinner(s, pc.green("✔") + ` ${allProjects.length} projects loaded`);
@@ -226,9 +225,8 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 				projectId,
 			)) as unknown as typeof branches;
 		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
 			stopSpinner(s, pc.red(`${t("release.fetchBranchesFailed")}`));
-			clack.log.error(pc.dim(msg));
+			clack.log.error(pc.dim(translateApiError(e, "gitlabBranch")));
 			return;
 		}
 		stopSpinner(s, pc.green("✔") + ` ${branches.length} branches loaded`);
@@ -314,13 +312,13 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 		).toString("utf-8");
 		pomInfo = parsePomXml(raw);
 	} catch (e: unknown) {
-		const msg = e instanceof Error ? e.message : String(e);
-		if (msg.includes("404")) {
+		const translated = translateApiError(e, "gitlabFile");
+		if (translated === t("error.http404File") || translated === t("error.http404Project")) {
 			stopSpinner(s, pc.yellow("⚠") + ` ${t("release.noPomFound")}`);
 			return;
 		}
 		stopSpinner(s, pc.red(`${t("release.fetchPomFailed")}`));
-		clack.log.error(pc.dim(msg));
+		clack.log.error(pc.dim(translated));
 		return;
 	}
 	stopSpinner(
@@ -347,9 +345,8 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 			jiraProjects =
 				(await jira.listProjectKeys()) as unknown as typeof jiraProjects;
 		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
 			stopSpinner(s, pc.red(`${t("release.fetchJiraProjectsFailed")}`));
-			clack.log.error(pc.dim(msg));
+			clack.log.error(pc.dim(translateApiError(e, "jiraProject")));
 			return;
 		}
 		stopSpinner(
@@ -456,9 +453,8 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 		}
 		stopSpinner(s, pc.dim("No existing issue found"));
 	} catch (e: unknown) {
-		const msg = e instanceof Error ? e.message : String(e);
 		stopSpinner(s, pc.yellow("⚠") + ` ${t("release.searchFailed")}`);
-		clack.log.warn(pc.dim(msg));
+		clack.log.warn(pc.dim(translateApiError(e, "jiraSearch")));
 	}
 
 	// ── Step 6: Ensure Jira version ──
@@ -485,9 +481,8 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 			);
 		}
 	} catch (e: unknown) {
-		const msg = e instanceof Error ? e.message : String(e);
 		stopSpinner(s, pc.red(`${t("release.ensureVersionFailed")}`));
-		clack.log.error(pc.dim(msg));
+		clack.log.error(pc.dim(translateApiError(e, "jiraVersion")));
 		return;
 	}
 
@@ -534,9 +529,8 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 			dedupKey,
 		);
 	} catch (e: unknown) {
-		const msg = e instanceof Error ? e.message : String(e);
 		stopSpinner(s, pc.red(`${t("release.createIssueFailed")}`));
-		clack.log.error(pc.dim(msg));
+		clack.log.error(pc.dim(translateApiError(e, "jiraCreateIssue")));
 		return;
 	}
 

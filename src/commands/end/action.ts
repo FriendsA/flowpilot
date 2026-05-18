@@ -203,7 +203,7 @@ export const endAction = async (options: EndActionProps) => {
 					{ description },
 				);
 
-				mrUrl = mr.web_url as string;
+				mrUrl = (mr.webUrl ?? mr.web_url) as string;
 				stopSpinner(s, pc.green("✔") + ` ${t("end.mrCreated")}`);
 
 				if (mrUrl) {

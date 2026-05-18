@@ -11,6 +11,12 @@ vi.mock("../i18n/web", () => ({
 	getLocaleResources: vi.fn().mockReturnValue({ translation: {} }),
 }));
 
+// Mock translateApiError — return raw error message in tests
+vi.mock("../i18n/translate-error", () => ({
+	translateApiError: (raw: unknown) =>
+		raw instanceof Error ? raw.message : String(raw),
+}));
+
 // Mock Layout so SSR doesn't need real JSX rendering
 vi.mock("../shared/layout", () => ({
 	Layout: ({ children }: { children: string }) => children,

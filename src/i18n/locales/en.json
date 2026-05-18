@@ -135,6 +135,7 @@
 		"historyEntry": "History entry",
 		"newModalTitle": "Create Release Request",
 		"clearSuccess": "History cleared",
+		"cancel": "Cancel",
 		"endTitle": "End",
 		"endDesc": "End current task: rebase, push, create MR, update Jira."
 	},
@@ -176,6 +177,21 @@
 		"configMissing": "Missing configuration:",
 		"runConfig": "Run `flowpilot config` to set these values.",
 		"noRemoteOrigin": "No git remote 'origin' found in this repository.",
-		"extractPathFailed": "Cannot extract project path from remote URL"
+		"extractPathFailed": "Cannot extract project path from remote URL",
+		"http401": "Authentication failed, check your credentials",
+		"http403": "Permission denied",
+		"http404": "Resource not found",
+		"http404Project": "Project not found, check the path or permissions",
+		"http404File": "File not found",
+		"http500": "Server error, please try again later",
+		"network": "Network connection failed, check the service host",
+		"fetchPomFailed": "Failed to fetch pom.xml",
+		"fetchProjectsFailed": "Failed to fetch project list",
+		"fetchBranchesFailed": "Failed to fetch branch list",
+		"fetchJiraProjectsFailed": "Failed to fetch Jira projects",
+		"jiraSearchFailed": "Failed to search Jira issues",
+		"jiraVersionFailed": "Failed to create/get Jira version",
+		"jiraCreateIssueFailed": "Failed to create Jira issue",
+		"gitlabApiFailed": "GitLab API call failed"
 	}
 }
