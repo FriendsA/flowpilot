@@ -329,14 +329,18 @@ const releaseStyle = `
   }
   .history-item {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
     padding: 12px 16px;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 8px;
     transition: border-color 0.15s, box-shadow 0.15s;
     animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .history-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
   .history-item:hover {
     border-color: var(--border-active);
@@ -404,9 +408,9 @@ const releaseStyle = `
   }
   .history-clear-btn:hover { border-color: var(--error); color: var(--error); }
   .history-result {
-    margin-top: 8px;
+    margin-top: 12px;
     padding: 10px 14px;
-    background: var(--bg-card);
+    background: var(--bg-void);
     border: 1px solid rgba(0,255,136,0.08);
     border-radius: 8px;
     animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -873,23 +877,25 @@ const HistoryList: FC<{ s: State; d: (action: Action) => void }> = ({
 				<div class="history-list">
 					{s.history.map((entry) => (
 						<div class="history-item">
-							<div class="history-info">
-								<span class="history-project">{entry.projectName}</span>
-								<span class="history-detail">
-									{entry.branch} / {entry.jiraProjectKey}
-								</span>
-							</div>
-							<div class="history-actions">
-								<button
-									class={`history-quick-btn${s.quickExecuting === entry.id ? " executing" : ""}`}
-									type="button"
-									disabled={s.quickExecuting !== null}
-									onClick={() => handleQuickExecute(entry.id)}
-								>
-									{s.quickExecuting === entry.id
-										? t("web.executing")
-										: t("web.quickExecute")}
-								</button>
+							<div class="history-item-row">
+								<div class="history-info">
+									<span class="history-project">{entry.projectName}</span>
+									<span class="history-detail">
+										{entry.branch} / {entry.jiraProjectKey}
+									</span>
+								</div>
+								<div class="history-actions">
+									<button
+										class={`history-quick-btn${s.quickExecuting === entry.id ? " executing" : ""}`}
+										type="button"
+										disabled={s.quickExecuting !== null}
+										onClick={() => handleQuickExecute(entry.id)}
+									>
+										{s.quickExecuting === entry.id
+											? t("web.executing")
+											: t("web.quickExecute")}
+									</button>
+								</div>
 							</div>
 							{s.quickResult?.id === entry.id && (
 								<div class="history-result">
