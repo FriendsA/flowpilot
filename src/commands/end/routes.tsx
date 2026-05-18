@@ -207,14 +207,28 @@ router.post("/api/jira/comment", async (c) => {
 	}
 });
 
-// Prevent rolldown from tree-shaking route registrations.
-// Hono router .get()/.post() calls are side effects that bundlers
-// may incorrectly strip as "unused" chain calls.
-// Each handler is individually exported so the bundler sees them as
-// reachable symbols even though they're only invoked at runtime by Hono.
-export const _endRouteHandlers = [
-	router.get,
-	router.post,
+// Module-level side-effect registration to prevent rolldown tree-shaking.
+// Hono router .get()/.post() calls are side effects that bundlers may
+// incorrectly strip as "unused" chain calls. By collecting references to
+// the handler functions and exporting them, the bundler must preserve
+// the entire module because these symbols are reachable.
+const _handlers = [
+	isGitRepo,
+	getCurrentBranch,
+	getLocalBranches,
+	getReflogSourceBranch,
+	gitFetch,
+	gitRebase,
+	gitPush,
+	getGitRemoteUrl,
+	extractProjectPath,
+	getCommitMessagesSince,
+	extractTicketKeys,
+	hasGitRemoteOrigin,
+	GitlabController,
+	JiraController,
+	translateApiError,
 ];
 
+export { _handlers };
 export const endRoutes = router;
