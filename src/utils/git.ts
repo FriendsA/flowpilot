@@ -30,10 +30,10 @@ export function extractProjectPath(remoteUrl: string): string {
 	const cleaned = remoteUrl.replace(/\.git$/, "").replace(/\/+$/, "");
 
 	const sshMatch = cleaned.match(/^git@[^:]+:(.+)$/);
-	if (sshMatch?.[1]) return sshMatch[1];
+	if (sshMatch) return sshMatch[1]!;
 
 	const httpsMatch = cleaned.match(/^https?:\/\/[^/]+\/(.+)$/);
-	if (httpsMatch?.[1]) return httpsMatch[1];
+	if (httpsMatch) return httpsMatch[1]!;
 
 	throw new Error(`Cannot extract project path from remote URL: ${remoteUrl}`);
 }
@@ -58,7 +58,7 @@ export function getReflogSourceBranch(currentBranch: string): string | null {
 		if (lines.length === 0) return null;
 		const result = new RegExp(
 			`checkout: moving from (.*) to ${currentBranch}`,
-		).exec(lines[lines.length - 1]);
+		).exec(lines[lines.length - 1]!);
 		return result?.[1] ?? null;
 	} catch {
 		return null;

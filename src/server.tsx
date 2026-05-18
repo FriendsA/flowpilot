@@ -8,7 +8,13 @@ import { Hono } from "hono";
 import { configRoutes } from "./commands/config/routes";
 import { endRoutes } from "./commands/end/routes";
 import { releaseRoutes } from "./commands/release/routes";
-import { PID_FILE, PORT, SERVER_URL } from "./constants";
+import {
+	DATA_DIR,
+	OLD_PID_FILE,
+	PID_FILE,
+	PORT,
+	SERVER_URL,
+} from "./constants";
 import {
 	detectLocaleFromCookie,
 	detectLocaleFromHeader,
@@ -135,7 +141,10 @@ export const startServerInBackground = async () => {
 	});
 
 	if (child.pid) {
-		fs.writeFileSync(PID_FILE, String(child.pid));
+		if (!fs.existsSync(DATA_DIR)) {
+			fs.mkdirSync(DATA_DIR, { recursive: true });
+		}
+		fs.writeFileSync(PID_FILE, JSON.stringify({ pid: child.pid }));
 	}
 
 	child.unref();
@@ -146,18 +155,25 @@ export const stopServer = (): boolean => {
 		return false;
 	}
 
-	const pid = Number(fs.readFileSync(PID_FILE, "utf-8").trim());
-
 	try {
+		const raw = fs.readFileSync(PID_FILE, "utf-8");
+		const parsed = JSON.parse(raw);
+		const pid = parsed.pid ?? Number(raw.trim());
 		process.kill(pid, "SIGTERM");
 	} catch {
-		// process already dead
+		// process already dead or file corrupt
 	}
 
 	try {
 		fs.unlinkSync(PID_FILE);
 	} catch {
 		// file already removed
+	}
+
+	try {
+		fs.unlinkSync(OLD_PID_FILE);
+	} catch {
+		/* ok */
 	}
 
 	return true;

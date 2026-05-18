@@ -8,4 +8,7 @@ export default defineConfig({
 			"react": "hono/jsx",
 		},
 	},
+	test: {
+		exclude: [".claude/worktrees/**"],
+	},
 });

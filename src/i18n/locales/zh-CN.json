@@ -9,11 +9,7 @@
 		"serveStarted": "服务已启动",
 		"serveStopped": "服务已停止",
 		"noRunningService": "没有正在运行的服务",
-		"serveRestarted": "服务已重启",
-		"updateDesc": "更新到最新版本",
-		"updating": "正在更新...",
-		"updateSuccess": "已更新并重启服务",
-		"updateFailed": "更新失败"
+		"serveRestarted": "服务已重启"
 	},
 	"config": {
 		"title": "FlowPilot 配置",
@@ -65,7 +61,10 @@
 		"creatingIssue": "正在创建发布 issue...",
 		"issueCreated": "发布 issue 已创建",
 		"versionAlsoCreated": "版本也已创建。",
-		"createIssueFailed": "创建 issue 失败"
+		"createIssueFailed": "创建 issue 失败",
+		"selectHistoryOrNew": "选择历史记录快速执行，或新建",
+		"historyNew": "新建...",
+		"historyQuickExecute": "快速执行"
 	},
 	"web": {
 		"flowpilot": "FlowPilot",
@@ -123,6 +122,19 @@
 		"emptyHint": "请在上方选择项目以查看 POM 发布版本",
 		"releaseSuffix": "发布申请",
 		"generalCategory": "FlowPilot",
+		"historyTitle": "历史记录",
+		"quickExecute": "快速执行",
+		"createNew": "新建",
+		"clearHistory": "清空历史",
+		"clearConfirm": "确定清空所有历史记录？",
+		"noHistory": "暂无历史记录，点击新建开始",
+		"executing": "正在执行...",
+		"executeSuccess": "执行成功",
+		"executeFailed": "执行失败",
+		"selectHistoryOrNew": "选择历史记录快速执行，或新建",
+		"historyEntry": "历史记录",
+		"newModalTitle": "新建发布申请",
+		"clearSuccess": "历史已清空",
 		"endTitle": "End",
 		"endDesc": "结束当前任务：rebase、推送、创建 MR、更新 Jira。"
 	},

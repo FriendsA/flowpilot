@@ -27,6 +27,25 @@ declare global {
 	}
 }
 
+// ── History entry type ──
+
+type ReleaseHistoryEntry = {
+	id: string;
+	createdAt: string;
+	projectId: number;
+	projectName: string;
+	projectPath: string;
+	branch: string;
+	jiraProjectKey: string;
+};
+
+type QuickResult = {
+	issueKey: string;
+	issueUrl: string;
+	version: string;
+	versionCreated: boolean;
+};
+
 const releaseStyle = `
   .page-header {
     margin-bottom: 28px;
@@ -291,6 +310,162 @@ const releaseStyle = `
   .jira-result-badge.created { background: var(--neon-soft); color: var(--neon); }
   .jira-result-badge.exists { background: var(--cyan-soft); color: var(--cyan); }
   .jira-error { margin-top: 12px; color: var(--error); font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+  /* ── History ── */
+  .history-section {
+    margin-bottom: 24px;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
+  }
+  .history-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--text-1);
+  }
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .history-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .history-item:hover {
+    border-color: var(--border-active);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .history-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+  }
+  .history-project { font-weight: 500; color: var(--text-1); font-size: 14px; }
+  .history-detail { font-size: 12px; color: var(--text-3); font-family: var(--mono); }
+  .history-actions { display: flex; align-items: center; gap: 8px; }
+  .history-quick-btn {
+    padding: 6px 14px;
+    font-size: 12px;
+    font-family: var(--sans);
+    font-weight: 500;
+    color: var(--bg-void);
+    background: var(--neon);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .history-quick-btn:hover { background: var(--neon-hover); }
+  .history-quick-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .history-quick-btn.executing {
+    background: var(--border);
+    color: var(--text-3);
+  }
+  .history-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .history-new-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-family: var(--sans);
+    font-weight: 500;
+    color: var(--bg-void);
+    background: var(--neon);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.2s;
+  }
+  .history-new-btn:hover { background: var(--neon-hover); box-shadow: 0 0 12px var(--neon-glow); }
+  .history-clear-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-family: var(--sans);
+    font-weight: 400;
+    color: var(--text-3);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .history-clear-btn:hover { border-color: var(--error); color: var(--error); }
+  .history-result {
+    margin-top: 8px;
+    padding: 10px 14px;
+    background: var(--bg-card);
+    border: 1px solid rgba(0,255,136,0.08);
+    border-radius: 8px;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .history-result-key {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--neon);
+    text-decoration: none;
+  }
+  .history-result-error {
+    color: var(--error);
+    font-size: 13px;
+  }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    animation: fade-in 0.2s ease both;
+  }
+  .modal-content {
+    width: 90%;
+    max-width: 560px;
+    max-height: 80vh;
+    overflow-y: auto;
+    background: var(--bg-void);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .modal-title { font-size: 18px; font-weight: 600; color: var(--text-1); }
+  .modal-close {
+    width: 32px; height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: var(--text-3);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .modal-close:hover { border-color: var(--text-2); color: var(--text-2); }
 `;
 
 type Project = {
@@ -338,6 +513,14 @@ type State = {
 	jiraStatus: "idle" | "checking" | "creating" | "done" | "error";
 	jiraResult: { key: string; exists: boolean; versionName: string } | null;
 	jiraError: string;
+	// History state
+	history: ReleaseHistoryEntry[];
+	historyLoading: boolean;
+	quickExecuting: string | null;
+	quickResult: { id: string; data: QuickResult } | null;
+	quickError: { id: string; error: string } | null;
+	showNewModal: boolean;
+	clearConfirm: boolean;
 };
 
 const initial: State = {
@@ -367,6 +550,13 @@ const initial: State = {
 	jiraStatus: "idle",
 	jiraResult: null,
 	jiraError: "",
+	history: [],
+	historyLoading: true,
+	quickExecuting: null,
+	quickResult: null,
+	quickError: null,
+	showNewModal: false,
+	clearConfirm: false,
 };
 
 // ── Actions ──
@@ -404,7 +594,16 @@ type Action =
 			result: { key: string; exists: boolean; versionName: string };
 	  }
 	| { type: "JIRA_ERROR"; error: string }
-	| { type: "JIRA_RESET" };
+	| { type: "JIRA_RESET" }
+	// History actions
+	| { type: "SET_HISTORY"; history: ReleaseHistoryEntry[] }
+	| { type: "QUICK_EXEC_START"; id: string }
+	| { type: "QUICK_EXEC_SUCCESS"; id: string; result: QuickResult }
+	| { type: "QUICK_EXEC_FAIL"; id: string; error: string }
+	| { type: "SHOW_NEW_MODAL" }
+	| { type: "HIDE_NEW_MODAL" }
+	| { type: "CLEAR_CONFIRM_TOGGLE" }
+	| { type: "CLEAR_HISTORY_DONE" };
 
 const reducer = (state: State, action: Action): State => {
 	switch (action.type) {
@@ -555,6 +754,36 @@ const reducer = (state: State, action: Action): State => {
 			return { ...state, jiraStatus: "error", jiraError: action.error };
 		case "JIRA_RESET":
 			return { ...state, jiraStatus: "idle", jiraResult: null, jiraError: "" };
+		// History actions
+		case "SET_HISTORY":
+			return { ...state, history: action.history, historyLoading: false };
+		case "QUICK_EXEC_START":
+			return {
+				...state,
+				quickExecuting: action.id,
+				quickResult: null,
+				quickError: null,
+			};
+		case "QUICK_EXEC_SUCCESS":
+			return {
+				...state,
+				quickExecuting: null,
+				quickResult: { id: action.id, data: action.result },
+			};
+		case "QUICK_EXEC_FAIL":
+			return {
+				...state,
+				quickExecuting: null,
+				quickError: { id: action.id, error: action.error },
+			};
+		case "SHOW_NEW_MODAL":
+			return { ...state, showNewModal: true };
+		case "HIDE_NEW_MODAL":
+			return { ...state, showNewModal: false };
+		case "CLEAR_CONFIRM_TOGGLE":
+			return { ...state, clearConfirm: !state.clearConfirm };
+		case "CLEAR_HISTORY_DONE":
+			return { ...state, history: [], clearConfirm: false };
 	}
 };
 
@@ -601,10 +830,146 @@ const pipelineStepClass = (done: boolean, active: boolean) =>
 const pipelineLineClass = (done: boolean) =>
 	done ? "pipeline-line done" : "pipeline-line";
 
-// ── Component ──
+// ── History List Component ──
 
-const ReleaseClient: FC = () => {
-	const [s, d] = useReducer(reducer, initial);
+const HistoryList: FC<{ s: State; d: (action: Action) => void }> = ({
+	s,
+	d,
+}) => {
+	const handleQuickExecute = async (id: string) => {
+		d({ type: "QUICK_EXEC_START", id });
+		try {
+			const res = await fetch(`/release/api/history/${id}/execute`, {
+				method: "POST",
+			});
+			const data = await res.json();
+			if (data.error) {
+				d({ type: "QUICK_EXEC_FAIL", id, error: data.error });
+			} else {
+				d({ type: "QUICK_EXEC_SUCCESS", id, result: data });
+				// Refresh history
+				const histRes = await fetch("/release/api/history");
+				const histData = await histRes.json();
+				d({ type: "SET_HISTORY", history: histData });
+			}
+		} catch (e) {
+			d({
+				type: "QUICK_EXEC_FAIL",
+				id,
+				error: e instanceof Error ? e.message : String(e),
+			});
+		}
+	};
+
+	const handleClearHistory = async () => {
+		await fetch("/release/api/history", { method: "DELETE" });
+		d({ type: "CLEAR_HISTORY_DONE" });
+	};
+
+	return (
+		<div class="history-section">
+			<div class="history-title">{t("web.historyTitle")}</div>
+			{s.history.length > 0 ? (
+				<div class="history-list">
+					{s.history.map((entry) => (
+						<div class="history-item">
+							<div class="history-info">
+								<span class="history-project">{entry.projectName}</span>
+								<span class="history-detail">
+									{entry.branch} / {entry.jiraProjectKey}
+								</span>
+							</div>
+							<div class="history-actions">
+								<button
+									class={`history-quick-btn${s.quickExecuting === entry.id ? " executing" : ""}`}
+									type="button"
+									disabled={s.quickExecuting !== null}
+									onClick={() => handleQuickExecute(entry.id)}
+								>
+									{s.quickExecuting === entry.id
+										? t("web.executing")
+										: t("web.quickExecute")}
+								</button>
+							</div>
+							{s.quickResult?.id === entry.id && (
+								<div class="history-result">
+									<a
+										class="history-result-key"
+										href={s.quickResult.data.issueUrl}
+										target="_blank"
+										rel="noreferrer"
+									>
+										{s.quickResult.data.issueKey}
+									</a>
+									<span style="font-size:12px;color:var(--text-3);margin-left:8px">
+										v{s.quickResult.data.version}
+									</span>
+									{s.quickResult.data.versionCreated && (
+										<span style="font-size:10px;color:var(--neon);margin-left:4px">
+											{t("web.createdBadge")}
+										</span>
+									)}
+								</div>
+							)}
+							{s.quickError?.id === entry.id && (
+								<div class="history-result-error">{s.quickError.error}</div>
+							)}
+						</div>
+					))}
+				</div>
+			) : (
+				<div class="empty-hint">{t("web.noHistory")}</div>
+			)}
+			<div class="history-footer">
+				<button
+					class="history-new-btn"
+					type="button"
+					onClick={() => d({ type: "SHOW_NEW_MODAL" })}
+				>
+					{t("web.createNew")}
+				</button>
+				{s.history.length > 0 &&
+					(s.clearConfirm ? (
+						<div style="display:flex;align-items:center;gap:8px">
+							<span style="font-size:12px;color:var(--text-3)">
+								{t("web.clearConfirm")}
+							</span>
+							<button
+								class="history-clear-btn"
+								type="button"
+								style="border-color:var(--error);color:var(--error)"
+								onClick={handleClearHistory}
+							>
+								{t("web.clearHistory")}
+							</button>
+							<button
+								class="history-clear-btn"
+								type="button"
+								onClick={() => d({ type: "CLEAR_CONFIRM_TOGGLE" })}
+							>
+								Cancel
+							</button>
+						</div>
+					) : (
+						<button
+							class="history-clear-btn"
+							type="button"
+							onClick={() => d({ type: "CLEAR_CONFIRM_TOGGLE" })}
+						>
+							{t("web.clearHistory")}
+						</button>
+					))}
+			</div>
+		</div>
+	);
+};
+
+// ── Release Flow Component (existing logic) ──
+
+const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
+	s,
+	d,
+}) => {
 	const projectSearchRef = useRef<HTMLInputElement>(null);
 	const branchSearchRef = useRef<HTMLInputElement>(null);
 	const jiraSearchRef = useRef<HTMLInputElement>(null);
@@ -631,8 +996,8 @@ const ReleaseClient: FC = () => {
 	useEffect(() => {
 		if (!s.projectOpen && !s.branchOpen && !s.jiraProjectOpen) return;
 		const handler = (e: Event) => {
-			const t = e.target as HTMLElement;
-			if (!t.closest(".sel")) {
+			const target = e.target as HTMLElement;
+			if (!target.closest(".sel")) {
 				d({ type: "SET_PROJECT_OPEN", open: false });
 				d({ type: "SET_BRANCH_OPEN", open: false });
 				d({ type: "SET_JIRA_PROJECT_OPEN", open: false });
@@ -723,6 +1088,20 @@ const ReleaseClient: FC = () => {
 					type: "JIRA_DONE",
 					result: { key: searchData.issues[0].key, exists: true, versionName },
 				});
+				// Save to history
+				await fetch("/release/api/history", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						id: Date.now().toString(36),
+						createdAt: new Date().toISOString(),
+						projectId: s.selected.id,
+						projectName: s.selected.name,
+						projectPath: s.selected.pathWithNamespace ?? "",
+						branch: s.selectedBranch,
+						jiraProjectKey: s.selectedJiraProject.key,
+					}),
+				});
 				return;
 			}
 
@@ -765,6 +1144,20 @@ const ReleaseClient: FC = () => {
 					exists: false,
 					versionName: verData.name,
 				},
+			});
+			// Save to history
+			await fetch("/release/api/history", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					id: Date.now().toString(36),
+					createdAt: new Date().toISOString(),
+					projectId: s.selected.id,
+					projectName: s.selected.name,
+					projectPath: s.selected.pathWithNamespace ?? "",
+					branch: s.selectedBranch,
+					jiraProjectKey: s.selectedJiraProject.key,
+				}),
 			});
 		} catch (e) {
 			d({
@@ -809,30 +1202,15 @@ const ReleaseClient: FC = () => {
 
 	if (s.projectsLoading)
 		return (
-			<div>
-				<style>{releaseStyle}</style>
-				<div class="loading-row">
-					<span class="spinner" />
-					{t("web.loadingProjects")}
-				</div>
+			<div class="loading-row">
+				<span class="spinner" />
+				{t("web.loadingProjects")}
 			</div>
 		);
-	if (s.projectsError)
-		return (
-			<div>
-				<style>{releaseStyle}</style>
-				<div class="state-error">{s.projectsError}</div>
-			</div>
-		);
+	if (s.projectsError) return <div class="state-error">{s.projectsError}</div>;
 
 	return (
 		<div>
-			<style>{releaseStyle}</style>
-			<div class="page-header">
-				<h2>{t("web.releaseTitle")}</h2>
-				<p>{t("web.releaseDesc")}</p>
-			</div>
-
 			{/* ── Pipeline ── */}
 			<div class="pipeline">
 				<div class={pipelineStepClass(step1Done, step1Active)}>
@@ -923,8 +1301,7 @@ const ReleaseClient: FC = () => {
 						</div>
 						{fp.length > 0 ? (
 							fp.map((p, i) => (
-								<button
-									type="button"
+								<div
 									class={`sel-item${s.selected?.id === (p as Project).id ? " active" : ""}${i === s.projectIndex ? " highlighted" : ""}`}
 									onMouseEnter={() =>
 										d({ type: "SET_PROJECT_INDEX", index: i })
@@ -935,7 +1312,7 @@ const ReleaseClient: FC = () => {
 									<div class="sel-item-sub">
 										{(p as Project).pathWithNamespace}
 									</div>
-								</button>
+								</div>
 							))
 						) : (
 							<div class="sel-empty">{t("web.noProjects")}</div>
@@ -1016,8 +1393,7 @@ const ReleaseClient: FC = () => {
 									</div>
 									{fb.length > 0 ? (
 										fb.map((b, i) => (
-											<button
-												type="button"
+											<div
 												class={`sel-item${(b as Branch).name === s.selectedBranch ? " active" : ""}${i === s.branchIndex ? " highlighted" : ""}`}
 												onMouseEnter={() =>
 													d({ type: "SET_BRANCH_INDEX", index: i })
@@ -1030,7 +1406,7 @@ const ReleaseClient: FC = () => {
 														{t("web.defaultBranch")}
 													</span>
 												)}
-											</button>
+											</div>
 										))
 									) : (
 										<div class="sel-empty">{t("web.noBranches")}</div>
@@ -1149,8 +1525,7 @@ const ReleaseClient: FC = () => {
 									</div>
 									{fj.length > 0 ? (
 										fj.map((p, i) => (
-											<button
-												type="button"
+											<div
 												class={`sel-item${s.selectedJiraProject?.key === (p as JiraProject).key ? " active" : ""}${i === s.jiraProjectIndex ? " highlighted" : ""}`}
 												onMouseEnter={() =>
 													d({ type: "SET_JIRA_PROJECT_INDEX", index: i })
@@ -1170,7 +1545,7 @@ const ReleaseClient: FC = () => {
 														{(p as JiraProject).name}
 													</div>
 												)}
-											</button>
+											</div>
 										))
 									) : (
 										<div class="sel-empty">{t("web.noJiraProjects")}</div>
@@ -1243,6 +1618,64 @@ const ReleaseClient: FC = () => {
 			)}
 
 			{!s.selected && <div class="empty-hint">{t("web.emptyHint")}</div>}
+		</div>
+	);
+};
+
+// ── Main Component ──
+
+const ReleaseClient: FC = () => {
+	const [s, d] = useReducer(reducer, initial);
+
+	useEffect(() => {
+		fetch("/release/api/history")
+			.then((r) => r.json())
+			.then((data) =>
+				d({ type: "SET_HISTORY", history: Array.isArray(data) ? data : [] }),
+			)
+			.catch(() => d({ type: "SET_HISTORY", history: [] }));
+	}, []);
+
+	return (
+		<div>
+			<style>{releaseStyle}</style>
+			<div class="page-header">
+				<h2>{t("web.releaseTitle")}</h2>
+				<p>{t("web.releaseDesc")}</p>
+			</div>
+
+			{s.historyLoading ? (
+				<div class="loading-row">
+					<span class="spinner" />
+					{t("web.loading")}
+				</div>
+			) : s.showNewModal ? (
+				<div
+					class="modal-overlay"
+					onClick={(e: Event) => {
+						if ((e.target as HTMLElement).classList.contains("modal-overlay"))
+							d({ type: "HIDE_NEW_MODAL" });
+					}}
+				>
+					<div class="modal-content">
+						<div class="modal-header">
+							<span class="modal-title">{t("web.newModalTitle")}</span>
+							<button
+								class="modal-close"
+								type="button"
+								onClick={() => d({ type: "HIDE_NEW_MODAL" })}
+							>
+								✕
+							</button>
+						</div>
+						<ReleaseFlow s={s} d={d} />
+					</div>
+				</div>
+			) : s.history.length > 0 ? (
+				<HistoryList s={s} d={d} />
+			) : (
+				<ReleaseFlow s={s} d={d} />
+			)}
 		</div>
 	);
 };

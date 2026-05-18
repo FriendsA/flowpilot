@@ -3,7 +3,23 @@ import { ConfigJson } from "../../config";
 import { GitlabController } from "../../gitlab-controller";
 import { t } from "../../i18n/web";
 import { JiraController } from "../../jira-controller";
+import { Store } from "../../store";
 import type { Config } from "../../types";
+import { cleanVersion, parsePomXml } from "../../utils/pom";
+
+type ReleaseHistoryEntry = {
+	id: string;
+	createdAt: string;
+	projectId: number;
+	projectName: string;
+	projectPath: string;
+	branch: string;
+	jiraProjectKey: string;
+};
+
+const releaseStore = new Store<ReleaseHistoryEntry>("release-history.json");
+const dedupKey = (e: ReleaseHistoryEntry) =>
+	`${e.projectId}:${e.branch}:${e.jiraProjectKey}`;
 
 const REQUIRED_KEYS: (keyof Config)[] = [
 	"jiraHost",
@@ -32,6 +48,133 @@ router.get("/api/config", async (c) => {
 		jiraHost: config.jiraHost ?? "",
 		gitlabHost: config.gitlabHost ?? "",
 	});
+});
+
+router.get("/api/history", (c) => {
+	return c.json(releaseStore.getAll());
+});
+
+router.post("/api/history", async (c) => {
+	const entry = await c.req.json<ReleaseHistoryEntry>();
+	entry.id = entry.id || Date.now().toString(36);
+	entry.createdAt = entry.createdAt || new Date().toISOString();
+	releaseStore.add(entry, dedupKey);
+	return c.json({ ok: true });
+});
+
+router.delete("/api/history", (c) => {
+	releaseStore.clear();
+	return c.json({ ok: true });
+});
+
+router.post("/api/history/:id/execute", async (c) => {
+	const id = c.req.param("id");
+	const history = releaseStore.getAll();
+	const entry = history.find((h) => h.id === id);
+	if (!entry) {
+		return c.json({ error: "History entry not found" }, 404);
+	}
+
+	const git = new GitlabController();
+	const jira = new JiraController();
+	const config = new ConfigJson().getConfig();
+
+	// Fetch live pom.xml
+	let pomInfo: {
+		version: string | null;
+		groupId: string | null;
+		artifactId: string | null;
+	};
+	try {
+		const file = await git.getFile(entry.projectId, "pom.xml", entry.branch);
+		const raw = Buffer.from(
+			(file.content as string).replace(/\n/g, ""),
+			"base64",
+		).toString("utf-8");
+		pomInfo = parsePomXml(raw);
+	} catch {
+		return c.json({ error: "Failed to fetch pom.xml" }, 500);
+	}
+
+	const displayVersion = cleanVersion(pomInfo.version ?? "");
+	const artifactId = pomInfo.artifactId ?? entry.projectName;
+	const versionName = `${artifactId}-${displayVersion}`;
+	const summary = `${artifactId}-${displayVersion} release request`;
+
+	// Check existing issue
+	try {
+		const searchResult = await jira.search(
+			`summary ~ "${summary}" AND project = ${entry.jiraProjectKey}`,
+			1,
+		);
+		if (searchResult.total > 0 && searchResult.issues?.[0]) {
+			const existingKey = searchResult.issues[0].key;
+			const jiraUrl = config.jiraHost
+				? `${config.jiraHost}/browse/${existingKey}`
+				: "";
+			releaseStore.add(
+				{ ...entry, createdAt: new Date().toISOString() },
+				dedupKey,
+			);
+			return c.json({
+				issueKey: existingKey,
+				issueUrl: jiraUrl,
+				version: displayVersion,
+				versionCreated: false,
+			});
+		}
+	} catch {
+		/* continue to create */
+	}
+
+	// Ensure version
+	let versionId: string;
+	let versionCreated = false;
+	try {
+		const versions = await jira.getProjectVersions(entry.jiraProjectKey);
+		const existing = versions.find((v) => v.name === versionName);
+		if (existing) {
+			versionId = existing.id;
+		} else {
+			const created = await jira.createVersion(
+				entry.jiraProjectKey,
+				versionName,
+			);
+			versionId = created.id;
+			versionCreated = true;
+		}
+	} catch {
+		return c.json({ error: "Failed to ensure version" }, 500);
+	}
+
+	// Create issue
+	try {
+		const issue = await jira.createIssue({
+			project: { key: entry.jiraProjectKey },
+			summary,
+			issuetype: { id: "10000" },
+			customfield_15800: "无",
+			customfield_13410: [{ id: versionId }],
+			customfield_13341: [{ name: "licheng.li" }],
+		});
+		const jiraUrl = config.jiraHost
+			? `${config.jiraHost}/browse/${issue.key}`
+			: "";
+
+		releaseStore.add(
+			{ ...entry, createdAt: new Date().toISOString() },
+			dedupKey,
+		);
+		return c.json({
+			issueKey: issue.key,
+			issueUrl: jiraUrl,
+			version: displayVersion,
+			versionCreated,
+		});
+	} catch (e: unknown) {
+		const message = e instanceof Error ? e.message : String(e);
+		return c.json({ error: message }, 500);
+	}
 });
 
 router.get("/api/projects", async (c) => {
@@ -80,7 +223,8 @@ router.get("/api/projects/:id/pom-version", async (c) => {
 			artifactId: pick(stripped, "artifactId") ?? pick(raw, "artifactId"),
 		});
 	} catch (e: unknown) {
-		const message = e instanceof Error ? e.message : String(e);
+		const message =
+			e instanceof Error ? (e.message ? e.message : String(e)) : String(e);
 		return c.json({ error: message }, 500);
 	}
 });

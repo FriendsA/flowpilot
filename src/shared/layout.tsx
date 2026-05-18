@@ -63,7 +63,7 @@ export const Layout: FC<LayoutProps> = ({
 					{t("web.skipToContent") ?? "Skip to content"}
 				</a>
 
-				<header class="header">
+				<header class="header" role="banner">
 					<div class="header-brand">
 						<div
 							class="brand-icon"
@@ -79,7 +79,7 @@ export const Layout: FC<LayoutProps> = ({
 								<a
 									href={m.href}
 									class={`nav-item${isCurrent ? " active" : ""}`}
-									{...(isCurrent ? { "aria-current": "page" as const } : {})}
+									{...(isCurrent ? { "aria-current": "page" as any } : {})}
 								>
 									{t(m.titleKey)}
 								</a>
@@ -94,7 +94,7 @@ export const Layout: FC<LayoutProps> = ({
 					/>
 				</header>
 
-				<main class="main" id="main-content">
+				<main class="main" id="main-content" role="main">
 					<div class="content" tabindex="-1">
 						{children}
 					</div>

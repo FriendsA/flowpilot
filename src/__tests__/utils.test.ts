@@ -6,6 +6,9 @@ import { filterByRelevance } from "../utils/search";
 // ---------------------------------------------------------------------------
 // utils/config.ts – validateConfigOrWarn
 // ---------------------------------------------------------------------------
+const { mockConsoleError } = vi.hoisted(() => ({
+	mockConsoleError: vi.fn(),
+}));
 
 vi.mock("../config", () => ({
 	ConfigJson: class {

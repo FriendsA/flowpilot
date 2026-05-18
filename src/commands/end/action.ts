@@ -121,7 +121,7 @@ export const endAction = async (options: EndActionProps) => {
 
 	stopSpinner(
 		s,
-		`${pc.green("✔")} ${t("end.rebaseSuccess")}: ${pc.cyan(targetBranch)}`,
+		pc.green("✔") + ` ${t("end.rebaseSuccess")}: ${pc.cyan(targetBranch)}`,
 	);
 
 	// ── Step 3: Push current branch ──
@@ -131,7 +131,7 @@ export const endAction = async (options: EndActionProps) => {
 		gitPush("origin", currentBranch);
 		stopSpinner(
 			s,
-			`${pc.green("✔")} ${t("end.pushSuccess")}: ${pc.cyan(currentBranch)}`,
+			pc.green("✔") + ` ${t("end.pushSuccess")}: ${pc.cyan(currentBranch)}`,
 		);
 	} catch (e: unknown) {
 		const msg = e instanceof Error ? e.message : String(e);
@@ -147,7 +147,7 @@ export const endAction = async (options: EndActionProps) => {
 	const ticketKeys = extractTicketKeys(messages);
 
 	if (ticketKeys.length === 0) {
-		stopSpinner(s, `${pc.yellow("⚠")} ${t("end.noTickets")}`);
+		stopSpinner(s, pc.yellow("⚠") + ` ${t("end.noTickets")}`);
 	} else {
 		stopSpinner(
 			s,
@@ -204,7 +204,7 @@ export const endAction = async (options: EndActionProps) => {
 				);
 
 				mrUrl = mr.web_url as string;
-				stopSpinner(s, `${pc.green("✔")} ${t("end.mrCreated")}`);
+				stopSpinner(s, pc.green("✔") + ` ${t("end.mrCreated")}`);
 
 				if (mrUrl) {
 					await clipboardy.write(mrUrl);
@@ -260,7 +260,7 @@ export const endAction = async (options: EndActionProps) => {
 						tr.name.toLowerCase().includes("done"),
 				);
 
-				let selectedTransition: { id: string; name: string } | undefined;
+				let selectedTransition;
 				if (doneTransition) {
 					selectedTransition = doneTransition;
 				} else {
@@ -276,7 +276,7 @@ export const endAction = async (options: EndActionProps) => {
 					await jira.transitionIssue(key, selectedTransition.id);
 					stopSpinner(
 						s,
-						`${pc.green("✔")} ${key} → ${pc.bold(selectedTransition.name)}`,
+						pc.green("✔") + ` ${key} → ${pc.bold(selectedTransition.name)}`,
 					);
 				}
 			} catch (e: unknown) {

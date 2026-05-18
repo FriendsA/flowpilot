@@ -9,11 +9,7 @@
 		"serveStarted": "Service started",
 		"serveStopped": "Service stopped",
 		"noRunningService": "No running service found",
-		"serveRestarted": "Service restarted",
-		"updateDesc": "Update to latest version",
-		"updating": "Updating...",
-		"updateSuccess": "Updated and service restarted",
-		"updateFailed": "Update failed"
+		"serveRestarted": "Service restarted"
 	},
 	"config": {
 		"title": "FlowPilot Configuration",
@@ -65,7 +61,10 @@
 		"creatingIssue": "Creating release issue...",
 		"issueCreated": "Release issue created",
 		"versionAlsoCreated": "Version was also created.",
-		"createIssueFailed": "Failed to create issue"
+		"createIssueFailed": "Failed to create issue",
+		"selectHistoryOrNew": "Select history for quick execute, or create new",
+		"historyNew": "Create new...",
+		"historyQuickExecute": "Quick execute"
 	},
 	"web": {
 		"flowpilot": "FlowPilot",
@@ -123,6 +122,19 @@
 		"emptyHint": "Select a project above to view its POM release version",
 		"releaseSuffix": "release request",
 		"generalCategory": "FlowPilot",
+		"historyTitle": "History",
+		"quickExecute": "Quick Execute",
+		"createNew": "Create New",
+		"clearHistory": "Clear History",
+		"clearConfirm": "Clear all history?",
+		"noHistory": "No history. Click create to start.",
+		"executing": "Executing...",
+		"executeSuccess": "Execution successful",
+		"executeFailed": "Execution failed",
+		"selectHistoryOrNew": "Select history for quick execute, or create new",
+		"historyEntry": "History entry",
+		"newModalTitle": "Create Release Request",
+		"clearSuccess": "History cleared",
 		"endTitle": "End",
 		"endDesc": "End current task: rebase, push, create MR, update Jira."
 	},

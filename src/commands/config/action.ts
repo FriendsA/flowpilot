@@ -64,5 +64,5 @@ export const configAction = async (options: ConfigActionProps) => {
 	if (clack.isCancel(group)) return;
 
 	configJson.setConfig(group);
-	clack.outro(`${pc.green("✔")} ${t("config.saved")}`);
+	clack.outro(pc.green("✔") + ` ${t("config.saved")}`);
 };
