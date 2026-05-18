@@ -24,7 +24,9 @@ export class ConfigJson {
 		try {
 			const oldConfig = JSON.parse(fs.readFileSync(OLD_CONFIG_PATH, "utf-8"));
 			fs.writeFileSync(CONFIG_PATH, JSON.stringify(oldConfig, null, 2));
-			fs.unlinkSync(OLD_CONFIG_PATH);
+			// Keep old file as backup instead of deleting immediately
+			const backupPath = `${OLD_CONFIG_PATH}.bak`;
+			fs.renameSync(OLD_CONFIG_PATH, backupPath);
 		} catch {
 			// migration failed — just proceed with empty config
 		}

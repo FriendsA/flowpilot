@@ -138,7 +138,7 @@ function migrateOldPid() {
 	try {
 		const oldPid = Number(fs.readFileSync(OLD_PID_FILE, "utf-8").trim());
 		fs.writeFileSync(PID_FILE, JSON.stringify({ pid: oldPid }));
-		fs.unlinkSync(OLD_PID_FILE);
+		fs.renameSync(OLD_PID_FILE, `${OLD_PID_FILE}.bak`);
 	} catch {
 		// migration failed — proceed without old pid
 	}
@@ -196,7 +196,7 @@ export const stopServer = (): boolean => {
 	}
 
 	try {
-		fs.unlinkSync(OLD_PID_FILE);
+		fs.renameSync(OLD_PID_FILE, `${OLD_PID_FILE}.bak`);
 	} catch {
 		/* ok */
 	}
