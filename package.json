@@ -14,7 +14,7 @@
   },
   "module": "./dist/server.js",
   "types": "./dist/server.d.ts",
-  "description": "CLI + Web Dashboard bridging Jira & GitLab for release workflow automation",
+  "description": "Jira & GitLab workflow automation — config, release, end and more",
   "bin": {
     "flowpilot": "./dist/cli.js"
   },
@@ -35,7 +35,7 @@
     "favicon",
     "README.md"
   ],
-  "keywords": [],
+  "keywords": ["jira", "gitlab", "cli", "release", "merge-request", "workflow", "devops"],
   "author": "Corazon",
   "license": "ISC",
   "dependencies": {
