@@ -24,9 +24,9 @@
     "dev": "rolldown -c rolldown.config.ts --watch",
     "format": "biome format --write",
     "test": "vitest",
-    "release:major": "vitest run && pnpm build && npm version major && npm publish",
-    "release:minor": "vitest run && pnpm build && npm version minor && npm publish",
-    "release:patch": "vitest run && pnpm build && npm version patch && npm publish",
+    "release:major": "vitest run && pnpm build && npm version major && npm publish --registry https://registry.npmjs.org/",
+    "release:minor": "vitest run && pnpm build && npm version minor && npm publish --registry https://registry.npmjs.org/",
+    "release:patch": "vitest run && pnpm build && npm version patch && npm publish --registry https://registry.npmjs.org/",
     "postinstall": "node dist/cli.js serve",
     "prepublishOnly": "pnpm build"
   },
