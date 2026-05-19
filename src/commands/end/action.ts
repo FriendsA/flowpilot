@@ -9,14 +9,14 @@ import { validateConfigOrWarn } from "../../utils/config";
 import {
 	extractProjectPath,
 	extractTicketKeys,
-	getCommitMessagesSince,
+	getCommitMessagesSinceAsync,
 	getCurrentBranch,
 	getGitRemoteUrl,
 	getLocalBranches,
 	getReflogSourceBranch,
-	gitFetch,
-	gitPush,
-	gitRebase,
+	gitFetchAsync,
+	gitPushAsync,
+	gitRebaseAsync,
 	hasGitRemoteOrigin,
 	isGitRepo,
 } from "../../utils/git";
@@ -39,7 +39,7 @@ function stopSpinner(s: ReturnType<typeof clack.spinner>, msg: string) {
 
 export const endAction = async (options: EndActionProps) => {
 	if (options.open) {
-		openPage("/end");
+		openPage(`/end?cwd=${encodeURIComponent(process.cwd())}`);
 		return;
 	}
 
@@ -103,7 +103,7 @@ export const endAction = async (options: EndActionProps) => {
 	s.start(`${t("end.rebasing")} ${pc.cyan(targetBranch)}...`);
 
 	try {
-		gitFetch("origin", targetBranch);
+		await gitFetchAsync("origin", targetBranch);
 	} catch (e: unknown) {
 		const msg = e instanceof Error ? e.message : String(e);
 		stopSpinner(s, pc.red(t("end.fetchFailed")));
@@ -111,7 +111,7 @@ export const endAction = async (options: EndActionProps) => {
 		return;
 	}
 
-	const rebaseOk = gitRebase(`origin/${targetBranch}`);
+	const rebaseOk = await gitRebaseAsync(`origin/${targetBranch}`);
 
 	if (!rebaseOk) {
 		stopSpinner(s, pc.yellow(t("end.conflicts")));
@@ -128,7 +128,7 @@ export const endAction = async (options: EndActionProps) => {
 
 	s.start(t("end.pushing"));
 	try {
-		gitPush("origin", currentBranch);
+		await gitPushAsync("origin", currentBranch);
 		stopSpinner(
 			s,
 			pc.green("✔") + ` ${t("end.pushSuccess")}: ${pc.cyan(currentBranch)}`,
@@ -143,7 +143,7 @@ export const endAction = async (options: EndActionProps) => {
 	// ── Step 4: Extract Jira ticket keys from commits ──
 
 	s.start(t("end.analyzingCommits"));
-	const messages = getCommitMessagesSince(`origin/${targetBranch}`);
+	const messages = await getCommitMessagesSinceAsync(`origin/${targetBranch}`);
 	const ticketKeys = extractTicketKeys(messages);
 
 	if (ticketKeys.length === 0) {
@@ -209,7 +209,7 @@ export const endAction = async (options: EndActionProps) => {
 				if (mrUrl) {
 					await clipboardy.write(mrUrl);
 					clack.log.success(
-						`${pc.blue(mrUrl)} ${pc.dim("(copied to clipboard)")}`,
+						`${pc.blue(mrUrl)} ${pc.dim(t("end.copied"))}`,
 					);
 				}
 			} catch (e: unknown) {

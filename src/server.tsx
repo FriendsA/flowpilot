@@ -77,7 +77,10 @@ app.get("/client/*", async (c) => {
 	try {
 		const content = fs.readFileSync(filePath);
 		return new Response(content, {
-			headers: { "Content-Type": "application/javascript" },
+			headers: {
+				"Content-Type": "application/javascript",
+				"Cache-Control": "no-store",
+			},
 		});
 	} catch {
 		return c.notFound();

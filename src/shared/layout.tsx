@@ -51,7 +51,7 @@ export const Layout: FC<LayoutProps> = ({
 				/>
 				<link rel="manifest" href="/public/site.webmanifest" />
 				<style>{globalStyle}</style>
-				<script type="module" src="/client/client.js" defer />
+				<script type="module" src={`/client/client.js?v=${Date.now()}`} defer />
 				<script
 					dangerouslySetInnerHTML={{
 						__html: `window.__I18N_LOCALE__='${locale}';window.__I18N_RESOURCES__=${JSON.stringify({ [locale]: localeResources })}`,

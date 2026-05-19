@@ -2,18 +2,17 @@ import { type FC, useEffect, useState } from "hono/jsx";
 import { render } from "hono/jsx/dom";
 import i18next from "i18next";
 
-if (
+const initPromise =
 	typeof window !== "undefined" &&
 	window.__I18N_LOCALE__ &&
 	window.__I18N_RESOURCES__
-) {
-	i18next.init({
-		lng: window.__I18N_LOCALE__,
-		fallbackLng: "zh-CN",
-		resources: window.__I18N_RESOURCES__,
-		interpolation: { escapeValue: false },
-	});
-}
+		? i18next.init({
+				lng: window.__I18N_LOCALE__,
+				fallbackLng: "zh-CN",
+				resources: window.__I18N_RESOURCES__,
+				interpolation: { escapeValue: false },
+			})
+		: Promise.resolve();
 const t = i18next.t;
 
 declare global {
@@ -373,6 +372,7 @@ const ConfigClient: FC = () => {
 	);
 };
 
-export const mount = (el: HTMLElement) => {
+export const mount = async (el: HTMLElement) => {
+	await initPromise;
 	render(<ConfigClient />, el);
 };

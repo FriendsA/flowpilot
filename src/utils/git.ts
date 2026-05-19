@@ -1,26 +1,59 @@
-import { execSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 
-export function isGitRepo(): boolean {
+type GitOpts = { cwd?: string | undefined };
+
+const resolveCwd = (opts?: GitOpts): string | undefined =>
+	opts?.cwd || undefined;
+
+const execGitFile = (
+	args: string[],
+	opts?: GitOpts,
+): Promise<{ stdout: string; stderr: string }> =>
+	new Promise((resolve, reject) => {
+		execFile(
+			"git",
+			args,
+			{ encoding: "utf-8", cwd: resolveCwd(opts), maxBuffer: 10 * 1024 * 1024 },
+			(error, stdout, stderr) => {
+				if (error) {
+					reject(error);
+					return;
+				}
+				resolve({ stdout, stderr });
+			},
+		);
+	});
+
+export function isGitRepo(opts?: GitOpts): boolean {
 	try {
-		execSync("git rev-parse --is-inside-work-tree", { stdio: "pipe" });
+		execFileSync("git", ["rev-parse", "--is-inside-work-tree"], {
+			stdio: "pipe",
+			cwd: resolveCwd(opts),
+		});
 		return true;
 	} catch {
 		return false;
 	}
 }
 
-export function hasGitRemoteOrigin(): boolean {
+export function hasGitRemoteOrigin(opts?: GitOpts): boolean {
 	try {
-		execSync("git remote get-url origin", { stdio: "pipe" });
+		execFileSync("git", ["remote", "get-url", "origin"], {
+			stdio: "pipe",
+			cwd: resolveCwd(opts),
+		});
 		return true;
 	} catch {
 		return false;
 	}
 }
 
-export function getGitRemoteUrl(): string {
+export function getGitRemoteUrl(opts?: GitOpts): string {
 	try {
-		return execSync("git remote get-url origin", { encoding: "utf-8" }).trim();
+		return execFileSync("git", ["remote", "get-url", "origin"], {
+			encoding: "utf-8",
+			cwd: resolveCwd(opts),
+		}).trim();
 	} catch {
 		throw new Error("No git remote 'origin' found in this repository.");
 	}
@@ -40,15 +73,22 @@ export function extractProjectPath(remoteUrl: string): string {
 
 // ── End command utilities ──
 
-export function getCurrentBranch(): string {
-	return execSync("git branch --show-current", { encoding: "utf-8" }).trim();
+export function getCurrentBranch(opts?: GitOpts): string {
+	return execFileSync("git", ["branch", "--show-current"], {
+		encoding: "utf-8",
+		cwd: resolveCwd(opts),
+	}).trim();
 }
 
-export function getReflogSourceBranch(currentBranch: string): string | null {
+export function getReflogSourceBranch(
+	currentBranch: string,
+	opts?: GitOpts,
+): string | null {
 	try {
-		const reflog = execSync("git reflog --date=local", {
+		const reflog = execFileSync("git", ["reflog", "--date=local"], {
 			encoding: "utf-8",
 			maxBuffer: 10 * 1024 * 1024,
+			cwd: resolveCwd(opts),
 		});
 		const reg = new RegExp(
 			`checkout: moving from (.*) to ${currentBranch}`,
@@ -65,9 +105,12 @@ export function getReflogSourceBranch(currentBranch: string): string | null {
 	}
 }
 
-export function getLocalBranches(): string[] {
+export function getLocalBranches(opts?: GitOpts): string[] {
 	try {
-		const output = execSync("git branch --list", { encoding: "utf-8" });
+		const output = execFileSync("git", ["branch", "--list"], {
+			encoding: "utf-8",
+			cwd: resolveCwd(opts),
+		});
 		return output
 			.split("\n")
 			.map((l) => l.replace(/^\*?\s+/, "").trim())
@@ -77,18 +120,38 @@ export function getLocalBranches(): string[] {
 	}
 }
 
-export function gitFetch(remote: string, branch: string): void {
-	execSync(`git fetch ${remote} ${branch}`, { stdio: "pipe" });
+export function gitFetch(
+	remote: string,
+	branch: string,
+	opts?: GitOpts,
+): void {
+	execFileSync("git", ["fetch", remote, branch], {
+		stdio: "pipe",
+		cwd: resolveCwd(opts),
+	});
 }
 
-export function gitRebase(branch: string): boolean {
+export async function gitFetchAsync(
+	remote: string,
+	branch: string,
+	opts?: GitOpts,
+): Promise<void> {
+	await execGitFile(["fetch", remote, branch], opts);
+}
+
+export function gitRebase(branch: string, opts?: GitOpts): boolean {
 	try {
-		execSync(`git rebase ${branch}`, { stdio: "pipe" });
+		execFileSync("git", ["rebase", branch], {
+			stdio: "pipe",
+			cwd: resolveCwd(opts),
+		});
 		return true;
 	} catch {
-		// Check if there are conflicts
 		try {
-			const status = execSync("git status --porcelain", { encoding: "utf-8" });
+			const status = execFileSync("git", ["status", "--porcelain"], {
+				encoding: "utf-8",
+				cwd: resolveCwd(opts),
+			});
 			return !status
 				.split("\n")
 				.some(
@@ -100,16 +163,75 @@ export function gitRebase(branch: string): boolean {
 	}
 }
 
-export function gitPush(remote: string, branch: string): void {
-	execSync(`git push ${remote} ${branch}`, { stdio: "pipe" });
+export async function gitRebaseAsync(
+	branch: string,
+	opts?: GitOpts,
+): Promise<boolean> {
+	try {
+		await execGitFile(["rebase", branch], opts);
+		return true;
+	} catch {
+		try {
+			const { stdout } = await execGitFile(["status", "--porcelain"], opts);
+			return !stdout
+				.split("\n")
+				.some(
+					(l) => l.startsWith("UU") || l.startsWith("AA") || l.startsWith("DU"),
+				);
+		} catch {
+			return false;
+		}
+	}
 }
 
-export function getCommitMessagesSince(baseRef: string): string[] {
+export function gitPush(
+	remote: string,
+	branch: string,
+	opts?: GitOpts,
+): void {
+	execFileSync("git", ["push", remote, branch], {
+		stdio: "pipe",
+		cwd: resolveCwd(opts),
+	});
+}
+
+export async function gitPushAsync(
+	remote: string,
+	branch: string,
+	opts?: GitOpts,
+): Promise<void> {
+	await execGitFile(["push", remote, branch], opts);
+}
+
+export function getCommitMessagesSince(
+	baseRef: string,
+	opts?: GitOpts,
+): string[] {
 	try {
-		const output = execSync(`git log ${baseRef}..HEAD --pretty=format:%s`, {
-			encoding: "utf-8",
-		});
+		const output = execFileSync(
+			"git",
+			["log", `${baseRef}..HEAD`, "--pretty=format:%s"],
+			{
+				encoding: "utf-8",
+				cwd: resolveCwd(opts),
+			},
+		);
 		return output.split("\n").filter(Boolean);
+	} catch {
+		return [];
+	}
+}
+
+export async function getCommitMessagesSinceAsync(
+	baseRef: string,
+	opts?: GitOpts,
+): Promise<string[]> {
+	try {
+		const { stdout } = await execGitFile(
+			["log", `${baseRef}..HEAD`, "--pretty=format:%s"],
+			opts,
+		);
+		return stdout.split("\n").filter(Boolean);
 	} catch {
 		return [];
 	}

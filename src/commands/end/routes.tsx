@@ -20,6 +20,12 @@ import {
 	isGitRepo,
 } from "../../utils/git";
 
+// ── Session cwd ──
+// Stores the working directory for git operations.
+// Set by CLI via /api/set-cwd or by web page via query param.
+
+let sessionCwd: string | null = null;
+
 const REQUIRED_KEYS: (keyof Config)[] = [
 	"jiraHost",
 	"jiraName",
@@ -36,22 +42,49 @@ router.get("/", async (c) => {
 	if (missing.length > 0) {
 		return c.redirect("/config");
 	}
+	// Pass cwd from CLI via query param
+	const cwdFromQuery = c.req.query("cwd");
+	if (cwdFromQuery) {
+		sessionCwd = cwdFromQuery;
+	}
 	return c.render(<div id="app">{t("web.loading")}</div>, {
 		title: t("web.endTitle"),
 	});
 });
 
+// ── Set cwd ──
+
+router.post("/api/set-cwd", async (c) => {
+	const { cwd } = await c.req.json<{ cwd: string }>();
+	if (!cwd) {
+		return c.json({ error: "cwd is required" }, 400);
+	}
+	// Validate it's a git repo
+	if (!isGitRepo({ cwd })) {
+		return c.json({ error: t("end.notGitRepo") }, 400);
+	}
+	sessionCwd = cwd;
+	return c.json({ success: true, cwd });
+});
+
+// ── Get cwd ──
+
+router.get("/api/cwd", (c) => {
+	return c.json({ cwd: sessionCwd });
+});
+
 // ── Git status ──
 
 router.get("/api/git/status", (c) => {
-	if (!isGitRepo()) {
+	const cwd = c.req.query("cwd") || sessionCwd || undefined;
+	if (!isGitRepo({ cwd })) {
 		return c.json({ error: t("end.notGitRepo") }, 400);
 	}
 	try {
-		const currentBranch = getCurrentBranch();
-		const localBranches = getLocalBranches();
-		const detectedSource = getReflogSourceBranch(currentBranch);
-		return c.json({ currentBranch, localBranches, detectedSource });
+		const currentBranch = getCurrentBranch({ cwd });
+		const localBranches = getLocalBranches({ cwd });
+		const detectedSource = getReflogSourceBranch(currentBranch, { cwd });
+		return c.json({ currentBranch, localBranches, detectedSource, cwd });
 	} catch (e: unknown) {
 		return c.json({ error: translateApiError(e) }, 500);
 	}
@@ -60,13 +93,17 @@ router.get("/api/git/status", (c) => {
 // ── Rebase ──
 
 router.post("/api/rebase", async (c) => {
-	const { targetBranch } = await c.req.json<{ targetBranch: string }>();
+	const { targetBranch, cwd } = await c.req.json<{
+		targetBranch: string;
+		cwd?: string;
+	}>();
+	const workDir = cwd || sessionCwd || undefined;
 	if (!targetBranch) {
 		return c.json({ error: "targetBranch is required" }, 400);
 	}
 	try {
-		gitFetch("origin", targetBranch);
-		const ok = gitRebase(`origin/${targetBranch}`);
+		gitFetch("origin", targetBranch, { cwd: workDir });
+		const ok = gitRebase(`origin/${targetBranch}`, { cwd: workDir });
 		if (!ok) {
 			return c.json({ success: false, conflict: true });
 		}
@@ -79,12 +116,16 @@ router.post("/api/rebase", async (c) => {
 // ── Push ──
 
 router.post("/api/push", async (c) => {
-	const { branch } = await c.req.json<{ branch: string }>();
+	const { branch, cwd } = await c.req.json<{
+		branch: string;
+		cwd?: string;
+	}>();
+	const workDir = cwd || sessionCwd || undefined;
 	if (!branch) {
 		return c.json({ error: "branch is required" }, 400);
 	}
 	try {
-		gitPush("origin", branch);
+		gitPush("origin", branch, { cwd: workDir });
 		return c.json({ success: true });
 	} catch (e: unknown) {
 		return c.json({ error: translateApiError(e) }, 500);
@@ -95,11 +136,12 @@ router.post("/api/push", async (c) => {
 
 router.get("/api/commits", (c) => {
 	const baseRef = c.req.query("base");
+	const cwd = c.req.query("cwd") || sessionCwd || undefined;
 	if (!baseRef) {
 		return c.json({ error: "base query param is required" }, 400);
 	}
 	try {
-		const messages = getCommitMessagesSince(`origin/${baseRef}`);
+		const messages = getCommitMessagesSince(`origin/${baseRef}`, { cwd });
 		const ticketKeys = extractTicketKeys(messages);
 		return c.json({ messages, ticketKeys });
 	} catch (e: unknown) {
@@ -110,13 +152,15 @@ router.get("/api/commits", (c) => {
 // ── Create MR ──
 
 router.post("/api/create-mr", async (c) => {
-	const { currentBranch, targetBranch, ticketKeys } = await c.req.json<{
+	const { currentBranch, targetBranch, ticketKeys, cwd } = await c.req.json<{
 		currentBranch: string;
 		targetBranch: string;
 		ticketKeys: string[];
+		cwd?: string;
 	}>();
+	const workDir = cwd || sessionCwd || undefined;
 
-	if (!hasGitRemoteOrigin()) {
+	if (!hasGitRemoteOrigin({ cwd: workDir })) {
 		return c.json({ error: t("end.noRemote") }, 400);
 	}
 
@@ -124,7 +168,7 @@ router.post("/api/create-mr", async (c) => {
 		const gitlab = new GitlabController();
 		const jira = new JiraController();
 
-		const remoteUrl = getGitRemoteUrl();
+		const remoteUrl = getGitRemoteUrl({ cwd: workDir });
 		const projectPath = extractProjectPath(remoteUrl);
 		const project = await gitlab.getProject(projectPath);
 
@@ -208,10 +252,6 @@ router.post("/api/jira/comment", async (c) => {
 });
 
 // Module-level side-effect registration to prevent rolldown tree-shaking.
-// Hono router .get()/.post() calls are side effects that bundlers may
-// incorrectly strip as "unused" chain calls. By collecting references to
-// the handler functions and exporting them, the bundler must preserve
-// the entire module because these symbols are reachable.
 const _handlers = [
 	isGitRepo,
 	getCurrentBranch,

@@ -1,5 +1,9 @@
+import { execFileSync } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { extractProjectPath } from "../utils/git";
+import { extractProjectPath, isGitRepo } from "../utils/git";
 import { cleanVersion, parsePomXml } from "../utils/pom";
 import { filterByRelevance } from "../utils/search";
 
@@ -84,8 +88,17 @@ describe("validateConfigOrWarn", () => {
 });
 
 // ---------------------------------------------------------------------------
-// git.ts – extractProjectPath
+// git.ts – repo detection and extractProjectPath
 // ---------------------------------------------------------------------------
+describe("isGitRepo", () => {
+	it("returns true for an explicit git repository cwd", () => {
+		const repoDir = mkdtempSync(join(tmpdir(), "flowpilot-git-"));
+		execFileSync("git", ["init"], { cwd: repoDir, stdio: "ignore" });
+
+		expect(isGitRepo({ cwd: repoDir })).toBe(true);
+	});
+});
+
 describe("extractProjectPath", () => {
 	it("extracts path from HTTPS URL", () => {
 		expect(extractProjectPath("https://gitlab.com/group/project.git")).toBe(

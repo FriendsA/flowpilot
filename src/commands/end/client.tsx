@@ -3,18 +3,17 @@ import { render } from "hono/jsx/dom";
 import i18next from "i18next";
 import { filterByRelevance } from "../../utils/search";
 
-if (
+const initPromise =
 	typeof window !== "undefined" &&
 	window.__I18N_LOCALE__ &&
 	window.__I18N_RESOURCES__
-) {
-	i18next.init({
-		lng: window.__I18N_LOCALE__,
-		fallbackLng: "zh-CN",
-		resources: window.__I18N_RESOURCES__,
-		interpolation: { escapeValue: false },
-	});
-}
+		? i18next.init({
+				lng: window.__I18N_LOCALE__,
+				fallbackLng: "zh-CN",
+				resources: window.__I18N_RESOURCES__,
+				interpolation: { escapeValue: false },
+			})
+		: Promise.resolve();
 const t = i18next.t;
 
 declare global {
@@ -45,6 +44,68 @@ const endStyle = `
     color: var(--text-2);
     font-weight: 300;
     line-height: 1.5;
+  }
+
+  /* ── Cwd input ── */
+  .cwd-section {
+    margin-bottom: 20px;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .cwd-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .cwd-input {
+    flex: 1;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-family: var(--mono);
+    color: var(--text-1);
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .cwd-input::placeholder { color: var(--text-3); }
+  .cwd-input:focus { border-color: var(--neon); }
+  .cwd-btn {
+    padding: 10px 16px;
+    font-size: 13px;
+    font-family: var(--sans);
+    font-weight: 500;
+    color: var(--bg-void);
+    background: var(--neon);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .cwd-btn:hover { background: var(--neon-hover); }
+  .cwd-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .cwd-error {
+    font-size: 12px;
+    color: var(--error);
+    margin-top: 6px;
+  }
+  .cwd-display {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-1);
+  }
+  .cwd-display-label {
+    font-size: 11px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
   /* ── Pipeline ── */
@@ -282,6 +343,13 @@ const endStyle = `
     border: 1px solid var(--border);
   }
   .action-btn.secondary:hover { border-color: var(--text-2); color: var(--text-2); }
+  .action-btn.rerun {
+    color: var(--text-2);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    margin-top: 24px;
+  }
+  .action-btn.rerun:hover { border-color: var(--neon); color: var(--neon); }
 
   /* ── Result card ── */
   .result-card {
@@ -441,6 +509,9 @@ const endStyle = `
 type Transition = { id: string; name: string };
 
 type State = {
+	cwd: string;
+	cwdInput: string;
+	cwdError: string;
 	currentBranch: string;
 	localBranches: string[];
 	detectedSource: string;
@@ -474,10 +545,13 @@ type State = {
 };
 
 const initial: State = {
+	cwd: "",
+	cwdInput: "",
+	cwdError: "",
 	currentBranch: "",
 	localBranches: [],
 	detectedSource: "",
-	loading: true,
+	loading: false,
 	error: "",
 	branchOpen: false,
 	branchSearch: "",
@@ -501,6 +575,9 @@ const initial: State = {
 };
 
 type Action =
+	| { type: "SET_CWD_INPUT"; value: string }
+	| { type: "SET_CWD"; cwd: string }
+	| { type: "CWD_ERROR"; error: string }
 	| { type: "LOADED"; data: { currentBranch: string; localBranches: string[]; detectedSource: string } }
 	| { type: "LOAD_ERROR"; error: string }
 	| { type: "SET_BRANCH_OPEN"; open: boolean }
@@ -525,10 +602,17 @@ type Action =
 	| { type: "JIRA_LOADING"; key: string }
 	| { type: "JIRA_TRANSITIONS_LOADED"; key: string; transitions: Transition[] }
 	| { type: "JIRA_TRANSITION_SUCCESS"; key: string; name: string }
-	| { type: "JIRA_TRANSITION_ERROR"; key: string; error: string };
+	| { type: "JIRA_TRANSITION_ERROR"; key: string; error: string }
+	| { type: "RESET" };
 
 const reducer = (state: State, action: Action): State => {
 	switch (action.type) {
+		case "SET_CWD_INPUT":
+			return { ...state, cwdInput: action.value, cwdError: "" };
+		case "SET_CWD":
+			return { ...state, cwd: action.cwd, cwdError: "" };
+		case "CWD_ERROR":
+			return { ...state, cwdError: action.error };
 		case "LOADED":
 			return {
 				...state,
@@ -612,6 +696,12 @@ const reducer = (state: State, action: Action): State => {
 				jiraStatus: { ...state.jiraStatus, [action.key]: "error" },
 				jiraErrors: { ...state.jiraErrors, [action.key]: action.error },
 			};
+		case "RESET":
+			return {
+				...initial,
+				cwd: state.cwd,
+				cwdInput: state.cwd,
+			};
 	}
 	return state;
 };
@@ -655,15 +745,32 @@ const pipelineStepClass = (done: boolean, active: boolean) =>
 const pipelineLineClass = (done: boolean) =>
 	done ? "pipeline-line done" : "pipeline-line";
 
+const cwdParam = (cwd: string) =>
+	cwd ? `&cwd=${encodeURIComponent(cwd)}` : "";
+
+const cwdBody = (cwd: string) => cwd ? { cwd } : {};
+
 // ── Client Component ──
 
 const EndClient: FC = () => {
 	const [s, d] = useReducer(reducer, initial);
 	const branchSearchRef = useRef<HTMLInputElement>(null);
 
-	// Load initial git status
+	// Detect cwd from URL query param (set by CLI -o)
 	useEffect(() => {
-		fetch("/end/api/git/status")
+		const params = new URLSearchParams(window.location.search);
+		const cwdFromQuery = params.get("cwd");
+		if (cwdFromQuery) {
+			d({ type: "SET_CWD", cwd: cwdFromQuery });
+			d({ type: "SET_CWD_INPUT", value: cwdFromQuery });
+		}
+	}, []);
+
+	// Load git status when cwd is set
+	useEffect(() => {
+		if (!s.cwd) return;
+		d({ type: "LOAD_ERROR", error: "" }); // reset
+		fetch(`/end/api/git/status?cwd=${encodeURIComponent(s.cwd)}`)
 			.then((r) => r.json())
 			.then((data) => {
 				if (data.error) d({ type: "LOAD_ERROR", error: data.error });
@@ -672,7 +779,7 @@ const EndClient: FC = () => {
 			.catch((e) =>
 				d({ type: "LOAD_ERROR", error: e instanceof Error ? e.message : String(e) }),
 			);
-	}, []);
+	}, [s.cwd]);
 
 	// Click outside to close dropdown
 	useEffect(() => {
@@ -693,13 +800,33 @@ const EndClient: FC = () => {
 
 	// ── Actions ──
 
+	const setCwd = async () => {
+		const path = s.cwdInput.trim();
+		if (!path) return;
+		try {
+			const res = await fetch("/end/api/set-cwd", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ cwd: path }),
+			});
+			const data = await res.json();
+			if (data.error) {
+				d({ type: "CWD_ERROR", error: data.error });
+			} else {
+				d({ type: "SET_CWD", cwd: path });
+			}
+		} catch (e) {
+			d({ type: "CWD_ERROR", error: e instanceof Error ? e.message : String(e) });
+		}
+	};
+
 	const doRebase = async () => {
 		d({ type: "REBASE_RUNNING" });
 		try {
 			const res = await fetch("/end/api/rebase", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ targetBranch: s.targetBranch }),
+				body: JSON.stringify({ targetBranch: s.targetBranch, ...cwdBody(s.cwd) }),
 			});
 			const data = await res.json();
 			if (data.error) {
@@ -720,7 +847,7 @@ const EndClient: FC = () => {
 			const res = await fetch("/end/api/push", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ branch: s.currentBranch }),
+				body: JSON.stringify({ branch: s.currentBranch, ...cwdBody(s.cwd) }),
 			});
 			const data = await res.json();
 			if (data.error) {
@@ -730,7 +857,7 @@ const EndClient: FC = () => {
 				// Auto-load tickets after push
 				d({ type: "TICKETS_LOADING" });
 				const ticketRes = await fetch(
-					`/end/api/commits?base=${encodeURIComponent(s.targetBranch)}`,
+					`/end/api/commits?base=${encodeURIComponent(s.targetBranch)}${cwdParam(s.cwd)}`,
 				);
 				const ticketData = await ticketRes.json();
 				if (ticketData.error) {
@@ -773,6 +900,7 @@ const EndClient: FC = () => {
 					currentBranch: s.currentBranch,
 					targetBranch: s.targetBranch,
 					ticketKeys: s.ticketKeys,
+					...cwdBody(s.cwd),
 				}),
 			});
 			const data = await res.json();
@@ -833,16 +961,16 @@ const EndClient: FC = () => {
 		try {
 			await navigator.clipboard.writeText(s.mrUrl);
 			d({ type: "COPIED" });
-			setTimeout(() => d({ type: "COPIED" }), 2000); // visual feedback only
+			setTimeout(() => d({ type: "COPIED" }), 2000);
 		} catch {
-			/* fallback: select input */
+			/* fallback */
 		}
 	};
 
 	// ── Pipeline step states ──
 
 	const step1Done = !!s.targetBranch;
-	const step1Active = !s.loading && !step1Done;
+	const step1Active = !s.loading && !s.error && !step1Done;
 	const step2Done = s.rebaseStatus === "success";
 	const step2Active = step1Done && s.rebaseStatus === "idle";
 	const step3Done = s.pushStatus === "success";
@@ -853,6 +981,7 @@ const EndClient: FC = () => {
 	const step5Active = step4Done && s.mrStatus === "idle";
 	const step6Done = s.ticketKeys.length > 0 && s.ticketKeys.every((k) => s.jiraStatus[k] === "success");
 	const step6Active = step5Done && !step6Done && s.ticketKeys.length > 0;
+	const allDone = s.cwd && step2Done && step3Done && step5Done;
 
 	// ── Branch filter ──
 	const fb = filterByRelevance(
@@ -862,10 +991,56 @@ const EndClient: FC = () => {
 
 	// ── Render ──
 
+	// No cwd: show path input
+	if (!s.cwd) {
+		return (
+			<div>
+				<style>{endStyle}</style>
+				<div class="page-header">
+					<h2>{t("web.endTitle")}</h2>
+					<p>{t("web.endDesc")}</p>
+				</div>
+				<div class="cwd-section">
+					<div class="cwd-row">
+						<input
+							class="cwd-input"
+							type="text"
+							placeholder={t("end.enterPath")}
+							value={s.cwdInput}
+							onChange={(e: Event) =>
+								d({
+									type: "SET_CWD_INPUT",
+									value: (e.target as HTMLInputElement).value,
+								})
+							}
+							onKeyDown={(e: KeyboardEvent) => {
+								if (e.key === "Enter") setCwd();
+							}
+							}
+						/>
+						<button
+							class="cwd-btn"
+							type="button"
+							disabled={!s.cwdInput.trim()}
+							onClick={setCwd}
+						>
+							{t("end.setPath")}
+						</button>
+					</div>
+					{s.cwdError && <div class="cwd-error">{s.cwdError}</div>}
+				</div>
+			</div>
+		);
+	}
+
 	if (s.loading) {
 		return (
 			<div>
 				<style>{endStyle}</style>
+				<div class="cwd-display">
+					<span class="cwd-display-label">{t("end.projectPath")}</span>
+					<span>{s.cwd}</span>
+				</div>
 				<div class="loading-row">
 					<span class="spinner" />
 					{t("web.loading")}
@@ -878,9 +1053,20 @@ const EndClient: FC = () => {
 		return (
 			<div>
 				<style>{endStyle}</style>
+				<div class="cwd-display">
+					<span class="cwd-display-label">{t("end.projectPath")}</span>
+					<span>{s.cwd}</span>
+				</div>
 				<div class="result-card result-error">
 					<div class="result-text error">{s.error}</div>
 				</div>
+				<button
+					class="action-btn rerun"
+					type="button"
+					onClick={() => d({ type: "RESET" })}
+				>
+					{t("end.rerun")}
+				</button>
 			</div>
 		);
 	}
@@ -891,6 +1077,12 @@ const EndClient: FC = () => {
 			<div class="page-header">
 				<h2>{t("web.endTitle")}</h2>
 				<p>{t("web.endDesc")}</p>
+			</div>
+
+			{/* ── Project path ── */}
+			<div class="cwd-display">
+				<span class="cwd-display-label">{t("end.projectPath")}</span>
+				<span>{s.cwd}</span>
 			</div>
 
 			{/* ── Pipeline ── */}
@@ -939,7 +1131,6 @@ const EndClient: FC = () => {
 					role="combobox"
 					aria-expanded={s.branchOpen}
 					aria-haspopup="listbox"
-					disabled={s.rebaseStatus !== "idle" && s.rebaseStatus !== "error"}
 					onClick={() =>
 						d({ type: "SET_BRANCH_OPEN", open: !s.branchOpen })
 					}
@@ -1151,7 +1342,7 @@ const EndClient: FC = () => {
 							type="button"
 							onClick={copyMrUrl}
 						>
-							{s.copied ? t("end.copied") : "Copy"}
+							{s.copied ? t("end.copied") : t("end.copy")}
 						</button>
 					</div>
 				</div>
@@ -1250,16 +1441,26 @@ const EndClient: FC = () => {
 				</div>
 			)}
 
-			{/* ── Done ── */}
-			{step6Done && (
+			{/* ── Done + Rerun ── */}
+			{allDone && (
 				<div class="result-card result-success">
 					<div class="result-text success">{t("end.done")}</div>
 				</div>
+			)}
+			{allDone && (
+				<button
+					class="action-btn rerun"
+					type="button"
+					onClick={() => d({ type: "RESET" })}
+				>
+					{t("end.rerun")}
+				</button>
 			)}
 		</div>
 	);
 };
 
-export const mount = (el: HTMLElement) => {
+export const mount = async (el: HTMLElement) => {
+	await initPromise;
 	render(<EndClient />, el);
 };
