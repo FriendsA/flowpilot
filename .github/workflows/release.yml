@@ -12,18 +12,17 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # Skip if commit message starts with [skip ci] or [ci skip]
     if: "!startsWith(github.event.head_commit.message, '[skip ci]') && !startsWith(github.event.head_commit.message, '[ci skip]')"
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Need full history for tag comparison
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: "https://registry.npmjs.org"
           package-manager-cache: false
+          # DO NOT set registry-url — OIDC handles auth automatically
 
       - run: corepack enable && pnpm install --frozen-lockfile --ignore-scripts
 
@@ -46,6 +45,4 @@ jobs:
         run: |
           npm version ${{ steps.bump.outputs.bump_type }} -m "chore: release v%s [skip ci]"
           git push --follow-tags
-          npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm publish --provenance --access public
