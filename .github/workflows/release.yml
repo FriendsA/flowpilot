@@ -24,7 +24,10 @@ jobs:
           package-manager-cache: false
 
       - name: Ensure npm CLI >= 11.5 (required for OIDC trusted publishing)
-        run: npm install -g npm@latest
+        run: |
+          npm --version
+          npm cache clean --force
+          npm install -g npm@11
 
       - run: corepack enable && pnpm install --frozen-lockfile --ignore-scripts
 
