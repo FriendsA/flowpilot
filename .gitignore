@@ -4,3 +4,5 @@ node_modules
 docs
 .claude
 .serena
+.TODO.md
+.npmrc

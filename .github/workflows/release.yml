@@ -6,7 +6,9 @@ on:
       - main
 
 permissions:
+  id-token: write
   contents: write
+  attestations: write
 
 jobs:
   release:
@@ -20,7 +22,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          registry-url: "https://registry.npmjs.org"
           package-manager-cache: false
+
+      - name: Ensure npm CLI >= 11.5 (required for OIDC trusted publishing)
+        run: npm install -g npm@latest
 
       - run: corepack enable && pnpm install --frozen-lockfile --ignore-scripts
 
@@ -39,20 +45,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Bump version and push tag
+      - name: Bump version, push tag, and publish
         run: |
           npm version ${{ steps.bump.outputs.bump_type }} -m "chore: release v%s [skip ci]"
-          git push
-
-      - name: Create GitHub Release to trigger publish workflow
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const version = require('./package.json').version;
-            await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: `v${version}`,
-              name: `v${version}`,
-              generate_release_notes: true
-            });
+          git push --follow-tags
+          npm publish --provenance --access public
