@@ -22,8 +22,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: "https://registry.npmjs.org"
-          package-manager-cache: false
 
       - run: corepack enable && pnpm install --frozen-lockfile --ignore-scripts
 
@@ -43,8 +41,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Bump version, push tag, and publish
-        env:
-          NODE_AUTH_TOKEN: ""
         run: |
           npm version ${{ steps.bump.outputs.bump_type }} -m "chore: release v%s [skip ci]"
           git push --follow-tags
