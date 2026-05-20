@@ -159,18 +159,33 @@ describe("extractProjectPath", () => {
 // pom.ts – parsePomXml & cleanVersion
 // ---------------------------------------------------------------------------
 describe("parsePomXml", () => {
-	it("extracts version, groupId, artifactId", () => {
+	it("extracts version, groupId, flowPilotName from properties", () => {
+		const pom = `<project>
+			<groupId>com.example</groupId>
+			<artifactId>my-app</artifactId>
+			<version>1.2.3</version>
+			<properties>
+				<flowPilotName>my-flow-app</flowPilotName>
+			</properties>
+		</project>`;
+		const result = parsePomXml(pom);
+		expect(result).toEqual({
+			version: "1.2.3",
+			groupId: "com.example",
+			flowPilotName: "my-flow-app",
+		});
+	});
+
+	it("returns null for flowPilotName when properties section is missing", () => {
 		const pom = `<project>
 			<groupId>com.example</groupId>
 			<artifactId>my-app</artifactId>
 			<version>1.2.3</version>
 		</project>`;
 		const result = parsePomXml(pom);
-		expect(result).toEqual({
-			version: "1.2.3",
-			groupId: "com.example",
-			artifactId: "my-app",
-		});
+		expect(result.version).toBe("1.2.3");
+		expect(result.groupId).toBe("com.example");
+		expect(result.flowPilotName).toBeNull();
 	});
 
 	it("falls back to parent when child version is missing", () => {
@@ -182,21 +197,24 @@ describe("parsePomXml", () => {
 			</parent>
 			<groupId>com.example</groupId>
 			<artifactId>my-app</artifactId>
+			<properties>
+				<flowPilotName>my-flow-app</flowPilotName>
+			</properties>
 		</project>`;
 		const result = parsePomXml(pom);
 		expect(result.version).toBe("1.0.0");
 		expect(result.groupId).toBe("com.example");
-		expect(result.artifactId).toBe("my-app");
+		expect(result.flowPilotName).toBe("my-flow-app");
 	});
 
 	it("returns null for all fields on empty string", () => {
 		const result = parsePomXml("");
-		expect(result).toEqual({ version: null, groupId: null, artifactId: null });
+		expect(result).toEqual({ version: null, groupId: null, flowPilotName: null });
 	});
 
 	it("returns null when no tags present", () => {
 		const result = parsePomXml("<project></project>");
-		expect(result).toEqual({ version: null, groupId: null, artifactId: null });
+		expect(result).toEqual({ version: null, groupId: null, flowPilotName: null });
 	});
 });
 

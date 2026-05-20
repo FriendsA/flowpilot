@@ -199,7 +199,7 @@ describe("Release routes – GET /release/api/projects/:id/branches", () => {
 describe("Release routes – GET /release/api/projects/:id/pom-version", () => {
 	it("returns parsed POM version info", async () => {
 		// Minimal valid pom.xml base64
-		const pomXml = `<project><groupId>com.ex</groupId><artifactId>app</artifactId><version>1.0</version></project>`;
+		const pomXml = `<project><groupId>com.ex</groupId><artifactId>app</artifactId><version>1.0</version><properties><flowPilotName>my-flow-app</flowPilotName></properties></project>`;
 		const base64 = Buffer.from(pomXml).toString("base64").replace(/\n/g, "");
 		mockGitlabGetFile.mockResolvedValueOnce({ content: base64 });
 		const res = await app.fetch(
@@ -209,15 +209,28 @@ describe("Release routes – GET /release/api/projects/:id/pom-version", () => {
 		const data = await res.json();
 		expect(data.version).toBe("1.0");
 		expect(data.groupId).toBe("com.ex");
-		expect(data.artifactId).toBe("app");
+		expect(data.flowPilotName).toBe("my-flow-app");
 	});
 
 	it("defaults ref to master when not specified", async () => {
-		const pomXml = `<project><groupId>g</groupId><artifactId>a</artifactId><version>2.0</version></project>`;
+		const pomXml = `<project><groupId>g</groupId><artifactId>a</artifactId><version>2.0</version><properties><flowPilotName>fa</flowPilotName></properties></project>`;
 		const base64 = Buffer.from(pomXml).toString("base64").replace(/\n/g, "");
 		mockGitlabGetFile.mockResolvedValueOnce({ content: base64 });
 		await app.fetch(new Request("http://localhost/api/projects/5/pom-version"));
 		expect(mockGitlabGetFile).toHaveBeenCalledWith("5", "pom.xml", "master");
+	});
+
+	it("returns null flowPilotName when properties section missing", async () => {
+		const pomXml = `<project><groupId>com.ex</groupId><artifactId>app</artifactId><version>1.0</version></project>`;
+		const base64 = Buffer.from(pomXml).toString("base64").replace(/\n/g, "");
+
+		mockGitlabGetFile.mockResolvedValueOnce({ content: base64 });
+		const res = await app.fetch(
+			new Request("http://localhost/api/projects/5/pom-version?ref=master"),
+		);
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.flowPilotName).toBeNull();
 	});
 
 	it("returns error on failure", async () => {

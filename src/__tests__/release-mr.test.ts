@@ -85,7 +85,7 @@ vi.mock("../jira-controller", () => ({
 
 const app = releaseRoutes;
 
-const POM_XML = '<project><groupId>com.ex</groupId><artifactId>app</artifactId><version>1.0</version></project>';
+const POM_XML = '<project><groupId>com.ex</groupId><artifactId>app</artifactId><version>1.0</version><properties><flowPilotName>my-flow-app</flowPilotName></properties></project>';
 const POM_BASE64 = Buffer.from(POM_XML).toString("base64").replace(/\n/g, "");
 
 beforeEach(() => {

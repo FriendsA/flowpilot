@@ -45,7 +45,7 @@
 		"noPomFound": "此分支上未找到 pom.xml。",
 		"fetchPomFailed": "获取 pom.xml 失败",
 		"versionLabel": "版本",
-		"artifactLabel": "Artifact",
+		"flowPilotNameLabel": "FlowPilot名称",
 		"versionNameLabel": "版本名称",
 		"releaseSuffix": "发布申请",
 		"fetchingJiraProjects": "正在获取 Jira 项目...",

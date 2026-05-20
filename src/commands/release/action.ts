@@ -305,7 +305,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 	let pomInfo: {
 		version: string | null;
 		groupId: string | null;
-		artifactId: string | null;
+		flowPilotName: string | null;
 	};
 
 	try {
@@ -332,12 +332,12 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 	);
 
 	const displayVersion = cleanVersion(pomInfo.version);
-	const artifactId = pomInfo.artifactId ?? projectName;
-	const versionName = `${artifactId}-${displayVersion}`;
-	const summary = `${artifactId}-${displayVersion} ${t("release.releaseSuffix")}`;
+	const flowPilotName = pomInfo.flowPilotName ?? projectName;
+	const versionName = `${flowPilotName}-${displayVersion}`;
+	const summary = `${flowPilotName}-${displayVersion} ${t("release.releaseSuffix")}`;
 
 	clack.log.info(
-		`${t("release.artifactLabel")}: ${artifactId} | ${t("release.versionNameLabel")}: ${versionName}`,
+		`${t("release.flowPilotNameLabel")}: ${flowPilotName} | ${t("release.versionNameLabel")}: ${versionName}`,
 	);
 
 	// ── Step 4: Select Jira project ──

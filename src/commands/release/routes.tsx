@@ -164,7 +164,7 @@ router.post("/api/history/:id/execute", async (c) => {
   let pomInfo: {
     version: string | null;
     groupId: string | null;
-    artifactId: string | null;
+    flowPilotName: string | null;
   };
   try {
     const file = await git.getFile(entry.projectId, "pom.xml", entry.branch);
@@ -178,9 +178,9 @@ router.post("/api/history/:id/execute", async (c) => {
   }
 
   const displayVersion = cleanVersion(pomInfo.version ?? "");
-  const artifactId = pomInfo.artifactId ?? entry.projectName;
-  const versionName = `${artifactId}-${displayVersion}`;
-  const summary = `${artifactId}-${displayVersion} release request`;
+  const flowPilotName = pomInfo.flowPilotName ?? entry.projectName;
+  const versionName = `${flowPilotName}-${displayVersion}`;
+  const summary = `${flowPilotName}-${displayVersion} release request`;
 
   // Check existing issue
   try {
@@ -369,14 +369,12 @@ router.get("/api/projects/:id/pom-version", async (c) => {
       "base64",
     ).toString("utf-8");
 
-    const stripped = raw.replace(/<parent>[\s\S]*?<\/parent>/, "");
-    const pick = (src: string, tag: string) =>
-      src.match(new RegExp(`<${tag}>([^<]+)</${tag}>`))?.[1] ?? null;
+    const pomInfo = parsePomXml(raw);
 
     return c.json({
-      version: pick(stripped, "version") ?? pick(raw, "version"),
-      groupId: pick(stripped, "groupId") ?? pick(raw, "groupId"),
-      artifactId: pick(stripped, "artifactId") ?? pick(raw, "artifactId"),
+      version: pomInfo.version,
+      groupId: pomInfo.groupId,
+      flowPilotName: pomInfo.flowPilotName,
     });
   } catch (e: unknown) {
     return c.json({ error: translateApiError(e, "gitlabFile") }, 500);

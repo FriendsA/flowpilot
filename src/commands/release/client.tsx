@@ -519,7 +519,7 @@ type Branch = { name: string; default?: boolean };
 type PomInfo = {
 	version: string | null;
 	groupId: string | null;
-	artifactId: string | null;
+	flowPilotName: string | null;
 };
 type JiraProject = { key: string; id: string; name?: string };
 
@@ -1245,10 +1245,10 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 
 	const handleCreateIssue = async () => {
 		if (!s.selected || !s.pomInfo?.version || !s.selectedJiraProject) return;
-		const artifactId = s.pomInfo.artifactId ?? s.selected.name;
+		const flowPilotName = s.pomInfo.flowPilotName ?? s.selected.name;
 		const projectVersion = cleanVersion(s.pomInfo.version);
-		const versionName = `${artifactId}-${projectVersion}`;
-		const summary = `${artifactId}-${projectVersion} ${t("web.releaseSuffix") ?? t("release.releaseSuffix")}`;
+		const versionName = `${flowPilotName}-${projectVersion}`;
+		const summary = `${flowPilotName}-${projectVersion} ${t("web.releaseSuffix") ?? t("release.releaseSuffix")}`;
 
 		d({ type: "JIRA_CHECKING" });
 		try {

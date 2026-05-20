@@ -45,7 +45,7 @@
 		"noPomFound": "No pom.xml found on this branch.",
 		"fetchPomFailed": "Failed to fetch pom.xml",
 		"versionLabel": "Version",
-		"artifactLabel": "Artifact",
+		"flowPilotNameLabel": "FlowPilot Name",
 		"versionNameLabel": "Version name",
 		"releaseSuffix": "release request",
 		"fetchingJiraProjects": "Fetching Jira projects...",

@@ -62,6 +62,12 @@ flowpilot config --open   # 打开 Web 页面配置
 
 自动从 GitLab 项目分支提取 `pom.xml` 版本号，在 Jira 创建发布 Issue，链接自动复制到剪贴板。
 
+**变量提取规则：**
+- **版本号**：从 `pom.xml` 的 `<version>` 标签提取（自动去除 `-SNAPSHOT` 等后缀）
+- **项目名称（flowPilotName）**：从 `pom.xml` 的 `<properties><flowPilotName>` 标签提取，用于生成版本名和 Issue 概要。若 `<properties>` 中无 `<flowPilotName>`，则回退使用 GitLab 项目名称
+- **Jira 版本名**：`{flowPilotName}-{version}`，如 `my-flow-app-1.2.3`
+- **Issue 概要**：`{flowPilotName}-{version} release request`
+
 ```bash
 flowpilot release          # CLI
 flowpilot release --open   # Web
