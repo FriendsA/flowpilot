@@ -42,4 +42,17 @@ jobs:
       - name: Bump version and push tag
         run: |
           npm version ${{ steps.bump.outputs.bump_type }} -m "chore: release v%s [skip ci]"
-          git push --follow-tags
+          git push
+
+      - name: Create GitHub Release to trigger publish workflow
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = require('./package.json').version;
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: `v${version}`,
+              name: `v${version}`,
+              generate_release_notes: true
+            });
