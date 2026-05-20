@@ -25,9 +25,6 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           package-manager-cache: false
 
-      - name: Ensure npm CLI >= 11.5 (required for OIDC trusted publishing)
-        run: npm install -g npm@latest
-
       - run: corepack enable && pnpm install --frozen-lockfile --ignore-scripts
 
       - run: pnpm build
@@ -46,7 +43,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Bump version, push tag, and publish
+        env:
+          NODE_AUTH_TOKEN: ""
         run: |
           npm version ${{ steps.bump.outputs.bump_type }} -m "chore: release v%s [skip ci]"
           git push --follow-tags
-          npm publish --provenance --access public
+          npx npm@latest publish --provenance --access public
