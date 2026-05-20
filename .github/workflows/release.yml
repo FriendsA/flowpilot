@@ -37,6 +37,11 @@ jobs:
           BUMP_TYPE=$(bash scripts/bump-version.sh)
           echo "bump_type=$BUMP_TYPE" >> "$GITHUB_OUTPUT"
 
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Bump version and publish
         run: |
           npm version ${{ steps.bump.outputs.bump_type }} -m "chore: release v%s [skip ci]"
