@@ -46,6 +46,9 @@
     "devops"
   ],
   "author": "Corazon",
+  "publishConfig": {
+    "provenance": true
+  },
   "license": "ISC",
   "dependencies": {
     "@clack/prompts": "^1.4.0",

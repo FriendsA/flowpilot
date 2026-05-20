@@ -50,4 +50,6 @@ jobs:
         run: sed -i '/_authToken/d' "$NPM_CONFIG_USERCONFIG" || true
 
       - name: Publish to npm via OIDC
+        env:
+          NODE_AUTH_TOKEN: ""
         run: npx npm@latest publish --provenance --access public
