@@ -7,8 +7,8 @@
 set -e
 
 # Get commits since last tag
-if git describe --tags --abbrev=0 2>/dev/null; then
-  LAST_TAG=$(git describe --tags --abbrev=0)
+LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
+if [ -n "$LAST_TAG" ]; then
   COMMITS=$(git log "$LAST_TAG"..HEAD --format="%s")
 else
   # No tags yet — use all commits
