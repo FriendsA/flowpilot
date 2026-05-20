@@ -22,6 +22,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          registry-url: "https://registry.npmjs.org"
 
       - run: corepack enable && pnpm install --frozen-lockfile --ignore-scripts
 
@@ -40,8 +41,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Bump version, push tag, and publish
+      - name: Bump version and push tag
         run: |
           npm version ${{ steps.bump.outputs.bump_type }} -m "chore: release v%s [skip ci]"
           git push --follow-tags
-          npx npm@latest publish --provenance --access public
+
+      - name: Remove .npmrc auth token for OIDC
+        run: sed -i '/_authToken/d' "$NPM_CONFIG_USERCONFIG" || true
+
+      - name: Publish to npm via OIDC
+        run: npx npm@latest publish --provenance --access public
