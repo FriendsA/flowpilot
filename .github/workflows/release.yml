@@ -33,10 +33,12 @@ jobs:
 
       - name: Determine version bump
         id: bump
-        run: echo "type=$(bash scripts/bump-version.sh)" >> "$GITHUB_OUTPUT"
+        run: |
+          BUMP_TYPE=$(bash scripts/bump-version.sh)
+          echo "bump_type=$BUMP_TYPE" >> "$GITHUB_OUTPUT"
 
       - name: Bump version and publish
         run: |
-          npm version ${{ steps.bump.outputs.type }} -m "chore: release v%s [skip ci]"
+          npm version ${{ steps.bump.outputs.bump_type }} -m "chore: release v%s [skip ci]"
           git push --follow-tags
           npm publish --access public
