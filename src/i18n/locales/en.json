@@ -64,7 +64,15 @@
 		"createIssueFailed": "Failed to create issue",
 		"selectHistoryOrNew": "Select history for quick execute, or create new",
 		"historyNew": "Create new...",
-		"historyQuickExecute": "Quick execute"
+		"historyQuickExecute": "Quick execute",
+		"createMR": "Create Merge Request for this release?",
+		"selectSourceBranch": "Select source branch for MR",
+		"noSourceBranches": "No other branches available as MR source",
+		"selectMrBranch": "Select MR branch",
+		"confirmCreateMr": "Confirm Create MR",
+		"creatingMrBtn": "Creating MR...",
+		"mrFromTo": "MR: {{source}} → {{target}}",
+		"mrCreated": "MR created"
 	},
 	"web": {
 		"flowpilot": "FlowPilot",
@@ -136,8 +144,13 @@
 		"newModalTitle": "Create Release Request",
 		"clearSuccess": "History cleared",
 		"cancel": "Cancel",
+		"createMrCheckbox": "Create MR",
 		"endTitle": "End",
-		"endDesc": "End current task: rebase, push, create MR, update Jira."
+		"endDesc": "End current task: rebase, push, create MR, update Jira.",
+		"createMrBtn": "Create MR",
+		"creatingMrBtn": "Creating MR...",
+		"confirmCreateMr": "Confirm Create MR",
+		"loadingMr": "Loading branches..."
 	},
 	"end": {
 		"notGitRepo": "Not a git repository. Run this inside a git project.",

@@ -64,7 +64,15 @@
 		"createIssueFailed": "创建 issue 失败",
 		"selectHistoryOrNew": "选择历史记录快速执行，或新建",
 		"historyNew": "新建...",
-		"historyQuickExecute": "快速执行"
+		"historyQuickExecute": "快速执行",
+		"createMR": "为此发布创建 Merge Request？",
+		"selectSourceBranch": "选择 MR 的源分支",
+		"noSourceBranches": "没有其他分支可作为 MR 源分支",
+		"selectMrBranch": "选择 MR 分支",
+		"confirmCreateMr": "确认创建 MR",
+		"creatingMrBtn": "正在创建 MR...",
+		"mrFromTo": "MR: {{source}} → {{target}}",
+		"mrCreated": "MR 已创建"
 	},
 	"web": {
 		"flowpilot": "FlowPilot",
@@ -136,8 +144,13 @@
 		"newModalTitle": "新建发布申请",
 		"clearSuccess": "历史已清空",
 		"cancel": "取消",
+		"createMrCheckbox": "创建 MR",
 		"endTitle": "End",
-		"endDesc": "结束当前任务：rebase、推送、创建 MR、更新 Jira。"
+		"endDesc": "结束当前任务：rebase、推送、创建 MR、更新 Jira。",
+		"createMrBtn": "创建 MR",
+		"creatingMrBtn": "正在创建 MR...",
+		"confirmCreateMr": "确认创建 MR",
+		"loadingMr": "正在加载分支..."
 	},
 	"end": {
 		"notGitRepo": "当前不在 git 仓库中。请在 git 项目内运行。",

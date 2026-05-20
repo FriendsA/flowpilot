@@ -5,6 +5,7 @@ type ErrorContext =
 	| "gitlabBranch"
 	| "gitlabFile"
 	| "gitlabGeneral"
+	| "gitlabMR"
 	| "jiraProject"
 	| "jiraSearch"
 	| "jiraVersion"
@@ -24,6 +25,7 @@ const CONTEXT_404_MAP: Record<ErrorContext, string> = {
 	gitlabFile: "error.http404File",
 	gitlabBranch: "error.http404",
 	gitlabGeneral: "error.http404",
+	gitlabMR: "error.http404",
 	jiraProject: "error.http404",
 	jiraSearch: "error.http404",
 	jiraVersion: "error.http404",
@@ -37,6 +39,7 @@ const CONTEXT_FALLBACK_MAP: Record<ErrorContext, string> = {
 	gitlabBranch: "error.fetchBranchesFailed",
 	gitlabFile: "error.fetchPomFailed",
 	gitlabGeneral: "error.gitlabApiFailed",
+	gitlabMR: "error.gitlabApiFailed",
 	jiraProject: "error.fetchJiraProjectsFailed",
 	jiraSearch: "error.jiraSearchFailed",
 	jiraVersion: "error.jiraVersionFailed",

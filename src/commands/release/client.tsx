@@ -36,6 +36,9 @@ type ReleaseHistoryEntry = {
 	projectPath: string;
 	branch: string;
 	jiraProjectKey: string;
+	mrUrl?: string;
+	mrSourceBranch?: string;
+	mrTargetBranch?: string;
 };
 
 type QuickResult = {
@@ -43,6 +46,10 @@ type QuickResult = {
 	issueUrl: string;
 	version: string;
 	versionCreated: boolean;
+	issueCreated: boolean;
+	mrUrl?: string;
+	mrSourceBranch?: string;
+	mrTargetBranch?: string;
 };
 
 const releaseStyle = `
@@ -127,8 +134,8 @@ const releaseStyle = `
     padding: 12px 14px;
     font-size: 13px;
     font-family: var(--sans);
-    color: var(--text-1);
-    background: var(--bg-input);
+    color: var(--text-1, #E2E8F0);
+    background: var(--bg-input, #0A0E14);
     border: 1px solid var(--border);
     border-radius: 8px;
     cursor: pointer;
@@ -144,7 +151,7 @@ const releaseStyle = `
   }
   .sel-trigger-label {
     font-size: 11px;
-    color: var(--text-3);
+    color: var(--text-3, #64748B);
     flex-shrink: 0;
   }
   .sel-trigger-value {
@@ -152,14 +159,14 @@ const releaseStyle = `
     font-family: var(--mono);
     font-size: 13px;
     font-weight: 500;
-    color: var(--text-1);
+    color: var(--text-1, #E2E8F0);
   }
   .sel-trigger-value.empty {
     color: var(--text-3);
     font-weight: 300;
   }
   .sel-trigger-arrow {
-    color: var(--text-3);
+    color: var(--text-3, #64748B);
     font-size: 10px;
     transition: transform 0.2s;
   }
@@ -172,7 +179,7 @@ const releaseStyle = `
     left: 0; right: 0;
     max-height: 280px;
     overflow-y: auto;
-    background: var(--bg-card);
+    background: var(--bg-card, #111820);
     border: 1px solid rgba(0,255,136,0.08);
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 12px rgba(0,255,136,0.03);
@@ -187,7 +194,7 @@ const releaseStyle = `
     border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
-    background: var(--bg-card);
+    background: var(--bg-card, #111820);
     z-index: 1;
   }
   .sel-search-input {
@@ -195,8 +202,8 @@ const releaseStyle = `
     padding: 6px 10px;
     font-size: 12px;
     font-family: var(--mono);
-    color: var(--text-1);
-    background: var(--bg-void);
+    color: var(--text-1, #E2E8F0);
+    background: var(--bg-void, #0A0A0F);
     border: 1px solid var(--border);
     border-radius: 4px;
     outline: none;
@@ -210,19 +217,20 @@ const releaseStyle = `
     cursor: pointer;
     transition: background 0.1s;
     border-left: 3px solid transparent;
+    color: var(--text-1, #E2E8F0);
   }
   .sel-item:first-child { border-radius: 7px 7px 0 0; }
   .sel-item:last-child { border-radius: 0 0 7px 7px; }
   .sel-item:hover,
-  .sel-item.highlighted { background: var(--bg-hover); }
+  .sel-item.highlighted { background: var(--bg-hover, rgba(0,255,136,0.04)); }
   .sel-item.active {
-    background: var(--neon-soft);
+    background: var(--neon-soft, rgba(0,255,136,0.08));
     border-left-color: var(--neon);
     font-weight: 500;
   }
-  .sel-item-name { font-weight: 500; color: var(--text-1); }
-  .sel-item-sub { font-size: 11px; color: var(--text-3); font-family: var(--mono); margin-top: 2px; }
-  .sel-empty { padding: 12px; text-align: center; color: var(--text-3); font-size: 12px; }
+  .sel-item-name { font-weight: 500; color: var(--text-1, #E2E8F0); }
+  .sel-item-sub { font-size: 11px; color: var(--text-3, #64748B); font-family: var(--mono); margin-top: 2px; }
+  .sel-empty { padding: 12px; text-align: center; color: var(--text-3, #64748B); font-size: 12px; }
 
   /* ── Spinner ── */
   .spinner {
@@ -284,6 +292,36 @@ const releaseStyle = `
   }
   .jira-btn:hover { background: var(--neon-hover); box-shadow: 0 0 12px var(--neon-glow), 0 2px 12px rgba(0,255,136,0.2); }
   .jira-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Custom Checkbox ── */
+  input[type="checkbox"] {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--border, rgba(0,255,136,0.2));
+    border-radius: 3px;
+    background: var(--bg-input, #0A0E14);
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  input[type="checkbox"]:checked {
+    background: var(--neon, #00ff88);
+    border-color: var(--neon, #00ff88);
+  }
+  input[type="checkbox"]:checked::after {
+    content: "✓";
+    position: absolute;
+    top: -1px;
+    left: 2px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--bg-void, #0A0A0F);
+  }
+  input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--neon-soft, rgba(0,255,136,0.2));
+    outline-offset: 2px;
+  }
   .jira-result {
     margin-top: 12px;
     padding: 12px 16px;
@@ -514,6 +552,15 @@ type State = {
 	jiraStatus: "idle" | "checking" | "creating" | "done" | "error";
 	jiraResult: { key: string; exists: boolean; versionName: string } | null;
 	jiraError: string;
+	mrStatus: "idle" | "loading" | "selecting" | "creating" | "done" | "error";
+	mrUrl: string;
+	mrError: string;
+	mrBranches: Branch[];
+	mrSourceBranch: string;
+	mrTargetBranch: string;
+	mrBranchOpen: boolean;
+	mrBranchSearch: string;
+	mrBranchIndex: number;
 	// History state
 	history: ReleaseHistoryEntry[];
 	historyLoading: boolean;
@@ -522,6 +569,7 @@ type State = {
 	quickErrors: Record<string, string>;
 	showNewModal: boolean;
 	clearConfirm: boolean;
+	createMrChecked: Record<string, boolean>;
 };
 
 const initial: State = {
@@ -551,6 +599,15 @@ const initial: State = {
 	jiraStatus: "idle",
 	jiraResult: null,
 	jiraError: "",
+	mrStatus: "idle",
+	mrUrl: "",
+	mrError: "",
+	mrBranches: [],
+	mrSourceBranch: "",
+	mrTargetBranch: "",
+	mrBranchOpen: false,
+	mrBranchSearch: "",
+	mrBranchIndex: -1,
 	history: [],
 	historyLoading: true,
 	quickExecuting: null,
@@ -558,6 +615,7 @@ const initial: State = {
 	quickErrors: {},
 	showNewModal: false,
 	clearConfirm: false,
+	createMrChecked: {},
 };
 
 // ── Actions ──
@@ -604,7 +662,17 @@ type Action =
 	| { type: "SHOW_NEW_MODAL" }
 	| { type: "HIDE_NEW_MODAL" }
 	| { type: "CLEAR_CONFIRM_TOGGLE" }
-	| { type: "CLEAR_HISTORY_DONE" };
+	| { type: "CLEAR_HISTORY_DONE" }
+	| { type: "TOGGLE_CREATE_MR"; id: string }
+		| { type: "MR_LOADING" }
+			| { type: "MR_SELECTING"; branches: { name: string; default?: boolean }[] }
+		| { type: "MR_SOURCE_SELECTED"; branch: string }
+		| { type: "SET_MR_BRANCH_OPEN"; open: boolean }
+		| { type: "SET_MR_BRANCH_SEARCH"; search: string }
+		| { type: "SET_MR_BRANCH_INDEX"; index: number }
+		| { type: "MR_CREATING" }
+		| { type: "MR_DONE"; mrUrl: string; mrSourceBranch: string; mrTargetBranch: string }
+		| { type: "MR_ERROR"; error: string };
 
 const reducer = (state: State, action: Action): State => {
 	switch (action.type) {
@@ -643,6 +711,15 @@ const reducer = (state: State, action: Action): State => {
 				jiraStatus: "idle",
 				jiraResult: null,
 				jiraError: "",
+				mrStatus: "idle",
+				mrUrl: "",
+				mrError: "",
+				mrBranches: [],
+				mrSourceBranch: "",
+				mrTargetBranch: "",
+				mrBranchOpen: false,
+				mrBranchSearch: "",
+				mrBranchIndex: -1,
 			};
 		case "CLEAR_PROJECT":
 			return {
@@ -660,6 +737,15 @@ const reducer = (state: State, action: Action): State => {
 				jiraStatus: "idle",
 				jiraResult: null,
 				jiraError: "",
+				mrStatus: "idle",
+				mrUrl: "",
+				mrError: "",
+				mrBranches: [],
+				mrSourceBranch: "",
+				mrTargetBranch: "",
+				mrBranchOpen: false,
+				mrBranchSearch: "",
+				mrBranchIndex: -1,
 			};
 		case "BRANCHES_LOADING":
 			return {
@@ -783,6 +869,37 @@ const reducer = (state: State, action: Action): State => {
 			return { ...state, clearConfirm: !state.clearConfirm };
 		case "CLEAR_HISTORY_DONE":
 			return { ...state, history: [], clearConfirm: false, quickResults: {}, quickErrors: {} };
+		case "TOGGLE_CREATE_MR":
+			return { ...state, createMrChecked: { ...state.createMrChecked, [action.id]: !state.createMrChecked[action.id] } };
+		case "MR_SELECTING":
+			return { ...state, mrStatus: "selecting", mrBranches: action.branches, mrSourceBranch: "", mrTargetBranch: "", mrError: "" };
+		case "MR_SOURCE_SELECTED":
+			return { ...state, mrSourceBranch: action.branch, mrBranchOpen: false, mrBranchSearch: "", mrBranchIndex: -1 };
+		case "SET_MR_BRANCH_OPEN":
+			return { ...state, mrBranchOpen: action.open, ...(action.open ? {} : { mrBranchSearch: "", mrBranchIndex: -1 }) };
+		case "SET_MR_BRANCH_SEARCH":
+			return { ...state, mrBranchSearch: action.search, mrBranchIndex: -1 };
+		case "SET_MR_BRANCH_INDEX":
+			return { ...state, mrBranchIndex: action.index };
+		case "MR_LOADING":
+			return { ...state, mrStatus: "loading", mrBranches: [], mrSourceBranch: "", mrTargetBranch: "", mrError: "" };
+		case "MR_CREATING":
+			return { ...state, mrStatus: "creating", mrUrl: "", mrTargetBranch: "", mrError: "" };
+		case "MR_DONE":
+			return {
+					...state,
+					mrStatus: "done",
+					mrUrl: action.mrUrl,
+					mrSourceBranch: action.mrSourceBranch,
+					mrTargetBranch: action.mrTargetBranch,
+					history: state.history.map((e) =>
+						e.projectId === state.selected?.id && e.branch === state.selectedBranch
+							? { ...e, mrUrl: action.mrUrl, mrSourceBranch: action.mrSourceBranch, mrTargetBranch: action.mrTargetBranch }
+							: e,
+					),
+				};
+		case "MR_ERROR":
+			return { ...state, mrStatus: "error", mrError: action.error };
 	}
 };
 
@@ -840,6 +957,8 @@ const HistoryList: FC<{ s: State; d: (action: Action) => void }> = ({
 		try {
 			const res = await fetch(`/release/api/history/${id}/execute`, {
 				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ createMr: s.createMrChecked[id] ?? false }),
 			});
 			const data = await res.json();
 			if (data.error) {
@@ -878,8 +997,23 @@ const HistoryList: FC<{ s: State; d: (action: Action) => void }> = ({
 									<span class="history-detail">
 										{entry.branch} / {entry.jiraProjectKey}
 									</span>
+									{entry.mrUrl && (
+										<span style="font-size:12px;color:var(--text-3);margin-left:6px">
+											{t("release.mrFromTo", { source: entry.mrSourceBranch ?? "", target: entry.mrTargetBranch ?? entry.branch })}
+										</span>
+									)}
 								</div>
 								<div class="history-actions">
+										{entry.mrUrl && (
+										<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-3);cursor:pointer">
+											<input
+												type="checkbox"
+												checked={s.createMrChecked[entry.id] ?? false}
+												onChange={() => d({ type: "TOGGLE_CREATE_MR", id: entry.id })}
+											/>
+											{t("web.createMrCheckbox")}
+										</label>
+										)}
 									<button
 										class={`history-quick-btn${s.quickExecuting === entry.id ? " executing" : ""}`}
 										type="button"
@@ -895,20 +1029,32 @@ const HistoryList: FC<{ s: State; d: (action: Action) => void }> = ({
 							{s.quickResults[entry.id] && (
 								<div class="history-result">
 									<a
-										class="history-result-key"
-										href={s.quickResults[entry.id].issueUrl}
-										target="_blank"
-										rel="noreferrer"
+									class="history-result-key"
+									href={s.quickResults[entry.id].issueUrl}
+									target="_blank"
+									rel="noreferrer"
 									>
-										{s.quickResults[entry.id].issueKey}
+									{s.quickResults[entry.id].issueKey}
 									</a>
+									<span
+									class={`jira-result-badge ${s.quickResults[entry.id].issueCreated ? "created" : "exists"}`}
+									>
+										{s.quickResults[entry.id].issueCreated ? t("web.createdBadge") : t("web.existsBadge")}
+									</span>
 									<span style="font-size:12px;color:var(--text-3);margin-left:8px">
 										v{s.quickResults[entry.id].version}
 									</span>
 									{s.quickResults[entry.id].versionCreated && (
-										<span style="font-size:10px;color:var(--neon);margin-left:4px">
-											{t("web.createdBadge")}
-										</span>
+									<span style="font-size:10px;color:var(--neon);margin-left:4px">
+										{t("web.createdBadge")}
+									</span>
+									)}
+									{s.quickResults[entry.id].mrUrl && (
+									<span style="font-size:12px;margin-left:12px">
+										<a href={s.quickResults[entry.id].mrUrl} target="_blank" rel="noreferrer" style="color:var(--cyan);text-decoration:none;border-bottom:1px dashed var(--cyan)">
+											{t("release.mrFromTo", { source: s.quickResults[entry.id].mrSourceBranch ?? "", target: s.quickResults[entry.id].mrTargetBranch ?? entry.branch })}
+										</a>
+									</span>
 									)}
 								</div>
 							)}
@@ -974,6 +1120,7 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 	const projectSearchRef = useRef<HTMLInputElement>(null);
 	const branchSearchRef = useRef<HTMLInputElement>(null);
 	const jiraSearchRef = useRef<HTMLInputElement>(null);
+	const mrBranchSearchRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
 		fetch("/release/api/config")
@@ -995,12 +1142,13 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 	}, []);
 
 	useEffect(() => {
-		if (!s.projectOpen && !s.branchOpen && !s.jiraProjectOpen) return;
+		if (!s.projectOpen && !s.branchOpen && !s.jiraProjectOpen && !s.mrBranchOpen) return;
 		const handler = (e: Event) => {
 			const target = e.target as HTMLElement;
-			if (!target.closest(".sel")) {
+			if (!target.closest(".sel") && !target.closest(".mr-branch-sel")) {
 				d({ type: "SET_PROJECT_OPEN", open: false });
 				d({ type: "SET_BRANCH_OPEN", open: false });
+												d({ type: "SET_MR_BRANCH_OPEN", open: false });
 				d({ type: "SET_JIRA_PROJECT_OPEN", open: false });
 			}
 		};
@@ -1012,7 +1160,40 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 		if (s.projectOpen) setTimeout(() => projectSearchRef.current?.focus(), 50);
 		if (s.branchOpen) setTimeout(() => branchSearchRef.current?.focus(), 50);
 		if (s.jiraProjectOpen) setTimeout(() => jiraSearchRef.current?.focus(), 50);
-	}, [s.projectOpen, s.branchOpen, s.jiraProjectOpen]);
+		if (s.mrBranchOpen) setTimeout(() => mrBranchSearchRef.current?.focus(), 50);
+	}, [s.projectOpen, s.branchOpen, s.jiraProjectOpen, s.mrBranchOpen]);
+
+	// Auto-create MR after branch is selected
+	useEffect(() => {
+		if (s.mrStatus !== "creating" || !s.mrSourceBranch || !s.selected) return;
+		const jiraUrl2 = s.jiraResult && s.jiraHost
+			? `${s.jiraHost}/browse/${s.jiraResult.key}`
+			: "";
+		fetch("/release/api/create-mr", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				projectId: s.selected.id,
+				targetBranch: s.selectedBranch,
+				sourceBranch: s.mrSourceBranch,
+				jiraUrl: jiraUrl2,
+			}),
+		})
+			.then((r) => r.json())
+			.then((data) => {
+				if (data.mrUrl) {
+					d({ type: "MR_DONE", mrUrl: data.mrUrl, mrSourceBranch: data.sourceBranch, mrTargetBranch: data.targetBranch });
+					fetch("/release/api/history").then((r) => r.json()).then((h) => d({ type: "HISTORY_LOADED", history: h }));
+				}
+				else d({ type: "MR_ERROR", error: data.error ?? "Failed" });
+			})
+			.catch((e) =>
+				d({
+					type: "MR_ERROR",
+					error: e instanceof Error ? e.message : "Failed",
+				}),
+			);
+	}, [s.mrStatus, s.mrSourceBranch]);
 
 	useEffect(() => {
 		if (
@@ -1255,6 +1436,7 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 					onClick={() => {
 						d({ type: "SET_BRANCH_OPEN", open: false });
 						d({ type: "SET_JIRA_PROJECT_OPEN", open: false });
+										d({ type: "SET_MR_BRANCH_OPEN", open: false });
 						d({ type: "SET_PROJECT_OPEN", open: !s.projectOpen });
 					}}
 				>
@@ -1345,6 +1527,7 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 								onClick={() => {
 									d({ type: "SET_PROJECT_OPEN", open: false });
 									d({ type: "SET_JIRA_PROJECT_OPEN", open: false });
+												d({ type: "SET_MR_BRANCH_OPEN", open: false });
 									d({ type: "SET_BRANCH_OPEN", open: !s.branchOpen });
 								}}
 							>
@@ -1613,6 +1796,122 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 					{s.jiraError && (
 						<div class="jira-error" role="alert">
 							{s.jiraError}
+						</div>
+					)}
+						{s.jiraResult && (s.mrStatus === "idle" || s.mrStatus === "loading") && (
+							<button
+							class="jira-btn"
+							type="button"
+							disabled={s.mrStatus === "loading"}
+							style="background:var(--cyan);margin-top:12px"
+							onClick={async () => {
+								if (s.mrStatus === "loading") return;
+								d({ type: "MR_LOADING" });
+								try {
+									const res = await fetch(`/release/api/projects/${s.selected!.id}/branches`);
+									const data = await res.json();
+									const branches = (Array.isArray(data) ? data : []).filter((b: { name: string }) => b.name !== s.selectedBranch);
+									if (branches.length === 0) {
+										d({ type: "MR_ERROR", error: t("release.noSourceBranches") });
+										return;
+									}
+									d({ type: "MR_SELECTING", branches });
+								} catch (e) {
+									d({ type: "MR_ERROR", error: e instanceof Error ? e.message : "Failed" });
+								}
+							}}
+							>
+							{s.mrStatus === "loading" ? <><span class="spinner" style="width:12px;height:12px;border-width:1px;margin-right:6px;vertical-align:middle" />{t("web.loadingMr")}</> : t("web.createMrBtn")}
+							</button>
+						)}
+					{s.mrStatus === "selecting" && (() => {
+						const mrb = s.mrBranches.filter((b) => b.name.toLowerCase().includes(s.mrBranchSearch.toLowerCase()));
+						return (
+							<div class="mr-branch-sel" style="margin-top:12px">
+										<div style="font-size:13px;color:var(--text-2);margin-bottom:4px">{t("release.selectMrBranch")}</div>
+										<div class="sel" style="position:relative;z-index:100">
+									<button
+										type="button"
+										class="sel-trigger"
+										onClick={() => d({ type: "SET_MR_BRANCH_OPEN", open: !s.mrBranchOpen })}
+									>
+										<span class="sel-trigger-label">{t("web.branchLabel")}</span>
+										<span class={`sel-trigger-value${s.mrSourceBranch ? "" : " empty"}`}>
+											{s.mrSourceBranch || t("web.selectBranch")}
+										</span>
+										<span class="sel-trigger-arrow">▼</span>
+									</button>
+									{s.mrBranchOpen && (
+										<div
+											class="sel-dropdown"
+											role="listbox"
+											aria-label={t("release.selectMrBranch")}
+										>
+											<div class="sel-search">
+												<input
+													ref={mrBranchSearchRef}
+													class="sel-search-input"
+													type="text"
+													placeholder={t("web.filterBranches")}
+													value={s.mrBranchSearch}
+													onChange={(e: Event) => d({ type: "SET_MR_BRANCH_SEARCH", search: (e.target as HTMLInputElement).value })}
+													onKeyDown={(e: KeyboardEvent) => {
+														const n = selKeyDown(e, s.mrBranchOpen, mrb.length, s.mrBranchIndex, (i) => { if (mrb[i]) d({ type: "MR_SOURCE_SELECTED", branch: mrb[i].name }); }, () => d({ type: "SET_MR_BRANCH_OPEN", open: false }));
+														if (n !== undefined) d({ type: "SET_MR_BRANCH_INDEX", index: n });
+													}}
+												/>
+											</div>
+											{mrb.length > 0 ? (
+												mrb.map((b, i) => (
+													<div
+														class={`sel-item${b.name === s.mrSourceBranch ? " active" : ""}${i === s.mrBranchIndex ? " highlighted" : ""}`}
+														onMouseEnter={() => d({ type: "SET_MR_BRANCH_INDEX", index: i })}
+														onClick={() => d({ type: "MR_SOURCE_SELECTED", branch: b.name })}
+													>
+														<span class="sel-item-name">{b.name}</span>
+														{b.default && (
+															<span style="font-size:10px;color:var(--neon);margin-left:6px">{t("web.defaultBranch")}</span>
+														)}
+													</div>
+												))
+											) : (
+												<div class="sel-empty">{t("web.noBranches")}</div>
+											)}
+										</div>
+									)}
+								</div>
+							</div>
+						);
+					})()}
+							{s.mrStatus === "selecting" && s.mrSourceBranch && (
+								<div style="margin-top:8px">
+									<div style="font-size:13px;color:var(--text-2);margin-bottom:6px">{t("release.mrFromTo", { source: s.mrSourceBranch, target: s.selectedBranch })}</div>
+									<button
+									class="jira-btn" type="button"
+									style="background:var(--cyan);font-size:13px;padding:4px 12px"
+									onClick={() => d({ type: "MR_CREATING" })}
+									>
+									{t("release.confirmCreateMr")}
+									</button>
+								</div>
+							)}
+					{s.mrStatus === "creating" && (
+						<div class="loading-row" style="margin-top:12px">
+							<span class="spinner" />
+							{t("release.creatingMrBtn")}
+						</div>
+					)}
+						{s.mrStatus === "done" && s.mrUrl && (
+							<div class="jira-result" style="margin-top:12px">
+								<div class="jira-result-label">MR</div>
+								<a class="jira-result-key" href={s.mrUrl} target="_blank" rel="noreferrer">
+								{t("release.mrFromTo", { source: s.mrSourceBranch, target: s.selectedBranch })}
+								</a>
+							</div>
+					)}
+					{s.mrStatus === "error" && s.mrError && (
+						<div class="jira-error" role="alert" style="margin-top:12px">
+							{s.mrError}
 						</div>
 					)}
 				</div>

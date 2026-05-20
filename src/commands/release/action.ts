@@ -33,6 +33,9 @@ type ReleaseHistoryEntry = {
 	projectPath: string;
 	branch: string;
 	jiraProjectKey: string;
+	mrUrl?: string;
+	mrSourceBranch?: string;
+	mrTargetBranch?: string;
 };
 
 const releaseStore = new Store<ReleaseHistoryEntry>("release-history.json");
@@ -67,6 +70,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 
 	const history = releaseStore.getAll();
 	let fromHistory = false;
+	let selectedEntry: ReleaseHistoryEntry | null = null;
 	let projectId: string | number = "";
 	let projectName = "";
 	let selectedBranch = "";
@@ -78,7 +82,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 		const historyOptions: { value: HistoryOrNew; label: string }[] =
 			history.map((h) => ({
 				value: h,
-				label: `${h.projectName} / ${h.branch} / ${h.jiraProjectKey}  ${pc.dim(h.createdAt)}`,
+				label: `${h.projectName} / ${h.branch} / ${h.jiraProjectKey}${h.mrSourceBranch ? pc.dim(` MR: ${h.mrSourceBranch} → ${h.mrTargetBranch ?? h.branch}`) : ""}  ${pc.dim(h.createdAt)}`,
 			}));
 		historyOptions.push({
 			value: "new",
@@ -97,14 +101,14 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 
 		if (pick !== "new") {
 			fromHistory = true;
-			const entry = pick as ReleaseHistoryEntry;
-			projectId = entry.projectId;
-			projectName = entry.projectName;
-			selectedBranch = entry.branch;
-			selectedJiraKey = entry.jiraProjectKey;
+			selectedEntry = pick as ReleaseHistoryEntry;
+			projectId = selectedEntry.projectId;
+			projectName = selectedEntry.projectName;
+			selectedBranch = selectedEntry.branch;
+			selectedJiraKey = selectedEntry.jiraProjectKey;
 			clack.log.info(
 				pc.green("✔") +
-					` ${t("release.historyQuickExecute")}: ${entry.projectName} / ${entry.branch} / ${entry.jiraProjectKey}`,
+					` ${t("release.historyQuickExecute")}: ${selectedEntry.projectName} / ${selectedEntry.branch} / ${selectedEntry.jiraProjectKey}`,
 			);
 		}
 	}
@@ -410,6 +414,9 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 		}
 	}
 
+	let jiraUrl = "";
+	let issueExists = false;
+
 	// ── Step 5: Check if issue already exists ──
 
 	s.start(t("release.checkingExisting"));
@@ -420,119 +427,286 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 		);
 		if (searchResult.total > 0 && searchResult.issues?.[0]) {
 			const existingKey = searchResult.issues[0].key;
-			const jiraUrl = config.jiraHost
+			jiraUrl = config.jiraHost
 				? `${config.jiraHost}/browse/${existingKey}`
 				: "";
 			stopSpinner(s, pc.green("✔") + ` ${t("release.issueExists")}`);
+			issueExists = true;
 
 			if (jiraUrl) {
 				await clipboardy.write(jiraUrl);
 				clack.log.success(
-					`${pc.bold(pc.cyan(existingKey))}  ${pc.blue(jiraUrl)}  ${pc.dim("(copied to clipboard)")}`,
+					`${pc.bold(pc.cyan(existingKey))}  ${pc.blue(jiraUrl)}  ${pc.dim(t("end.copied"))}`,
 				);
 			} else {
 				clack.log.success(pc.bold(pc.cyan(existingKey)));
 			}
-
-			// Auto-save to history
-			releaseStore.add(
-				{
-					id: Date.now().toString(36),
-					createdAt: new Date().toISOString(),
-					projectId: projectId as number,
-					projectName,
-					projectPath: "",
-					branch: selectedBranch,
-					jiraProjectKey: selectedJiraKey,
-				},
-				dedupKey,
-			);
-
-			clack.outro(pc.dim("Done"));
-			return;
 		}
-		stopSpinner(s, pc.dim("No existing issue found"));
+		if (!issueExists) stopSpinner(s, pc.dim("No existing issue found"));
 	} catch (e: unknown) {
 		stopSpinner(s, pc.yellow("⚠") + ` ${t("release.searchFailed")}`);
 		clack.log.warn(pc.dim(translateApiError(e, "jiraSearch")));
 	}
 
-	// ── Step 6: Ensure Jira version ──
+	// ── Step 6 & 7: Create version and issue (only if not found) ──
 
-	s.start(t("release.ensuringVersion"));
-	let versionId: string;
-	let versionCreated = false;
-	try {
-		const versions = await jira.getProjectVersions(selectedJiraKey);
-		const existing = versions.find((v) => v.name === versionName);
-		if (existing) {
-			versionId = existing.id;
-			stopSpinner(
-				s,
-				pc.green("✔") + ` ${t("release.versionExists")}: ${versionName}`,
-			);
-		} else {
-			const created = await jira.createVersion(selectedJiraKey, versionName);
-			versionId = created.id;
-			versionCreated = true;
-			stopSpinner(
-				s,
-				pc.green("✔") + ` ${t("release.versionCreated")}: ${versionName}`,
-			);
+	if (!issueExists) {
+		s.start(t("release.ensuringVersion"));
+		let versionId: string;
+		let versionCreated = false;
+		try {
+			const versions = await jira.getProjectVersions(selectedJiraKey);
+			const existing = versions.find((v) => v.name === versionName);
+			if (existing) {
+				versionId = existing.id;
+				stopSpinner(
+					s,
+					pc.green("✔") + ` ${t("release.versionExists")}: ${versionName}`,
+				);
+			} else {
+				const created = await jira.createVersion(selectedJiraKey, versionName);
+				versionId = created.id;
+				versionCreated = true;
+				stopSpinner(
+					s,
+					pc.green("✔") + ` ${t("release.versionCreated")}: ${versionName}`,
+				);
+			}
+		} catch (e: unknown) {
+			stopSpinner(s, pc.red(`${t("release.ensureVersionFailed")}`));
+			clack.log.error(pc.dim(translateApiError(e, "jiraVersion")));
+			return;
 		}
-	} catch (e: unknown) {
-		stopSpinner(s, pc.red(`${t("release.ensureVersionFailed")}`));
-		clack.log.error(pc.dim(translateApiError(e, "jiraVersion")));
-		return;
+
+		s.start(t("release.creatingIssue"));
+		try {
+			const issue = await jira.createIssue({
+				project: { key: selectedJiraKey },
+				summary,
+				issuetype: { id: "10000" },
+				customfield_15800: "无",
+				customfield_13410: [{ id: versionId }],
+				customfield_13341: [{ name: "licheng.li" }],
+			});
+			jiraUrl = config.jiraHost
+				? `${config.jiraHost}/browse/${issue.key}`
+				: "";
+			stopSpinner(s, pc.green("✔") + ` ${t("release.issueCreated")}`);
+
+			if (jiraUrl) {
+				await clipboardy.write(jiraUrl);
+				clack.log.success(
+					`${pc.bold(pc.cyan(issue.key))}  ${pc.blue(jiraUrl)}  ${pc.dim(t("end.copied"))}`,
+				);
+			} else {
+				clack.log.success(pc.bold(pc.cyan(issue.key)));
+			}
+			if (versionCreated) {
+				clack.log.info(pc.dim(t("release.versionAlsoCreated")));
+			}
+		} catch (e: unknown) {
+			stopSpinner(s, pc.red(`${t("release.createIssueFailed")}`));
+			clack.log.error(pc.dim(translateApiError(e, "jiraCreateIssue")));
+			return;
+		}
 	}
 
-	// ── Step 7: Create Jira issue ──
+	// ── Step 8: Optionally create Merge Request ──
 
-	s.start(t("release.creatingIssue"));
-	try {
-		const issue = await jira.createIssue({
-			project: { key: selectedJiraKey },
-			summary,
-			issuetype: { id: "10000" },
-			customfield_15800: "无",
-			customfield_13410: [{ id: versionId }],
-			customfield_13341: [{ name: "licheng.li" }],
+	// From history with stored mrSourceBranch: create MR directly using stored branches
+	// From history without mrSourceBranch: skip MR (was not created originally)
+	// New entry: ask whether to create MR, then pick source branch
+
+	let shouldCreateMr = false;
+	let mrSourceBranch = "";
+	let mrTargetBranch = "";
+	let mrUrl = "";
+
+	if (fromHistory && selectedEntry?.mrSourceBranch) {
+		shouldCreateMr = true;
+		mrSourceBranch = selectedEntry.mrSourceBranch;
+		mrTargetBranch = selectedEntry.mrTargetBranch ?? selectedEntry.branch;
+		clack.log.info(pc.dim(`MR: ${mrSourceBranch} → ${mrTargetBranch}`));
+	} else if (!fromHistory) {
+		const createMr = await clack.confirm({
+			message: t("release.createMR"),
 		});
-		const jiraUrl = config.jiraHost
-			? `${config.jiraHost}/browse/${issue.key}`
-			: "";
-		stopSpinner(s, pc.green("✔") + ` ${t("release.issueCreated")}`);
 
-		if (jiraUrl) {
-			await clipboardy.write(jiraUrl);
-			clack.log.success(
-				`${pc.bold(pc.cyan(issue.key))}  ${pc.blue(jiraUrl)}  ${pc.dim("(copied to clipboard)")}`,
-			);
-		} else {
-			clack.log.success(pc.bold(pc.cyan(issue.key)));
-		}
-		if (versionCreated) {
-			clack.log.info(pc.dim(t("release.versionAlsoCreated")));
+		if (clack.isCancel(createMr)) {
+			clack.outro(pc.dim(t("end.done")));
+			return;
 		}
 
-		// Auto-save to history
-		releaseStore.add(
-			{
-				id: Date.now().toString(36),
-				createdAt: new Date().toISOString(),
-				projectId: projectId as number,
-				projectName,
-				projectPath: "",
-				branch: selectedBranch,
-				jiraProjectKey: selectedJiraKey,
-			},
-			dedupKey,
-		);
-	} catch (e: unknown) {
-		stopSpinner(s, pc.red(`${t("release.createIssueFailed")}`));
-		clack.log.error(pc.dim(translateApiError(e, "jiraCreateIssue")));
-		return;
+		if (createMr) {
+			shouldCreateMr = true;
+			const mrSpinner = clack.spinner();
+			mrSpinner.start(t("release.fetchingBranches"));
+			let mrBranches: { name: string; default?: boolean }[];
+			try {
+				mrBranches = (await gitlab.listBranches(
+					projectId,
+				)) as unknown as typeof mrBranches;
+			} catch (e: unknown) {
+				stopSpinner(mrSpinner, pc.red(`${t("release.fetchBranchesFailed")}`));
+				clack.log.error(pc.dim(translateApiError(e, "gitlabBranch")));
+				clack.outro(pc.dim(t("end.done")));
+				return;
+			}
+			stopSpinner(mrSpinner, pc.green("✔") + ` ${mrBranches.length} branches loaded`);
+
+			const mrBranchChoices = mrBranches
+				.filter((b) => b.name !== selectedBranch);
+
+			if (mrBranchChoices.length === 0) {
+				clack.log.warn(pc.yellow(t("release.noSourceBranches")));
+				clack.outro(pc.dim(t("end.done")));
+				return;
+			}
+
+			if (mrBranchChoices.length <= AUTOSELECT_THRESHOLD) {
+				const sourceChoices = mrBranchChoices.map((b) => ({
+					value: b.name,
+					label:
+						b.name +
+						(b.default ? pc.cyan(` (${t("release.defaultBranch")})`) : ""),
+				}));
+				const defaultBranch = mrBranchChoices.find((b) => b.default)?.name;
+
+				const sourceBranchPick = await clack.select({
+					message: t("release.selectSourceBranch"),
+					options: sourceChoices,
+					initialValue: defaultBranch,
+				});
+
+				if (clack.isCancel(sourceBranchPick)) {
+					clack.cancel(t("release.aborted"));
+					return;
+				}
+
+				mrSourceBranch = sourceBranchPick as string;
+			} else {
+				const sourceBranchPick = await search({
+					message: t("release.selectSourceBranch"),
+					source: async (term: string | undefined) => {
+						const matched = filterByRelevance(
+							mrBranchChoices.map((b) => ({ name: b.name, path: b.name })),
+							term ?? "",
+							30,
+						);
+						if (matched.length === 0) {
+							return [
+								{
+									value: null as any,
+									name: pc.dim("(no matches)"),
+									disabled: true,
+								},
+							];
+						}
+						return matched.map((m) => {
+							const branch = mrBranchChoices.find((b) => b.name === m.name)!;
+							return {
+								value: branch.name,
+								name:
+									branch.name +
+									(branch.default
+										? pc.cyan(` (${t("release.defaultBranch")})`)
+										: ""),
+								description: branch.default ? "default branch" : undefined,
+							};
+						});
+					},
+				});
+
+				if (sourceBranchPick === undefined) {
+					clack.cancel(t("release.aborted"));
+					return;
+				}
+
+				mrSourceBranch = sourceBranchPick as string;
+			}
+
+			mrTargetBranch = selectedBranch;
+		}
 	}
 
-	clack.outro(pc.dim("Done"));
+	if (shouldCreateMr) {
+		const mrSpinner = clack.spinner();
+		mrSpinner.start(t("end.creatingMR"));
+		mrUrl = "";
+		try {
+			const mr = await gitlab.createMergeRequest(
+				projectId,
+				mrSourceBranch,
+				mrTargetBranch,
+				`${mrSourceBranch} → ${mrTargetBranch}`,
+				{ description: jiraUrl ? `Jira: ${jiraUrl}` : "" },
+			);
+			mrUrl = (mr.webUrl ?? mr.web_url) as string;
+			stopSpinner(mrSpinner, pc.green("✔") + ` ${t("release.mrCreated")}`);
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			if (msg.includes("already exists")) {
+				try {
+					const existingMrs = (await gitlab.listMergeRequests({
+						projectId: projectId as number,
+						state: "opened",
+					})) as unknown as Array<{ sourceBranch: string; targetBranch: string; webUrl?: string; web_url?: string }>;
+					const existing = existingMrs.find(
+						(m) => m.sourceBranch === mrSourceBranch && m.targetBranch === mrTargetBranch,
+					);
+					if (existing) {
+						mrUrl = existing.webUrl ?? existing.web_url ?? "";
+						stopSpinner(mrSpinner, pc.green("✔") + ` ${t("release.mrCreated")} (existing)`);
+					} else {
+						stopSpinner(mrSpinner, pc.red(t("end.mrFailed")));
+						clack.log.error(pc.dim(translateApiError(e, "gitlabMR")));
+					}
+				} catch {
+					stopSpinner(mrSpinner, pc.red(t("end.mrFailed")));
+					clack.log.error(pc.dim(translateApiError(e, "gitlabMR")));
+				}
+			} else {
+				stopSpinner(mrSpinner, pc.red(t("end.mrFailed")));
+				clack.log.error(pc.dim(translateApiError(e, "gitlabMR")));
+			}
+		}
+
+		if (mrUrl) {
+			await clipboardy.write(mrUrl);
+			clack.log.success(
+				`${pc.blue(mrUrl)} ${pc.dim(t("end.copied"))}`,
+			);
+
+			// Update history entry with MR info
+			const current = releaseStore.getAll();
+			const match = current.find(
+				(e) => e.projectId === (projectId as number) && e.branch === mrTargetBranch,
+			);
+			if (match) {
+				releaseStore.add({
+					...match,
+					mrUrl,
+					mrSourceBranch,
+					mrTargetBranch,
+				}, dedupKey);
+			}
+		}
+	}
+
+	// ── Step 9: Save to history ──
+
+	if (!fromHistory) {
+		releaseStore.add({
+			id: `${Date.now()}`,
+			createdAt: new Date().toLocaleString(),
+			projectId: projectId as number,
+			projectName,
+			projectPath: "",
+			branch: selectedBranch,
+			jiraProjectKey: selectedJiraKey,
+			...(mrUrl ? { mrUrl, mrSourceBranch, mrTargetBranch } : {}),
+		}, dedupKey);
+	}
+
+	clack.outro(pc.dim(t("end.done")));
 };
