@@ -47,3 +47,5 @@ jobs:
           npm version ${{ steps.bump.outputs.bump_type }} -m "chore: release v%s [skip ci]"
           git push --follow-tags
           npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
