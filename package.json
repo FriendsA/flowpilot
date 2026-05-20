@@ -1,6 +1,6 @@
 {
   "name": "flowpilot",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "type": "module",
   "engines": {
     "node": ">=22.13"
@@ -35,7 +35,15 @@
     "favicon",
     "README.md"
   ],
-  "keywords": ["jira", "gitlab", "cli", "release", "merge-request", "workflow", "devops"],
+  "keywords": [
+    "jira",
+    "gitlab",
+    "cli",
+    "release",
+    "merge-request",
+    "workflow",
+    "devops"
+  ],
   "author": "Corazon",
   "license": "ISC",
   "dependencies": {
