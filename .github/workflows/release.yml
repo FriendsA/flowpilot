@@ -22,7 +22,9 @@ jobs:
         with:
           node-version: 22
           package-manager-cache: false
-          # DO NOT set registry-url — OIDC handles auth automatically
+
+      - name: Ensure npm CLI >= 11.5 (required for OIDC trusted publishing)
+        run: npm install -g npm@latest
 
       - run: corepack enable && pnpm install --frozen-lockfile --ignore-scripts
 
