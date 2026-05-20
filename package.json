@@ -46,6 +46,10 @@
     "devops"
   ],
   "author": "Corazon",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FriendsA/flowpilot"
+  },
   "publishConfig": {
     "provenance": true
   },
