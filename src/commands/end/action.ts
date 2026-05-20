@@ -1,5 +1,5 @@
 import * as clack from "@clack/prompts";
-import clipboardy from "clipboardy";
+import { writeText } from "tinyclip";
 import pc from "picocolors";
 import { GitlabController } from "../../gitlab-controller";
 import { t } from "../../i18n/cli";
@@ -207,7 +207,7 @@ export const endAction = async (options: EndActionProps) => {
 				stopSpinner(s, pc.green("✔") + ` ${t("end.mrCreated")}`);
 
 				if (mrUrl) {
-					await clipboardy.write(mrUrl);
+					await writeText(mrUrl);
 					clack.log.success(
 						`${pc.blue(mrUrl)} ${pc.dim(t("end.copied"))}`,
 					);

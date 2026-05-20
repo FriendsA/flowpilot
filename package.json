@@ -14,7 +14,7 @@
   },
   "module": "./dist/server.js",
   "types": "./dist/server.d.ts",
-  "description": "Jira & GitLab workflow automation — config, release, end and more",
+  "description": "Jira & GitLab workflow automation \u2014 config, release, end and more",
   "bin": {
     "flowpilot": "./dist/cli.js"
   },
@@ -60,10 +60,10 @@
     "@hono/node-server": "^2.0.2",
     "@inquirer/search": "^4.1.9",
     "cac": "^7.0.0",
-    "clipboardy": "^5.3.1",
     "hono": "^4.12.18",
     "i18next": "^26.1.0",
-    "picocolors": "^1.1.1"
+    "picocolors": "^1.1.1",
+    "tinyclip": "^0.1.12"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.15",

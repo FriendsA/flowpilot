@@ -1,6 +1,6 @@
 import * as clack from "@clack/prompts";
 import search from "@inquirer/search";
-import clipboardy from "clipboardy";
+import { writeText } from "tinyclip";
 import pc from "picocolors";
 import { ConfigJson } from "../../config";
 import { GitlabController } from "../../gitlab-controller";
@@ -434,7 +434,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 			issueExists = true;
 
 			if (jiraUrl) {
-				await clipboardy.write(jiraUrl);
+				await writeText(jiraUrl);
 				clack.log.success(
 					`${pc.bold(pc.cyan(existingKey))}  ${pc.blue(jiraUrl)}  ${pc.dim(t("end.copied"))}`,
 				);
@@ -494,7 +494,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 			stopSpinner(s, pc.green("✔") + ` ${t("release.issueCreated")}`);
 
 			if (jiraUrl) {
-				await clipboardy.write(jiraUrl);
+				await writeText(jiraUrl);
 				clack.log.success(
 					`${pc.bold(pc.cyan(issue.key))}  ${pc.blue(jiraUrl)}  ${pc.dim(t("end.copied"))}`,
 				);
@@ -672,7 +672,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 		}
 
 		if (mrUrl) {
-			await clipboardy.write(mrUrl);
+			await writeText(mrUrl);
 			clack.log.success(
 				`${pc.blue(mrUrl)} ${pc.dim(t("end.copied"))}`,
 			);
