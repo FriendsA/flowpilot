@@ -1,6 +1,6 @@
 {
   "name": "flowpilot",
-  "version": "0.1.16",
+  "version": "0.2.0",
   "type": "module",
   "engines": {
     "node": ">=22.13"
@@ -14,7 +14,7 @@
   },
   "module": "./dist/server.js",
   "types": "./dist/server.d.ts",
-  "description": "Jira & GitLab workflow automation \u2014 config, release, end and more",
+  "description": "Jira & GitLab workflow automation — config, release, end and more",
   "bin": {
     "flowpilot": "./dist/cli.js"
   },
