@@ -16,9 +16,10 @@
 
 FlowPilot 将 **Jira** 和 **GitLab** 串联起来，把日常开发工作流中的重复操作自动化：
 
-- 配置 Jira / GitLab 凭证
+- 配置 Jira / GitLab / Jenkins 凭证
 - 创建发布申请（自动提取版本号、创建 Jira Issue）
 - 结束当前任务（rebase → push → 创建 MR → 更新 Jira）
+- 创建 Merge Request（选分支 → push → 创建 MR → 触发流水线）
 - 更多流程持续增加中…
 
 所有凭证仅存储在本地 `~/.flowpilotrc`，不会发送到任何外部服务。支持中文 / 英文自动切换。
@@ -49,6 +50,9 @@ flowpilot config --open   # 打开 Web 页面配置
 | **Jira 密码** | 仅本地存储 |
 | **GitLab 地址** | 带协议前缀，如 `http://git.example.com` |
 | **GitLab Token** | 在 GitLab Settings → Access Tokens 生成 |
+| **Jenkins 地址** | 带协议前缀，如 `https://jenkins.example.com` |
+| **Jenkins 账号** | 用户名 |
+| **Jenkins 密码** | 密码 / API Token，仅本地存储 |
 
 ---
 
@@ -81,6 +85,17 @@ flowpilot release --open   # Web
 flowpilot end               # 自动检测源分支
 flowpilot end -b develop    # 指定目标分支
 flowpilot end --open        # Web
+```
+
+### 创建 Merge Request
+
+选择源分支与目标分支，自动推送并创建 MR，支持流水线触发和 Jira 状态更新。
+
+```bash
+flowpilot mr                # CLI 交互式
+flowpilot mr -t develop     # 指定目标分支
+flowpilot mr --draft        # 创建为草稿 MR
+flowpilot mr --open         # Web
 ```
 
 ### 服务管理

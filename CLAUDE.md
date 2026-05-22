@@ -14,6 +14,7 @@ FlowPilot is a CLI + Web tool that automates Jira/GitLab release workflows. Buil
 - i18n: i18next with `{{variable}}` interpolation
 - Test: vitest
 - Lint: biome
+- Clipboard: tinyclip (NOT clipboardy)
 
 ## Commit Message Convention
 
@@ -48,7 +49,10 @@ Examples:
 - `src/store.ts` — Local history persistence (`~/.flowpilot/history/`)
 - `src/gitlab-controller.ts` — GitLab API wrapper (GitBeaker, `camelize: true`)
 - `src/jira-controller.ts` — Jira API wrapper
+- `src/jenkins-controller.ts` — Jenkins API wrapper (crumb auth, build trigger)
 - `src/utils/git.ts` — Git CLI helpers (execSync, no simple-git dependency)
+- `src/utils/mr.ts` — MR creation helpers (description generation, project resolution, fallback logic)
+- `src/shared/components/` — Shared Web UI components (common, pipeline, select)
 - `src/i18n/` — i18next with `cli/` (CLI) and `web/` (Web) namespaces
 
 ## Coding Rules
@@ -58,6 +62,8 @@ Examples:
 - Store operations after `return` inside try-catch will be tree-shaked — always place Store updates BEFORE final return, outside try-catch blocks
 - projectId type mismatch: use `Number(e.projectId) === projectId` for comparisons
 - GitBeaker `camelize: true` converts `web_url` → `webUrl` in API responses
+- Clipboard: use `tinyclip` (`writeText`), NOT `clipboardy`
+- Jenkins config fields: `jenkinsHost`, `jenkinsUser`, `jenkinsPassword` in `~/.flowpilotrc`
 - CLI branch/project/Jira selection: ≤30 items use `clack.select`, >30 use `@inquirer/search` with `filterByRelevance` (AUTOSELECT_THRESHOLD = 30)
 - i18n: CLI uses `t("key")` from `src/i18n/cli.ts`, Web uses `useT()` from `src/i18n/web.ts`
 - Code comments language: match existing codebase (auto-detect, currently English)

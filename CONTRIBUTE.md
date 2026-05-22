@@ -28,6 +28,8 @@ Creating a release issue in Jira usually means: open GitLab → find the project
 - **Web Dashboard** — dark-themed UI with sidebar, dropdowns, and keyboard navigation
 - **POM version parsing** — fetches `pom.xml` from GitLab and extracts version info
 - **Jira integration** — creates release issues, ensures project versions, deduplicates existing issues
+- **MR creation** — create Merge Requests with branch selection, auto-push, Jira status update, and pipeline trigger
+- **Jenkins integration** — trigger builds and monitor pipeline status
 - **i18n** — supports `zh-CN` and `en`, auto-detected from system locale / browser headers
 - **Local-only credentials** — all config stored at `~/.flowpilotrc`, never sent externally
 - **Zero framework overhead** — Hono SSR + `hono/jsx/dom` CSR, no React/Vue dependency
@@ -58,6 +60,8 @@ pnpm build
 |---------|-------------|---------|
 | `flowpilot config` | Configure Jira & GitLab credentials | `-o, --open` Open settings in browser |
 | `flowpilot release` | Create a release issue | `-o, --open` Open release page in browser |
+| `flowpilot end` | End current task (rebase, push, MR, Jira update) | `-b <branch>`, `-o, --open` |
+| `flowpilot mr` | Create Merge Request | `-t <branch>`, `--draft`, `-o, --open` |
 | `flowpilot serve` | Start the background web service | — |
 | `flowpilot stop` | Stop the running web service | — |
 | `flowpilot restart` | Restart the web service | — |
@@ -96,14 +100,21 @@ src/
 ├── types.ts               # Shared type definitions
 ├── jira-controller.ts     # Jira API wrapper
 ├── gitlab-controller.ts   # GitLab API wrapper (@gitbeaker/rest)
+├── jenkins-controller.ts  # Jenkins API wrapper (crumb auth, build trigger)
 ├── commands/
 │   ├── index.ts           # Aggregated action exports
 │   ├── config/            # Settings command
-│   └── release/           # Release command
+│   ├── release/           # Release command
+│   ├── end/               # End task command
+│   └── mr/                # Merge Request command
 ├── shared/
 │   ├── layout.tsx         # Global Layout (sidebar + topbar)
 │   ├── menus.ts           # Sidebar menu registry
-│   └── style.ts           # CSS variables & base styles
+│   ├── style.ts           # CSS variables & base styles
+│   └── components/        # Shared Web UI components
+│       ├── common.tsx     # Spinner, result card, action/copy buttons
+│       ├── pipeline.tsx   # Pipeline step indicators
+│       └── select.tsx     # Searchable dropdown with keyboard nav
 ├── i18n/
 │   ├── cli.ts             # CLI i18n (system locale detection)
 │   ├── web.ts             # Web i18n (cookie/header detection)
@@ -113,6 +124,7 @@ src/
 └── utils/
     ├── config.ts           # Config validation helpers
     ├── git.ts              # Git remote detection & parsing
+    ├── mr.ts               # MR creation helpers (description, project resolution, fallback)
     ├── pom.ts              # POM XML parser
     └── search.ts           # Fuzzy relevance filter
 ```
@@ -246,7 +258,7 @@ export const <name>Action = async (options: {
 | Runtime | Node.js | >= 22.13 |
 | Package Manager | pnpm | 11 |
 | Language | TypeScript | 6 |
-| Build | Rslib (Rspack) | 0.21 |
+| Build | rolldown | — |
 | Server | Hono | 4 |
 | Client Render | hono/jsx/dom | — |
 | CLI Framework | cac | 7 |
@@ -255,7 +267,7 @@ export const <name>Action = async (options: {
 | GitLab SDK | @gitbeaker/rest | 43 |
 | i18n | i18next | 26 |
 | Colors | picocolors | 1 |
-| Clipboard | clipboardy | 5 |
+| Clipboard | tinyclip | — |
 | Lint | Biome | 2 |
 | Test | Vitest | 4 |
 
@@ -301,7 +313,10 @@ Credentials are stored locally at `~/.flowpilotrc`:
   "jiraName": "username",
   "jiraPassword": "password",
   "gitlabHost": "http://git.example.com",
-  "gitlabKey": "glpat-xxxxxxxxxxxxxxxxxxxx"
+  "gitlabKey": "glpat-xxxxxxxxxxxxxxxxxxxx",
+  "jenkinsHost": "https://jenkins.example.com",
+  "jenkinsUser": "username",
+  "jenkinsPassword": "api-token"
 }
 ```
 
@@ -310,6 +325,9 @@ Credentials are stored locally at `~/.flowpilotrc`:
 - `jiraPassword` — Jira password (stored locally only)
 - `gitlabHost` — GitLab server URL (with protocol prefix)
 - `gitlabKey` — GitLab Personal Access Token
+- `jenkinsHost` — Jenkins server URL (with protocol prefix)
+- `jenkinsUser` — Jenkins username
+- `jenkinsPassword` — Jenkins password or API token (stored locally only)
 
 ## License
 
