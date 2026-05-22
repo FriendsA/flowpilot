@@ -16,6 +16,7 @@ import {
 	hasGitRemoteOrigin,
 	isGitRepo,
 } from "../../utils/git";
+import { createMrWithFallback } from "../../utils/mr";
 import { cleanVersion, parsePomXml } from "../../utils/pom";
 import { filterByRelevance } from "../../utils/search";
 
@@ -634,41 +635,22 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 		mrSpinner.start(t("end.creatingMR"));
 		mrUrl = "";
 		try {
-			const mr = await gitlab.createMergeRequest(
-				projectId,
-				mrSourceBranch,
-				mrTargetBranch,
-				`${mrSourceBranch} → ${mrTargetBranch}`,
-				{ description: jiraUrl ? `Jira: ${jiraUrl}` : "" },
+			const result = await createMrWithFallback(gitlab, {
+				projectId: projectId as number,
+				sourceBranch: mrSourceBranch,
+				targetBranch: mrTargetBranch,
+				title: `${mrSourceBranch} → ${mrTargetBranch}`,
+				description: jiraUrl ? `Jira: ${jiraUrl}` : "",
+			});
+			mrUrl = result.mrUrl;
+			stopSpinner(
+				mrSpinner,
+				pc.green("✔") +
+					` ${t("release.mrCreated")}${result.existing ? " (existing)" : ""}`,
 			);
-			mrUrl = (mr.webUrl ?? mr.web_url) as string;
-			stopSpinner(mrSpinner, pc.green("✔") + ` ${t("release.mrCreated")}`);
 		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			if (msg.includes("already exists")) {
-				try {
-					const existingMrs = (await gitlab.listMergeRequests({
-						projectId: projectId as number,
-						state: "opened",
-					})) as unknown as Array<{ sourceBranch: string; targetBranch: string; webUrl?: string; web_url?: string }>;
-					const existing = existingMrs.find(
-						(m) => m.sourceBranch === mrSourceBranch && m.targetBranch === mrTargetBranch,
-					);
-					if (existing) {
-						mrUrl = existing.webUrl ?? existing.web_url ?? "";
-						stopSpinner(mrSpinner, pc.green("✔") + ` ${t("release.mrCreated")} (existing)`);
-					} else {
-						stopSpinner(mrSpinner, pc.red(t("end.mrFailed")));
-						clack.log.error(pc.dim(translateApiError(e, "gitlabMR")));
-					}
-				} catch {
-					stopSpinner(mrSpinner, pc.red(t("end.mrFailed")));
-					clack.log.error(pc.dim(translateApiError(e, "gitlabMR")));
-				}
-			} else {
-				stopSpinner(mrSpinner, pc.red(t("end.mrFailed")));
-				clack.log.error(pc.dim(translateApiError(e, "gitlabMR")));
-			}
+			stopSpinner(mrSpinner, pc.red(t("end.mrFailed")));
+			clack.log.error(pc.dim(translateApiError(e, "gitlabMR")));
 		}
 
 		if (mrUrl) {

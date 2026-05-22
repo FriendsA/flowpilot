@@ -1,6 +1,6 @@
 import cac from "cac";
 import pc from "picocolors";
-import { configAction, endAction, releaseAction } from "./commands";
+import { configAction, endAction, mrAction, releaseAction } from "./commands";
 import { VERSION } from "./constants";
 import { t } from "./i18n/cli";
 import {
@@ -36,6 +36,13 @@ cli
 	.option("-b, --branch <branch>", t("cli.endBranchDesc"))
 	.option("-o, --open", t("cli.configOpenDesc"))
 	.action(endAction);
+
+cli
+	.command("mr", t("cli.mrDesc"))
+	.option("-t, --target <branch>", t("cli.mrTargetDesc"))
+	.option("-o, --open", t("cli.configOpenDesc"))
+	.option("--draft", t("cli.mrDraftDesc"))
+	.action(mrAction);
 
 cli.command("serve", t("cli.serveDesc")).action(async () => {
 	await startServerInBackground();

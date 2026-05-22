@@ -90,15 +90,13 @@ export function getReflogSourceBranch(
 			maxBuffer: 10 * 1024 * 1024,
 			cwd: resolveCwd(opts),
 		});
-		const reg = new RegExp(
-			`checkout: moving from (.*) to ${currentBranch}`,
-			"g",
-		);
-		const lines = reflog.split("\n").filter((x) => reg.test(x));
-		if (lines.length === 0) return null;
-		const result = new RegExp(
-			`checkout: moving from (.*) to ${currentBranch}`,
-		).exec(lines[lines.length - 1]!);
+		const pattern = `checkout: moving from (.*) to ${currentBranch}`;
+		const lines = reflog.split("\n");
+		let result: RegExpExecArray | null = null;
+		for (const line of lines) {
+			const match = new RegExp(pattern).exec(line);
+			if (match) result = match;
+		}
 		return result?.[1] ?? null;
 	} catch {
 		return null;

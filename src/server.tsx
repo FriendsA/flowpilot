@@ -7,6 +7,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { configRoutes } from "./commands/config/routes";
 import { endRoutes } from "./commands/end/routes";
+import { mrRoutes } from "./commands/mr/routes";
 import { releaseRoutes } from "./commands/release/routes";
 import {
 	DATA_DIR,
@@ -67,6 +68,7 @@ app.use("/*", async (c, next) => {
 
 app.route("/config", configRoutes);
 app.route("/end", endRoutes);
+app.route("/mr", mrRoutes);
 app.route("/release", releaseRoutes);
 
 // Serve client-side bundles and shared chunks (all under /client/)

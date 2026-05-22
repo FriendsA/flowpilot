@@ -2,6 +2,9 @@ import { type FC, useEffect, useReducer, useRef } from "hono/jsx";
 import { render } from "hono/jsx/dom";
 import i18next from "i18next";
 import { filterByRelevance } from "../../utils/search";
+import { pipelineCss, pipelineStepClass, pipelineLineClass, Pipeline, type PipelineStep } from "../../shared/components/pipeline";
+import { selectCss, selKeyDown } from "../../shared/components/select";
+import { commonCss } from "../../shared/components/common";
 
 const initPromise =
 	typeof window !== "undefined" &&
@@ -52,7 +55,7 @@ type QuickResult = {
 	mrTargetBranch?: string;
 };
 
-const releaseStyle = `
+const releaseStyle = `${pipelineCss}${selectCss}${commonCss}
   .page-header {
     margin-bottom: 28px;
     animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
@@ -70,54 +73,7 @@ const releaseStyle = `
     line-height: 1.5;
   }
 
-  /* ── Pipeline ── */
-  .pipeline {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    margin-bottom: 28px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
-  }
-  .pipeline-step {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    font-family: var(--mono);
-    color: var(--text-3);
-    font-weight: 400;
-    white-space: nowrap;
-  }
-  .pipeline-step.active {
-    color: var(--neon);
-    font-weight: 500;
-  }
-  .pipeline-step.done {
-    color: var(--cyan);
-  }
-  .pipeline-node {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: var(--text-3);
-    transition: background 0.3s, box-shadow 0.3s;
-  }
-  .pipeline-step.active .pipeline-node {
-    background: var(--neon);
-    box-shadow: 0 0 8px var(--neon-glow);
-    animation: neon-pulse 2s ease infinite;
-  }
-  .pipeline-step.done .pipeline-node {
-    background: var(--cyan);
-    box-shadow: 0 0 4px var(--cyan-glow);
-  }
-  .pipeline-line {
-    width: 32px;
-    height: 1px;
-    background: var(--border);
-    margin: 0 4px;
-    transition: background 0.3s;
-  }
-  .pipeline-line.done { background: var(--cyan); }
+
 
   /* ── Generic select ── */
   .sel {
@@ -232,26 +188,7 @@ const releaseStyle = `
   .sel-item-sub { font-size: 11px; color: var(--text-3, #64748B); font-family: var(--mono); margin-top: 2px; }
   .sel-empty { padding: 12px; text-align: center; color: var(--text-3, #64748B); font-size: 12px; }
 
-  /* ── Spinner ── */
-  .spinner {
-    display: inline-block;
-    width: 14px; height: 14px;
-    border: 2px solid var(--border);
-    border-top-color: var(--neon);
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .loading-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
-    color: var(--text-3);
-    font-size: 13px;
-    margin-bottom: 16px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
+
 
   /* ── Version display ── */
   .version-display {
@@ -907,44 +844,11 @@ const reducer = (state: State, action: Action): State => {
 
 const cleanVersion = (v: string | null) => (v ?? "").split("-")[0];
 
-const selKeyDown = (
-	e: KeyboardEvent,
-	open: boolean,
-	len: number,
-	idx: number,
-	onSelect: (i: number) => void,
-	onClose: () => void,
-): number | undefined => {
-	if (!open || len === 0) return undefined;
-	switch (e.key) {
-		case "ArrowDown":
-			e.preventDefault();
-			return Math.min(idx + 1, len - 1);
-		case "ArrowUp":
-			e.preventDefault();
-			return Math.max(idx - 1, -1);
-		case "Enter":
-			e.preventDefault();
-			if (idx >= 0) onSelect(idx);
-			return undefined;
-		case "Escape":
-			onClose();
-			return undefined;
-	}
-	return undefined;
-};
+
 
 // ── Pipeline step class helper ──
 
-const pipelineStepClass = (done: boolean, active: boolean) =>
-	done
-		? "pipeline-step done"
-		: active
-			? "pipeline-step active"
-			: "pipeline-step";
 
-const pipelineLineClass = (done: boolean) =>
-	done ? "pipeline-line done" : "pipeline-line";
 
 // ── History List Component ──
 

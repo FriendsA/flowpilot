@@ -52,6 +52,24 @@ export const configAction = async (options: ConfigActionProps) => {
 					placeholder: "glpat-xxxxxxxxxxxxxxxxxxxx",
 					initialValue: config.gitlabKey ?? "",
 				}),
+			jenkinsHost: () =>
+				clack.text({
+					message: `${pc.bold("Jenkins")} ${t("config.jenkinsHostLabel")} ${pc.dim(`(${t("config.jenkinsHostHint")})`)}`,
+					placeholder: "https://jenkins.example.com",
+					initialValue: config.jenkinsHost ?? "",
+				}),
+			jenkinsUser: () =>
+				clack.text({
+					message: `${pc.bold("Jenkins")} ${t("config.jenkinsUserLabel")}`,
+					placeholder: "username",
+					initialValue: config.jenkinsUser ?? "",
+				}),
+			jenkinsPassword: () =>
+				clack.text({
+					message: `${pc.bold("Jenkins")} ${t("config.jenkinsPasswordLabel")} ${pc.dim(`(${t("config.jenkinsPasswordHint")})`)}`,
+					placeholder: "••••••••",
+					initialValue: config.jenkinsPassword ?? "",
+				}),
 		},
 		{
 			onCancel: () => {

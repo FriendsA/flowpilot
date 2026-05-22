@@ -80,6 +80,7 @@ const configStyle = `
     transition: border-color 0.2s;
   }
   .section:nth-of-type(2) { animation-delay: 0.06s; }
+	  .section:nth-of-type(3) { animation-delay: 0.12s; }
   .section:hover { border-color: var(--border-active); }
 
   .section-head {
@@ -96,6 +97,7 @@ const configStyle = `
   }
   .section-dot.jira { background: var(--cyan); box-shadow: 0 0 6px var(--cyan-glow); }
   .section-dot.gitlab { background: var(--neon); box-shadow: 0 0 6px var(--neon-glow); }
+	  .section-dot.jenkins { background: #e67e22; box-shadow: 0 0 6px rgba(230,126,34,0.4); }
   .section-head h3 {
     font-size: 13px;
     font-weight: 600;
@@ -211,13 +213,16 @@ type Config = {
 	jiraPassword?: string;
 	gitlabHost?: string;
 	gitlabKey?: string;
+	jenkinsHost?: string;
+	jenkinsUser?: string;
+	jenkinsPassword?: string;
 };
 
 const ConfigClient: FC = () => {
 	const [config, setConfig] = useState<Config>({});
 	const [loading, setLoading] = useState(true);
 	const [toast, setToast] = useState(false);
-	const [showPassword, setShowPassword] = useState(false);
+	const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
 	useEffect(() => {
 		fetch("/config/api/config")
@@ -308,7 +313,7 @@ const ConfigClient: FC = () => {
 								<input
 									id="jiraPassword"
 									name="jiraPassword"
-									type={showPassword ? "text" : "password"}
+									type={showPasswords.jiraPassword ? "text" : "password"}
 									class="password-input"
 									placeholder={t("web.placeholderPassword")}
 									value={config.jiraPassword ?? ""}
@@ -316,10 +321,10 @@ const ConfigClient: FC = () => {
 								<button
 									class="password-toggle"
 									type="button"
-									aria-label={showPassword ? "Hide password" : "Show password"}
-									onClick={() => setShowPassword(!showPassword)}
+									aria-label={showPasswords.jiraPassword ? "Hide password" : "Show password"}
+									onClick={() => setShowPasswords({ ...showPasswords, jiraPassword: !showPasswords.jiraPassword })}
 									dangerouslySetInnerHTML={{
-										__html: showPassword ? EYE_OFF_SVG : EYE_SVG,
+										__html: showPasswords.jiraPassword ? EYE_OFF_SVG : EYE_SVG,
 									}}
 								/>
 							</div>
@@ -357,6 +362,64 @@ const ConfigClient: FC = () => {
 								placeholder={t("web.placeholderToken")}
 								value={config.gitlabKey ?? ""}
 							/>
+						</div>
+					</div>
+				</div>
+
+				<div class="section">
+					<div class="section-head">
+						<span class="section-dot jenkins" />
+						<h3>{t("web.jenkinsSection")}</h3>
+					</div>
+					<div class="section-body">
+						<div class="field">
+							<label class="field-label" for="jenkinsHost">
+								{t("web.hostLabel")}
+								<span class="hint">{t("web.hostHintJenkins")}</span>
+							</label>
+							<input
+								id="jenkinsHost"
+								name="jenkinsHost"
+								type="text"
+								placeholder={t("web.placeholderJenkinsHost")}
+								value={config.jenkinsHost ?? ""}
+							/>
+						</div>
+						<div class="field">
+							<label class="field-label" for="jenkinsUser">
+								{t("web.jenkinsUserLabel")}
+							</label>
+							<input
+								id="jenkinsUser"
+								name="jenkinsUser"
+								type="text"
+								placeholder={t("web.placeholderJenkinsUser")}
+								value={config.jenkinsUser ?? ""}
+							/>
+						</div>
+						<div class="field">
+							<label class="field-label" for="jenkinsPassword">
+								{t("web.jenkinsPasswordLabel")}
+							</label>
+							<div class="field-input-wrap">
+								<input
+									id="jenkinsPassword"
+									name="jenkinsPassword"
+									type={showPasswords.jenkinsPassword ? "text" : "password"}
+									class="password-input"
+									placeholder={t("web.placeholderJenkinsPassword")}
+									value={config.jenkinsPassword ?? ""}
+								/>
+								<button
+									class="password-toggle"
+									type="button"
+									aria-label={showPasswords.jenkinsPassword ? "Hide password" : "Show password"}
+									onClick={() => setShowPasswords({ ...showPasswords, jenkinsPassword: !showPasswords.jenkinsPassword })}
+									dangerouslySetInnerHTML={{
+										__html: showPasswords.jenkinsPassword ? EYE_OFF_SVG : EYE_SVG,
+									}}
+								/>
+							</div>
 						</div>
 					</div>
 				</div>

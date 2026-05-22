@@ -79,14 +79,28 @@ export class GitlabController {
 		sourceBranch: string,
 		targetBranch: string,
 		title: string,
-		options?: { description?: string; labels?: string },
+		options?: {
+			description?: string;
+			labels?: string;
+			assigneeId?: number;
+			milestoneId?: number;
+			removeSourceBranch?: boolean;
+			draft?: boolean;
+		},
 	) {
 		return this.api.MergeRequests.create(
 			projectId,
 			sourceBranch,
 			targetBranch,
 			title,
-			options,
+			{
+				...options,
+				...(options?.assigneeId && { assigneeId: options.assigneeId }),
+				...(options?.milestoneId && { milestoneId: options.milestoneId }),
+				...(options?.removeSourceBranch !== undefined && {
+					removeSourceBranch: options.removeSourceBranch,
+				}),
+			},
 		);
 	}
 
@@ -137,6 +151,13 @@ export class GitlabController {
 	/** Get a single issue by project-scoped IID. */
 	getIssue(projectId: string | number, issueIid: number) {
 		return this.api.Issues.show(issueIid, { projectId });
+	}
+
+	// ── Project Members ────────────────────────────────────────
+
+	/** List project members (for reviewer selection). */
+	listProjectMembers(projectId: string | number) {
+		return this.api.ProjectMembers.all(projectId);
 	}
 
 	// ── Repositories ──────────────────────────────────────────

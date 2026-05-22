@@ -6,19 +6,17 @@ import { t } from "../../i18n/web";
 import { JiraController } from "../../jira-controller";
 import type { Config } from "../../types";
 import {
-	extractProjectPath,
 	extractTicketKeys,
 	getCommitMessagesSince,
 	getCurrentBranch,
-	getGitRemoteUrl,
 	getLocalBranches,
 	getReflogSourceBranch,
 	gitFetch,
 	gitPush,
 	gitRebase,
-	hasGitRemoteOrigin,
 	isGitRepo,
 } from "../../utils/git";
+import { createMrWithFallback, generateMrDescription, resolveProjectFromRemote } from "../../utils/mr";
 
 // ── Session cwd ──
 // Stores the working directory for git operations.
@@ -160,47 +158,25 @@ router.post("/api/create-mr", async (c) => {
 	}>();
 	const workDir = cwd || sessionCwd || undefined;
 
-	if (!hasGitRemoteOrigin({ cwd: workDir })) {
-		return c.json({ error: t("end.noRemote") }, 400);
-	}
-
 	try {
 		const gitlab = new GitlabController();
 		const jira = new JiraController();
+		const project = await resolveProjectFromRemote(gitlab, { cwd: workDir });
+		const description = await generateMrDescription(jira, ticketKeys, []);
 
-		const remoteUrl = getGitRemoteUrl({ cwd: workDir });
-		const projectPath = extractProjectPath(remoteUrl);
-		const project = await gitlab.getProject(projectPath);
-
-		const issues = await Promise.all(
-			ticketKeys.map(async (key) => {
-				try {
-					return await jira.getIssue(key);
-				} catch {
-					return null;
-				}
-			}),
-		);
-		const validIssues = issues.filter(
-			(i): i is NonNullable<typeof i> => i !== null,
-		);
-		const description =
-			validIssues.length > 0
-				? validIssues.map((i) => `- ${i.key} ${i.fields.summary}`).join("\n")
-				: ticketKeys.length > 0
-					? ticketKeys.join(", ")
-					: "No linked tickets";
-
-		const mr = await gitlab.createMergeRequest(
-			project.id as number,
-			currentBranch,
+		const result = await createMrWithFallback(gitlab, {
+			projectId: project.id as number,
+			sourceBranch: currentBranch,
 			targetBranch,
-			`${currentBranch} → ${targetBranch}`,
-			{ description },
-		);
-
-		const mrUrl = (mr.webUrl ?? mr.web_url) as string;
-		return c.json({ success: true, mrUrl, mrIid: mr.iid });
+			title: `${currentBranch} → ${targetBranch}`,
+			description,
+		});
+		return c.json({
+			success: true,
+			mrUrl: result.mrUrl,
+			mrIid: result.mrIid,
+			existing: result.existing,
+		});
 	} catch (e: unknown) {
 		return c.json({ error: translateApiError(e, "gitlabProject") }, 500);
 	}
@@ -260,14 +236,14 @@ const _handlers = [
 	gitFetch,
 	gitRebase,
 	gitPush,
-	getGitRemoteUrl,
-	extractProjectPath,
 	getCommitMessagesSince,
 	extractTicketKeys,
-	hasGitRemoteOrigin,
 	GitlabController,
 	JiraController,
 	translateApiError,
+	createMrWithFallback,
+	generateMrDescription,
+	resolveProjectFromRemote,
 ];
 
 export { _handlers };

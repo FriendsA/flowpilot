@@ -4,4 +4,7 @@ export interface Config {
 	jiraPassword?: string;
 	gitlabHost?: string;
 	gitlabKey?: string;
+	jenkinsHost?: string;
+	jenkinsUser?: string;
+	jenkinsPassword?: string;
 }

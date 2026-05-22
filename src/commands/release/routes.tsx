@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { ConfigJson } from "../../config";
 import { GitlabController } from "../../gitlab-controller";
+import { createMrWithFallback } from "../../utils/mr";
 import { translateApiError } from "../../i18n/translate-error";
 import { t } from "../../i18n/web";
 import { JiraController } from "../../jira-controller";
@@ -45,39 +46,15 @@ async function createMrForRelease(
       ).find((b) => b.default)?.name;
     if (!sourceBranch || sourceBranch === targetBranch) return undefined;
     try {
-      const mr = await git.createMergeRequest(
+      const result = await createMrWithFallback(git, {
         projectId,
         sourceBranch,
         targetBranch,
-        `${sourceBranch} → ${targetBranch}`,
-        { description: jiraUrl ? `Jira: ${jiraUrl}` : "" },
-      );
-      const mrUrl = (mr.webUrl ?? mr.web_url) as string;
-      return { mrUrl, sourceBranch, targetBranch };
-    } catch (mrErr: unknown) {
-      const msg = mrErr instanceof Error ? mrErr.message : String(mrErr);
-      if (msg.includes("already exists")) {
-        const existingMrs = (await git.listMergeRequests({
-          projectId,
-          state: "opened",
-        })) as unknown as Array<{
-          sourceBranch: string;
-          targetBranch: string;
-          webUrl?: string;
-          web_url?: string;
-        }>;
-        const existing = existingMrs.find(
-          (m) =>
-            m.sourceBranch === sourceBranch && m.targetBranch === targetBranch,
-        );
-        if (existing) {
-          return {
-            mrUrl: existing.webUrl ?? existing.web_url ?? "",
-            sourceBranch,
-            targetBranch,
-          };
-        }
-      }
+        title: `${sourceBranch} → ${targetBranch}`,
+        description: jiraUrl ? `Jira: ${jiraUrl}` : "",
+      });
+      return { mrUrl: result.mrUrl, sourceBranch, targetBranch };
+    } catch {
       return undefined;
     }
   } catch {
@@ -288,41 +265,16 @@ router.post("/api/create-mr", async (c) => {
     targetBranch = body.targetBranch;
     sourceBranch = body.sourceBranch;
     const jiraUrl = body.jiraUrl ?? "";
-    const git = new GitlabController();
     try {
-      const mr = await git.createMergeRequest(
+      const result = await createMrWithFallback(new GitlabController(), {
         projectId,
         sourceBranch,
         targetBranch,
-        `${sourceBranch} → ${targetBranch}`,
-        { description: jiraUrl ? `Jira: ${jiraUrl}` : "" },
-      );
-      mrUrl = (mr.webUrl ?? mr.web_url) as string;
+        title: `${sourceBranch} → ${targetBranch}`,
+        description: jiraUrl ? `Jira: ${jiraUrl}` : "",
+      });
+      mrUrl = result.mrUrl;
     } catch (mrErr: unknown) {
-      const msg = mrErr instanceof Error ? mrErr.message : String(mrErr);
-      if (msg.includes("already exists")) {
-        try {
-          const existingMrs = (await git.listMergeRequests({
-            projectId,
-            state: "opened",
-          })) as unknown as Array<{
-            sourceBranch: string;
-            targetBranch: string;
-            webUrl?: string;
-            web_url?: string;
-          }>;
-          const existing = existingMrs.find(
-            (m) =>
-              m.sourceBranch === sourceBranch &&
-              m.targetBranch === targetBranch,
-          );
-          if (existing) {
-            mrUrl = existing.webUrl ?? existing.web_url ?? "";
-          }
-        } catch {
-          /* fall through */
-        }
-      }
       if (!mrUrl) {
         return c.json({ error: translateApiError(mrErr, "gitlabMR") }, 500);
       }
@@ -355,6 +307,7 @@ router.post("/api/create-mr", async (c) => {
   }
   return c.json({ mrUrl, sourceBranch, targetBranch });
 });
+
 
 router.get("/api/projects/:id/pom-version", async (c) => {
   try {

@@ -7,19 +7,17 @@ import { JiraController } from "../../jira-controller";
 import { openPage } from "../../server";
 import { validateConfigOrWarn } from "../../utils/config";
 import {
-	extractProjectPath,
 	extractTicketKeys,
 	getCommitMessagesSinceAsync,
 	getCurrentBranch,
-	getGitRemoteUrl,
 	getLocalBranches,
 	getReflogSourceBranch,
 	gitFetchAsync,
 	gitPushAsync,
 	gitRebaseAsync,
-	hasGitRemoteOrigin,
 	isGitRepo,
 } from "../../utils/git";
+import { createMrWithFallback, generateMrDescription, resolveProjectFromRemote } from "../../utils/mr";
 
 interface EndActionProps {
 	branch?: string;
@@ -158,53 +156,27 @@ export const endAction = async (options: EndActionProps) => {
 
 	// ── Step 5: Create Merge Request ──
 
-	const mrConfirm = await clack.confirm({
-		message: t("end.createMR"),
-	});
+		const mrConfirm = await clack.confirm({
+			message: t("end.createMR"),
+		});
 
-	let mrUrl = "";
+		let mrUrl = "";
 
-	if (mrConfirm === true) {
-		if (!hasGitRemoteOrigin()) {
-			clack.log.warn(pc.yellow(t("end.noRemote")));
-		} else {
+		if (mrConfirm === true) {
 			s.start(t("end.creatingMR"));
 			try {
-				const remoteUrl = getGitRemoteUrl();
-				const projectPath = extractProjectPath(remoteUrl);
-				const project = await gitlab.getProject(projectPath);
+				const project = await resolveProjectFromRemote(gitlab);
+				const description = await generateMrDescription(jira, ticketKeys, messages);
 
-				// Fetch Jira issue summaries for description
-				const issues = await Promise.all(
-					ticketKeys.map(async (key) => {
-						try {
-							return await jira.getIssue(key);
-						} catch {
-							return null;
-						}
-					}),
-				);
-				const validIssues = issues.filter(
-					(i): i is NonNullable<typeof i> => i !== null,
-				);
-
-				const description =
-					validIssues.length > 0
-						? validIssues
-								.map((i) => `- ${i.key} ${i.fields.summary}`)
-								.join("\n")
-						: messages.join("\n");
-
-				const mr = await gitlab.createMergeRequest(
-					project.id as number,
-					currentBranch,
+				const result = await createMrWithFallback(gitlab, {
+					projectId: project.id as number,
+					sourceBranch: currentBranch,
 					targetBranch,
-					`${currentBranch} → ${targetBranch}`,
-					{ description },
-				);
-
-				mrUrl = (mr.webUrl ?? mr.web_url) as string;
-				stopSpinner(s, pc.green("✔") + ` ${t("end.mrCreated")}`);
+					title: `${currentBranch} → ${targetBranch}`,
+					description,
+				});
+				mrUrl = result.mrUrl;
+				stopSpinner(s, pc.green("✔") + ` ${t("end.mrCreated")}${result.existing ? " (existing)" : ""}`);
 
 				if (mrUrl) {
 					await writeText(mrUrl);
@@ -217,12 +189,11 @@ export const endAction = async (options: EndActionProps) => {
 				stopSpinner(s, pc.red(t("end.mrFailed")));
 				clack.log.error(pc.dim(msg));
 			}
+		} else {
+			clack.log.info(pc.dim(`${t("end.manualMR")} ${pc.cyan(targetBranch)}`));
 		}
-	} else {
-		clack.log.info(pc.dim(`${t("end.manualMR")} ${pc.cyan(targetBranch)}`));
-	}
 
-	// ── Step 6: Update Jira issues ──
+		// ── Step 6: Update Jira issues ──
 
 	for (const key of ticketKeys) {
 		// Add comment with MR link
