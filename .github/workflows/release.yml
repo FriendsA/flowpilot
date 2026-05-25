@@ -53,3 +53,8 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ""
         run: npx npm@latest publish --provenance --access public
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create v$(node -p "require('./package.json').version") --title "v$(node -p "require('./package.json').version")" --generate-notes
