@@ -19,6 +19,8 @@ import {
 } from "../../utils/git";
 import { createMrWithFallback, generateMrDescription, resolveProjectFromRemote } from "../../utils/mr";
 
+const AUTOSELECT_THRESHOLD = 30;
+
 interface EndActionProps {
 	branch?: string;
 	b?: string;
@@ -160,38 +162,123 @@ export const endAction = async (options: EndActionProps) => {
 			message: t("end.createMR"),
 		});
 
-		let mrUrl = "";
+	let mrUrl = "";
 
-		if (mrConfirm === true) {
-			s.start(t("end.creatingMR"));
+	if (mrConfirm === true) {
+		let assigneeId: number | undefined;
+
+		// ── Resolve project & select reviewer (interactive, before spinner) ──
+
+		let project: Awaited<ReturnType<typeof resolveProjectFromRemote>>;
+		try {
+			s.start(t("end.resolveProject"));
+			project = await resolveProjectFromRemote(gitlab);
+			stopSpinner(s, pc.green("✔") + ` ${t("end.projectResolved")}`);
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			stopSpinner(s, pc.red(t("end.resolveFailed")));
+			clack.log.error(pc.dim(msg));
+			clack.log.info(pc.dim(`${t("end.manualMR")} ${pc.cyan(targetBranch)}`));
+			clack.outro(pc.dim(t("end.done")));
+			return;
+		}
+
+		const reviewerConfirm = await clack.confirm({
+			message: t("end.selectReviewer"),
+		});
+		if (clack.isCancel(reviewerConfirm) || reviewerConfirm === false) {
+			clack.log.info(pc.dim(t("end.skipReviewer")));
+		} else {
 			try {
-				const project = await resolveProjectFromRemote(gitlab);
-				const description = await generateMrDescription(jira, ticketKeys, messages);
+				s.start(t("end.fetchingMembers"));
+				const members = await gitlab.listProjectMembers(project.id as number);
+				stopSpinner(s, pc.green("✔"));
 
-				const result = await createMrWithFallback(gitlab, {
-					projectId: project.id as number,
-					sourceBranch: currentBranch,
-					targetBranch,
-					title: `${currentBranch} → ${targetBranch}`,
-					description,
-				});
-				mrUrl = result.mrUrl;
-				stopSpinner(s, pc.green("✔") + ` ${t("end.mrCreated")}${result.existing ? " (existing)" : ""}`);
-
-				if (mrUrl) {
-					await writeText(mrUrl);
-					clack.log.success(
-						`${pc.blue(mrUrl)} ${pc.dim(t("end.copied"))}`,
-					);
+				const memberList = members as unknown as Array<{
+					id: number;
+					name: string;
+					username: string;
+				}>;
+				const memberOptions = [
+					{ value: 0, label: t("end.skipReviewer") },
+					...memberList.map((m) => ({
+						value: m.id,
+						label: `${m.name} (@${m.username})`,
+					})),
+				];
+				if (memberList.length <= AUTOSELECT_THRESHOLD) {
+					const pick = await clack.select({
+						message: t("end.selectReviewer"),
+						options: memberOptions,
+					});
+					if (clack.isCancel(pick)) {
+						clack.log.info(pc.dim(t("end.skipReviewer")));
+					} else {
+						const picked = pick as number;
+						if (picked !== 0) assigneeId = picked;
+					}
+				} else {
+					const { default: Search } = await import("@inquirer/search");
+					const pick = await Search({
+						message: t("end.selectReviewer"),
+						source: async (input: string | undefined) => {
+							const all = [
+								{ id: 0, name: t("end.skipReviewer"), username: "" },
+								...memberList,
+							];
+							return all
+								.filter((m) =>
+									!input ||
+									m.name.toLowerCase().includes(input.toLowerCase()) ||
+									m.username.toLowerCase().includes(input.toLowerCase()),
+								)
+								.map((m) => ({
+									value: String(m.id),
+									name: m.name,
+									description: m.username ? `@${m.username}` : "",
+								}));
+						},
+					});
+					const picked = Number(pick);
+					if (picked !== 0) assigneeId = picked;
 				}
 			} catch (e: unknown) {
 				const msg = e instanceof Error ? e.message : String(e);
-				stopSpinner(s, pc.red(t("end.mrFailed")));
 				clack.log.error(pc.dim(msg));
 			}
-		} else {
-			clack.log.info(pc.dim(`${t("end.manualMR")} ${pc.cyan(targetBranch)}`));
 		}
+
+		// ── Create MR (spinner starts after all interactive steps) ──
+
+		s.start(t("end.creatingMR"));
+		try {
+			const description = await generateMrDescription(jira, ticketKeys, messages);
+
+			const result = await createMrWithFallback(gitlab, {
+				projectId: project.id as number,
+				sourceBranch: currentBranch,
+				targetBranch,
+				title: `${currentBranch} → ${targetBranch}`,
+				description,
+				...(assigneeId ? { assigneeId } : {}),
+			});
+			mrUrl = result.mrUrl;
+			stopSpinner(s, pc.green("✔") + ` ${t("end.mrCreated")}${result.existing ? " (existing)" : ""}`);
+
+			if (mrUrl) {
+				await writeText(mrUrl);
+				clack.log.success(
+					`${pc.blue(mrUrl)} ${pc.dim(t("end.copied"))}`,
+				);
+			}
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			stopSpinner(s, pc.red(t("end.mrFailed")));
+			clack.log.error(pc.dim(msg));
+		}
+	} else {
+		clack.log.info(pc.dim(`${t("end.manualMR")} ${pc.cyan(targetBranch)}`));
+	}
 
 		// ── Step 6: Update Jira issues ──
 
