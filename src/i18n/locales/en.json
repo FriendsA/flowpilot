@@ -12,7 +12,14 @@
     "serveStarted": "Service started",
     "serveStopped": "Service stopped",
     "noRunningService": "No running service found",
-    "serveRestarted": "Service restarted"
+    "serveRestarted": "Service restarted",
+    "updating": "Updating flowpilot...",
+    "updateSuccess": "Update successful",
+    "updateFailed": "Update failed",
+    "updateDesc": "Update to the latest version",
+    "updateAvailable": "Update available: {{current}} → {{latest}}",
+    "checkingUpdate": "Checking for updates...",
+    "alreadyLatest": "Already up to date"
   },
   "config": {
     "title": "FlowPilot Configuration",
@@ -111,6 +118,8 @@
     "jenkinsPasswordLabel": "Password / API Token",
     "placeholderJenkinsPassword": "stored locally only",
     "saveBtn": "Save Changes",
+    "savingBtn": "Saving...",
+    "saveFailed": "Save failed, please retry",
     "saveNote": "saved to ~/.flowpilotrc",
     "releaseTitle": "Release",
     "releaseDesc": "Select a project and branch to view its POM release version.",

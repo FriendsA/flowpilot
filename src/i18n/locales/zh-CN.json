@@ -12,7 +12,14 @@
     "serveStarted": "服务已启动",
     "serveStopped": "服务已停止",
     "noRunningService": "没有正在运行的服务",
-    "serveRestarted": "服务已重启"
+    "serveRestarted": "服务已重启",
+    "updating": "正在更新 flowpilot...",
+    "updateSuccess": "更新成功",
+    "updateFailed": "更新失败",
+    "updateDesc": "更新到最新版本",
+    "updateAvailable": "有新版本可用：{{current}} → {{latest}}",
+    "checkingUpdate": "检查更新中...",
+    "alreadyLatest": "已是最新版本"
   },
   "config": {
     "title": "FlowPilot 配置",
@@ -111,6 +118,8 @@
     "jenkinsPasswordLabel": "密码 / API Token",
     "placeholderJenkinsPassword": "仅本地存储",
     "saveBtn": "保存",
+    "savingBtn": "保存中...",
+    "saveFailed": "保存失败，请重试",
     "saveNote": "保存至 ~/.flowpilotrc",
     "releaseTitle": "Release",
     "releaseDesc": "选择项目和分支来查看 POM 发布版本。",
