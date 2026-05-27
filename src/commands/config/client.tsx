@@ -63,6 +63,14 @@ const configStyle = `
     display: inline-flex;
     animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
+  .toast.error {
+    background: rgba(255,85,85,0.08);
+    border-color: rgba(255,85,85,0.2);
+    color: #ff5555;
+  }
+  .toast.error .toast-dot {
+    background: #ff5555;
+  }
   .toast-dot {
     width: 6px; height: 6px;
     border-radius: 50%;
@@ -194,6 +202,10 @@ const configStyle = `
     box-shadow: 0 0 12px var(--neon-glow), 0 2px 12px rgba(0,255,136,0.2);
   }
   .btn:active { background: #00DD77; }
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 
   .save-note {
     font-size: 11px;
@@ -221,7 +233,8 @@ type Config = {
 const ConfigClient: FC = () => {
 	const [config, setConfig] = useState<Config>({});
 	const [loading, setLoading] = useState(true);
-	const [toast, setToast] = useState(false);
+	const [saving, setSaving] = useState(false);
+	const [toast, setToast] = useState<{ show: boolean; type: "success" | "error" }>({ show: false, type: "success" });
 	const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
 	useEffect(() => {
@@ -237,14 +250,23 @@ const ConfigClient: FC = () => {
 		e.preventDefault();
 		const form = e.target as HTMLFormElement;
 		const data = Object.fromEntries(new FormData(form));
-		const res = await fetch("/config/api/config", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(data),
-		});
-		if (res.ok) {
-			setToast(true);
-			setTimeout(() => setToast(false), 3000);
+		setSaving(true);
+		try {
+			const res = await fetch("/config/api/config", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(data),
+			});
+			if (res.ok) {
+				setToast({ show: true, type: "success" });
+			} else {
+				setToast({ show: true, type: "error" });
+			}
+		} catch {
+			setToast({ show: true, type: "error" });
+		} finally {
+			setSaving(false);
+			setTimeout(() => setToast({ show: false, type: "success" }), 3000);
 		}
 	};
 
@@ -266,10 +288,10 @@ const ConfigClient: FC = () => {
 				<p>{t("web.settingsDesc")}</p>
 			</div>
 
-			{toast && (
-				<div class="toast visible" role="status" aria-live="polite">
+			{toast.show && (
+				<div class={`toast visible ${toast.type === "error" ? "error" : ""}`} role="status" aria-live="polite">
 					<span class="toast-dot" />
-					{t("web.savedToast")}
+					{toast.type === "error" ? t("web.saveFailed") : t("web.savedToast")}
 				</div>
 			)}
 
@@ -290,7 +312,7 @@ const ConfigClient: FC = () => {
 								name="jiraHost"
 								type="text"
 								placeholder={t("web.placeholderJiraHost")}
-								value={config.jiraHost ?? ""}
+								defaultValue={config.jiraHost ?? ""}
 							/>
 						</div>
 						<div class="field">
@@ -302,7 +324,7 @@ const ConfigClient: FC = () => {
 								name="jiraName"
 								type="text"
 								placeholder={t("web.placeholderUsername")}
-								value={config.jiraName ?? ""}
+								defaultValue={config.jiraName ?? ""}
 							/>
 						</div>
 						<div class="field">
@@ -316,7 +338,7 @@ const ConfigClient: FC = () => {
 									type={showPasswords.jiraPassword ? "text" : "password"}
 									class="password-input"
 									placeholder={t("web.placeholderPassword")}
-									value={config.jiraPassword ?? ""}
+									defaultValue={config.jiraPassword ?? ""}
 								/>
 								<button
 									class="password-toggle"
@@ -348,7 +370,7 @@ const ConfigClient: FC = () => {
 								name="gitlabHost"
 								type="text"
 								placeholder={t("web.placeholderGitlabHost")}
-								value={config.gitlabHost ?? ""}
+								defaultValue={config.gitlabHost ?? ""}
 							/>
 						</div>
 						<div class="field">
@@ -360,7 +382,7 @@ const ConfigClient: FC = () => {
 								name="gitlabKey"
 								type="text"
 								placeholder={t("web.placeholderToken")}
-								value={config.gitlabKey ?? ""}
+								defaultValue={config.gitlabKey ?? ""}
 							/>
 						</div>
 					</div>
@@ -382,7 +404,7 @@ const ConfigClient: FC = () => {
 								name="jenkinsHost"
 								type="text"
 								placeholder={t("web.placeholderJenkinsHost")}
-								value={config.jenkinsHost ?? ""}
+								defaultValue={config.jenkinsHost ?? ""}
 							/>
 						</div>
 						<div class="field">
@@ -394,7 +416,7 @@ const ConfigClient: FC = () => {
 								name="jenkinsUser"
 								type="text"
 								placeholder={t("web.placeholderJenkinsUser")}
-								value={config.jenkinsUser ?? ""}
+								defaultValue={config.jenkinsUser ?? ""}
 							/>
 						</div>
 						<div class="field">
@@ -408,7 +430,7 @@ const ConfigClient: FC = () => {
 									type={showPasswords.jenkinsPassword ? "text" : "password"}
 									class="password-input"
 									placeholder={t("web.placeholderJenkinsPassword")}
-									value={config.jenkinsPassword ?? ""}
+									defaultValue={config.jenkinsPassword ?? ""}
 								/>
 								<button
 									class="password-toggle"
@@ -425,8 +447,8 @@ const ConfigClient: FC = () => {
 				</div>
 
 				<div class="save-bar">
-					<button class="btn" type="submit">
-						{t("web.saveBtn")}
+					<button class="btn" type="submit" disabled={saving}>
+						{saving ? t("web.savingBtn") : t("web.saveBtn")}
 					</button>
 					<span class="save-note">{t("web.saveNote")}</span>
 				</div>
