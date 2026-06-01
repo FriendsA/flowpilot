@@ -64,7 +64,7 @@ Examples:
 - projectId type mismatch: use `Number(e.projectId) === projectId` for comparisons
 - GitBeaker `camelize: true` converts `web_url` → `webUrl` in API responses
 - Clipboard: use `tinyclip` (`writeText`), NOT `clipboardy`
-- Jenkins config fields: `jenkinsHost`, `jenkinsUser`, `jenkinsPassword` in `~/.flowpilotrc`
+- Jenkins config fields: `jenkinsHost`, `jenkinsUser`, `jenkinsPassword` in `~/.flowpilot/config.json`
 - CLI branch/project/reviewer/Jira selection: always use `searchSelect` from `src/utils/search.ts` (searchable, no threshold). Small fixed-choice selections (history, Jira transitions) keep `clack.select`
 - i18n: CLI uses `t("key")` from `src/i18n/cli.ts`, Web uses `useT()` from `src/i18n/web.ts`
 - Code comments language: match existing codebase (auto-detect, currently English)

@@ -17,8 +17,13 @@ router.get("/api/config", (c) => {
 
 router.post("/api/config", async (c) => {
 	const config = new ConfigJson();
-	config.setConfig(await c.req.json());
-	return c.json({ ok: true });
+	const data = await c.req.json();
+	config.setConfig(data);
+	const headers: Record<string, string> = {};
+	if (data.locale === "zh-CN" || data.locale === "en") {
+		headers["Set-Cookie"] = `locale=${data.locale}; Path=/; Max-Age=31536000`;
+	}
+	return c.json({ ok: true }, 200, headers);
 });
 
 export const configRoutes = router;

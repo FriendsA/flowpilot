@@ -1,4 +1,5 @@
 export interface Config {
+	locale?: "zh-CN" | "en";
 	jiraHost?: string;
 	jiraName?: string;
 	jiraPassword?: string;

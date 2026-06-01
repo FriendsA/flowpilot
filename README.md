@@ -22,7 +22,7 @@ FlowPilot 将 **Jira** 和 **GitLab** 串联起来，把日常开发工作流中
 - 创建 Merge Request（选分支 → push → 创建 MR → 触发流水线）
 - 更多流程持续增加中…
 
-所有凭证仅存储在本地 `~/.flowpilotrc`，不会发送到任何外部服务。支持中文 / 英文自动切换。
+所有凭证仅存储在本地 `~/.flowpilot/config.json`，不会发送到任何外部服务。支持中文 / 英文自动切换。
 
 ---
 

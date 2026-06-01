@@ -1,4 +1,4 @@
-import { exec, spawn } from "node:child_process";
+import { exec, execSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import { createServer } from "node:net";
 import { dirname, join } from "node:path";
@@ -17,6 +17,7 @@ import {
 	SERVER_URL,
 } from "./constants";
 import {
+	detectLocaleFromConfig,
 	detectLocaleFromCookie,
 	detectLocaleFromHeader,
 	getLocaleResources,
@@ -45,7 +46,8 @@ app.use("/*", async (c, next) => {
 	const headerLocale = detectLocaleFromHeader(
 		c.req.header("accept-language") ?? "",
 	);
-	const locale = cookieLocale ?? headerLocale;
+	const configLocale = detectLocaleFromConfig();
+	const locale = configLocale ?? cookieLocale ?? headerLocale;
 
 	await initI18n(locale);
 
@@ -175,38 +177,56 @@ export const startServerInBackground = async () => {
 export const stopServer = (): boolean => {
 	migrateOldPid();
 
+	let stopped = false;
+
+	// Try PID file first
 	const pidSource = fs.existsSync(PID_FILE) ? PID_FILE : fs.existsSync(OLD_PID_FILE) ? OLD_PID_FILE : null;
-	if (!pidSource) {
-		return false;
-	}
-
-	try {
-		const raw = fs.readFileSync(pidSource, "utf-8");
-		let pid: number;
-		if (pidSource === PID_FILE) {
-			const parsed = JSON.parse(raw);
-			pid = parsed.pid ?? Number(raw.trim());
-		} else {
-			pid = Number(raw.trim());
+	if (pidSource) {
+		try {
+			const raw = fs.readFileSync(pidSource, "utf-8");
+			let pid: number;
+			if (pidSource === PID_FILE) {
+				const parsed = JSON.parse(raw);
+				pid = parsed.pid ?? Number(raw.trim());
+			} else {
+				pid = Number(raw.trim());
+			}
+			process.kill(pid, "SIGTERM");
+			stopped = true;
+		} catch {
+			// process already dead or file corrupt
 		}
-		process.kill(pid, "SIGTERM");
-	} catch {
-		// process already dead or file corrupt
+
+		try {
+			fs.unlinkSync(PID_FILE);
+		} catch {
+			// file already removed
+		}
+
+		try {
+			fs.renameSync(OLD_PID_FILE, `${OLD_PID_FILE}.bak`);
+		} catch {
+			/* ok */
+		}
 	}
 
-	try {
-		fs.unlinkSync(PID_FILE);
-	} catch {
-		// file already removed
+	// Fallback: find process by port if PID file missing or kill failed
+	if (!stopped) {
+		try {
+			const pidStr = execSync(`lsof -ti :${PORT}`, { encoding: "utf-8" }).trim();
+			if (pidStr) {
+				const pid = Number(pidStr);
+				if (pid > 0) {
+					process.kill(pid, "SIGTERM");
+					stopped = true;
+				}
+			}
+		} catch {
+			// no process on port or lsof not available
+		}
 	}
 
-	try {
-		fs.renameSync(OLD_PID_FILE, `${OLD_PID_FILE}.bak`);
-	} catch {
-		/* ok */
-	}
-
-	return true;
+	return stopped;
 };
 
 export const restartServerInBackground = async () => {

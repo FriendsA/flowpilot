@@ -1,4 +1,5 @@
 import i18next from "i18next";
+import { ConfigJson } from "../config";
 import en from "./locales/en.json";
 import zhCN from "./locales/zh-CN.json";
 
@@ -43,6 +44,12 @@ export function detectLocaleFromCookie(
 	const match = cookie.match(/(?:^|;\s*)locale=([^;]+)/);
 	if (match?.[1] && SUPPORTED.includes(match[1] as Locale))
 		return match[1] as Locale;
+	return null;
+}
+
+export function detectLocaleFromConfig(): Locale | null {
+	const locale = new ConfigJson().get("locale");
+	if (locale && SUPPORTED.includes(locale as Locale)) return locale as Locale;
 	return null;
 }
 

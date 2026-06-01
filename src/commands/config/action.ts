@@ -22,6 +22,15 @@ export const configAction = async (options: ConfigActionProps) => {
 
 	const group = await clack.group(
 		{
+			locale: () =>
+				clack.select({
+					message: pc.bold(t("config.localeLabel")),
+					options: [
+						{ value: "zh-CN", label: "中文 (zh-CN)" },
+						{ value: "en", label: "English (en)" },
+					],
+					initialValue: config.locale ?? "zh-CN",
+				}),
 			jiraHost: () =>
 				clack.text({
 					message: `${pc.bold("Jira")} ${t("config.jiraHostLabel")} ${pc.dim(`(${t("config.jiraHostHint")})`)}`,

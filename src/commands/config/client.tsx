@@ -104,6 +104,7 @@ const configStyle = `
     flex-shrink: 0;
   }
   .section-dot.jira { background: var(--cyan); box-shadow: 0 0 6px var(--cyan-glow); }
+	  .section-dot.general { background: #a78bfa; box-shadow: 0 0 6px rgba(167,139,250,0.4); }
   .section-dot.gitlab { background: var(--neon); box-shadow: 0 0 6px var(--neon-glow); }
 	  .section-dot.jenkins { background: #e67e22; box-shadow: 0 0 6px rgba(230,126,34,0.4); }
   .section-head h3 {
@@ -146,6 +147,25 @@ const configStyle = `
   }
   .field input.password-input { padding-right: 40px; }
   .field input::placeholder { color: var(--text-3); font-weight: 400; }
+	  .field select {
+	    width: 100%;
+	    padding: 10px 12px;
+	    font-size: 13px;
+	    font-family: var(--sans);
+	    color: var(--text-1);
+	    background: var(--bg-input);
+	    border: 1px solid var(--border);
+	    border-radius: 6px;
+	    outline: none;
+	    appearance: none;
+	    cursor: pointer;
+	    transition: border-color 0.2s, box-shadow 0.2s;
+	  }
+	  .field select:hover { border-color: var(--border-active); }
+	  .field select:focus {
+	    border-color: var(--neon);
+	    box-shadow: 0 0 0 2px var(--neon-soft), 0 0 8px var(--neon-glow);
+	  }
   .field input:hover { border-color: var(--border-active); }
   .field input:focus {
     border-color: var(--neon);
@@ -220,6 +240,7 @@ const configStyle = `
 `;
 
 type Config = {
+	locale?: "zh-CN" | "en";
 	jiraHost?: string;
 	jiraName?: string;
 	jiraPassword?: string;
@@ -250,6 +271,7 @@ const ConfigClient: FC = () => {
 		e.preventDefault();
 		const form = e.target as HTMLFormElement;
 		const data = Object.fromEntries(new FormData(form));
+		const localeChanged = data.locale !== (config.locale ?? "zh-CN");
 		setSaving(true);
 		try {
 			const res = await fetch("/config/api/config", {
@@ -258,6 +280,10 @@ const ConfigClient: FC = () => {
 				body: JSON.stringify(data),
 			});
 			if (res.ok) {
+				if (localeChanged) {
+					window.location.reload();
+					return;
+				}
 				setToast({ show: true, type: "success" });
 			} else {
 				setToast({ show: true, type: "error" });
@@ -298,6 +324,22 @@ const ConfigClient: FC = () => {
 			<form onSubmit={handleSubmit}>
 				<div class="section">
 					<div class="section-head">
+						<span class="section-dot general" />
+						<h3>{t("web.generalSection")}</h3>
+					</div>
+					<div class="section-body">
+						<div class="field">
+							<label class="field-label" for="locale">{t("web.localeLabel")}</label>
+							<select id="locale" name="locale" value={config.locale ?? "zh-CN"}>
+								<option value="zh-CN">中文 (zh-CN)</option>
+								<option value="en">English (en)</option>
+							</select>
+						</div>
+					</div>
+				</div>
+
+				<div class="section">
+					<div class="section-head">
 						<span class="section-dot jira" />
 						<h3>{t("web.jiraSection")}</h3>
 					</div>
@@ -312,7 +354,7 @@ const ConfigClient: FC = () => {
 								name="jiraHost"
 								type="text"
 								placeholder={t("web.placeholderJiraHost")}
-								defaultValue={config.jiraHost ?? ""}
+								value={config.jiraHost ?? ""}
 							/>
 						</div>
 						<div class="field">
@@ -324,7 +366,7 @@ const ConfigClient: FC = () => {
 								name="jiraName"
 								type="text"
 								placeholder={t("web.placeholderUsername")}
-								defaultValue={config.jiraName ?? ""}
+								value={config.jiraName ?? ""}
 							/>
 						</div>
 						<div class="field">
@@ -338,7 +380,7 @@ const ConfigClient: FC = () => {
 									type={showPasswords.jiraPassword ? "text" : "password"}
 									class="password-input"
 									placeholder={t("web.placeholderPassword")}
-									defaultValue={config.jiraPassword ?? ""}
+									value={config.jiraPassword ?? ""}
 								/>
 								<button
 									class="password-toggle"
@@ -370,7 +412,7 @@ const ConfigClient: FC = () => {
 								name="gitlabHost"
 								type="text"
 								placeholder={t("web.placeholderGitlabHost")}
-								defaultValue={config.gitlabHost ?? ""}
+								value={config.gitlabHost ?? ""}
 							/>
 						</div>
 						<div class="field">
@@ -382,7 +424,7 @@ const ConfigClient: FC = () => {
 								name="gitlabKey"
 								type="text"
 								placeholder={t("web.placeholderToken")}
-								defaultValue={config.gitlabKey ?? ""}
+								value={config.gitlabKey ?? ""}
 							/>
 						</div>
 					</div>
@@ -404,7 +446,7 @@ const ConfigClient: FC = () => {
 								name="jenkinsHost"
 								type="text"
 								placeholder={t("web.placeholderJenkinsHost")}
-								defaultValue={config.jenkinsHost ?? ""}
+								value={config.jenkinsHost ?? ""}
 							/>
 						</div>
 						<div class="field">
@@ -416,7 +458,7 @@ const ConfigClient: FC = () => {
 								name="jenkinsUser"
 								type="text"
 								placeholder={t("web.placeholderJenkinsUser")}
-								defaultValue={config.jenkinsUser ?? ""}
+								value={config.jenkinsUser ?? ""}
 							/>
 						</div>
 						<div class="field">
@@ -430,7 +472,7 @@ const ConfigClient: FC = () => {
 									type={showPasswords.jenkinsPassword ? "text" : "password"}
 									class="password-input"
 									placeholder={t("web.placeholderJenkinsPassword")}
-									defaultValue={config.jenkinsPassword ?? ""}
+									value={config.jenkinsPassword ?? ""}
 								/>
 								<button
 									class="password-toggle"

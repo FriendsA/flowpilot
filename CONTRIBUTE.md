@@ -31,7 +31,7 @@ Creating a release issue in Jira usually means: open GitLab → find the project
 - **MR creation** — create Merge Requests with branch selection, auto-push, Jira status update, and pipeline trigger
 - **Jenkins integration** — trigger builds and monitor pipeline status
 - **i18n** — supports `zh-CN` and `en`, auto-detected from system locale / browser headers
-- **Local-only credentials** — all config stored at `~/.flowpilotrc`, never sent externally
+- **Local-only credentials** — all config stored at `~/.flowpilot/config.json`, never sent externally
 - **Zero framework overhead** — Hono SSR + `hono/jsx/dom` CSR, no React/Vue dependency
 
 ## Quick Start
@@ -95,7 +95,7 @@ src/
 ├── serve.ts               # Background service bootstrap
 ├── server.tsx             # Hono server (layout, routes, static assets)
 ├── client.ts              # Browser entry (dynamic module loading)
-├── config.ts              # Local config read/write (~/.flowpilotrc)
+├── config.ts              # Local config read/write (~/.flowpilot/config.json)
 ├── constants.ts           # Constants (port, host, version)
 ├── types.ts               # Shared type definitions
 ├── jira-controller.ts     # Jira API wrapper
@@ -305,7 +305,7 @@ pnpm build
 
 ## Configuration
 
-Credentials are stored locally at `~/.flowpilotrc`:
+Credentials are stored locally at `~/.flowpilot/config.json`:
 
 ```json
 {
