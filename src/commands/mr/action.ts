@@ -1,11 +1,11 @@
 import * as clack from "@clack/prompts";
-import { writeText } from "tinyclip";
 import pc from "picocolors";
+import { writeText } from "tinyclip";
 import { GitlabController } from "../../gitlab-controller";
+import { t } from "../../i18n/cli";
 import { JiraController } from "../../jira-controller";
 import { openPage } from "../../server";
 import { Store } from "../../store";
-import { t } from "../../i18n/cli";
 import { validateConfigOrWarn } from "../../utils/config";
 import {
 	extractTicketKeys,
@@ -21,6 +21,7 @@ import {
 	generateMrDescription,
 	resolveProjectFromRemote,
 } from "../../utils/mr";
+import { searchSelect } from "../../utils/search";
 
 type MrHistoryEntry = {
 	id: string;
@@ -38,8 +39,6 @@ type MrHistoryEntry = {
 	reviewerId: number | undefined;
 	ticketKeys: string[];
 };
-
-const AUTOSELECT_THRESHOLD = 30;
 
 const mrStore = new Store<MrHistoryEntry>("mr-history.json");
 const dedupKey = (e: MrHistoryEntry) =>
@@ -147,29 +146,37 @@ export const mrAction = async (options: MrActionProps) => {
 				});
 				if (clack.isCancel(confirm) || confirm === false) {
 					const branches = getLocalBranches();
-					const pick = await clack.select({
-						message: t("mr.selectBranch"),
-						options: branches.map((b) => ({ value: b, label: b })),
+					const pick = await searchSelect(t("mr.selectBranch"), (term) => {
+						const filtered = !term
+							? branches
+							: branches.filter((b) =>
+									b.toLowerCase().includes(term.toLowerCase()),
+								);
+						return filtered.map((b) => ({ value: b, name: b }));
 					});
-					if (clack.isCancel(pick)) {
+					if (pick === undefined) {
 						clack.cancel(t("mr.aborted"));
 						return;
 					}
-					targetBranch = pick as string;
+					targetBranch = pick;
 				} else {
 					targetBranch = detected;
 				}
 			} else {
 				const branches = getLocalBranches();
-				const pick = await clack.select({
-					message: t("mr.selectBranch"),
-					options: branches.map((b) => ({ value: b, label: b })),
+				const pick = await searchSelect(t("mr.selectBranch"), (term) => {
+					const filtered = !term
+						? branches
+						: branches.filter((b) =>
+								b.toLowerCase().includes(term.toLowerCase()),
+							);
+					return filtered.map((b) => ({ value: b, name: b }));
 				});
-				if (clack.isCancel(pick)) {
+				if (pick === undefined) {
 					clack.cancel(t("mr.aborted"));
 					return;
 				}
-				targetBranch = pick as string;
+				targetBranch = pick;
 			}
 		}
 	}
@@ -181,10 +188,11 @@ export const mrAction = async (options: MrActionProps) => {
 		try {
 			const project = await resolveProjectFromRemote(gitlab);
 			projectId = project.id as number;
-			projectName = (project.name as string) ?? (project.pathWithNamespace as string) ?? "";
+			projectName =
+				(project.name as string) ?? (project.pathWithNamespace as string) ?? "";
 			stopSpinner(
 				s,
-				pc.green("✔") + ` ${t("mr.resolveProject")}: ${pc.cyan(projectName)}`,
+				`${pc.green("✔")} ${t("mr.resolveProject")}: ${pc.cyan(projectName)}`,
 			);
 		} catch (e: unknown) {
 			const msg = e instanceof Error ? e.message : String(e);
@@ -200,47 +208,34 @@ export const mrAction = async (options: MrActionProps) => {
 					name: string;
 					pathWithNamespace: string;
 				}>;
-				stopSpinner(s, pc.green("✔") + ` ${t("mr.fetchingProjects")}`);
+				stopSpinner(s, `${pc.green("✔")} ${t("mr.fetchingProjects")}`);
 
-				if (projectList.length <= AUTOSELECT_THRESHOLD) {
-					const pick = await clack.select({
-						message: t("mr.selectProject"),
-						options: projectList.map((p) => ({
-							value: p.id,
-							label: `${p.name} (${p.pathWithNamespace})`,
-						})),
-					});
-					if (clack.isCancel(pick)) {
-						clack.cancel(t("mr.aborted"));
-						return;
-					}
-					projectId = pick as number;
-					const sel = projectList.find((p) => p.id === projectId);
-					projectName = sel?.name ?? "";
-				} else {
-					// Use @inquirer/search for >30 items
-					const { default: Search } = await import("@inquirer/search");
-					const pick = await Search({
-						message: t("mr.selectProject"),
-						source: async (input: string) => {
-							const results = input
-								? await gitlab.searchProjects(input)
-								: projectList;
-							return (results as unknown as Array<{
+				const pick = await searchSelect(
+					t("mr.selectProject"),
+					async (input) => {
+						const results = input
+							? await gitlab.searchProjects(input)
+							: projectList;
+						return (
+							results as unknown as Array<{
 								id: number;
 								name: string;
 								pathWithNamespace: string;
-							}>).map((p) => ({
-								value: p.id as unknown as string,
-								name: p.name,
-								description: p.pathWithNamespace,
-							}));
-						},
-					});
-					projectId = Number(pick);
-					const sel = projectList.find((p) => p.id === projectId);
-					projectName = sel?.name ?? "";
+							}>
+						).map((p) => ({
+							value: String(p.id),
+							name: p.name,
+							description: p.pathWithNamespace,
+						}));
+					},
+				);
+				if (pick === undefined) {
+					clack.cancel(t("mr.aborted"));
+					return;
 				}
+				projectId = Number(pick);
+				const sel = projectList.find((p) => p.id === projectId);
+				projectName = sel?.name ?? "";
 			} catch (e2: unknown) {
 				const msg2 = e2 instanceof Error ? e2.message : String(e2);
 				stopSpinner(s, pc.red(t("mr.fetchProjectsFailed")));
@@ -255,7 +250,10 @@ export const mrAction = async (options: MrActionProps) => {
 	if (!fromHistory) {
 		// Smart title: strip feature/bugfix/hotfix prefix, use branch→target pattern
 		const stripPrefix = (branch: string) =>
-			branch.replace(/^(feature|bugfix|hotfix|fix|chore|refactor|docs|test)\//, "");
+			branch.replace(
+				/^(feature|bugfix|hotfix|fix|chore|refactor|docs|test)\//,
+				"",
+			);
 		const defaultTitle = `${stripPrefix(currentBranch)} → ${targetBranch}`;
 
 		const titleInput = await clack.text({
@@ -273,10 +271,12 @@ export const mrAction = async (options: MrActionProps) => {
 
 	if (!fromHistory) {
 		s.start(t("mr.generatingDescription"));
-		const messages = await getCommitMessagesSinceAsync(`origin/${targetBranch}`);
+		const messages = await getCommitMessagesSinceAsync(
+			`origin/${targetBranch}`,
+		);
 		ticketKeys = extractTicketKeys(messages);
 		const autoDesc = await generateMrDescription(jira, ticketKeys, messages);
-		stopSpinner(s, pc.green("✔") + ` ${t("mr.generatingDescription")}`);
+		stopSpinner(s, `${pc.green("✔")} ${t("mr.generatingDescription")}`);
 
 		const descInput = await clack.text({
 			message: t("mr.enterDescription"),
@@ -291,120 +291,104 @@ export const mrAction = async (options: MrActionProps) => {
 
 	// ── Step 5: Push branch ──
 
-		if (fromHistory) {
+	if (fromHistory) {
+		s.start(t("mr.pushing"));
+		try {
+			await gitPushAsync("origin", currentBranch);
+			stopSpinner(
+				s,
+				`${pc.green("✔")} ${t("mr.pushSuccess")}: ${pc.cyan(currentBranch)}`,
+			);
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			stopSpinner(s, pc.red(t("mr.pushFailed")));
+			clack.log.error(pc.dim(msg));
+		}
+	} else {
+		const pushConfirm = await clack.confirm({
+			message: t("mr.pushBranch"),
+		});
+		if (clack.isCancel(pushConfirm)) {
+			clack.log.info(pc.dim(t("mr.pushSkipped")));
+		} else if (pushConfirm === true) {
 			s.start(t("mr.pushing"));
 			try {
 				await gitPushAsync("origin", currentBranch);
-				stopSpinner(s, pc.green("✔") + ` ${t("mr.pushSuccess")}: ${pc.cyan(currentBranch)}`);
+				stopSpinner(
+					s,
+					`${pc.green("✔")} ${t("mr.pushSuccess")}: ${pc.cyan(currentBranch)}`,
+				);
 			} catch (e: unknown) {
 				const msg = e instanceof Error ? e.message : String(e);
 				stopSpinner(s, pc.red(t("mr.pushFailed")));
 				clack.log.error(pc.dim(msg));
 			}
 		} else {
-			const pushConfirm = await clack.confirm({
-				message: t("mr.pushBranch"),
-			});
-			if (clack.isCancel(pushConfirm)) {
-				clack.log.info(pc.dim(t("mr.pushSkipped")));
-			} else if (pushConfirm === true) {
-				s.start(t("mr.pushing"));
-				try {
-					await gitPushAsync("origin", currentBranch);
-					stopSpinner(
-						s,
-						pc.green("✔") + ` ${t("mr.pushSuccess")}: ${pc.cyan(currentBranch)}`,
-					);
-				} catch (e: unknown) {
-					const msg = e instanceof Error ? e.message : String(e);
-					stopSpinner(s, pc.red(t("mr.pushFailed")));
-					clack.log.error(pc.dim(msg));
-				}
-			} else {
-				clack.log.info(pc.dim(t("mr.pushSkipped")));
-			}
+			clack.log.info(pc.dim(t("mr.pushSkipped")));
 		}
+	}
 
 	// ── Step 6: Select reviewer ──
 
-		let reviewerId: number | undefined;
-		if (fromHistory) {
-			reviewerId = selectedEntry?.reviewerId;
+	let reviewerId: number | undefined;
+	if (fromHistory) {
+		reviewerId = selectedEntry?.reviewerId;
+	} else {
+		const reviewerConfirm = await clack.confirm({
+			message: t("mr.selectReviewer"),
+		});
+		if (clack.isCancel(reviewerConfirm) || reviewerConfirm === false) {
+			clack.log.info(pc.dim(t("mr.skipReviewer")));
 		} else {
-			const reviewerConfirm = await clack.confirm({
-				message: t("mr.selectReviewer"),
-			});
-			if (clack.isCancel(reviewerConfirm) || reviewerConfirm === false) {
-				clack.log.info(pc.dim(t("mr.skipReviewer")));
-			} else {
-				try {
-					const members = await gitlab.listProjectMembers(projectId);
-					const memberList = members as unknown as Array<{
-						id: number;
-						name: string;
-						username: string;
-					}>;
-					const memberOptions = [
-						{ value: 0, label: t("mr.skipReviewer") },
-						...memberList.map((m) => ({
-							value: m.id,
-							label: `${m.name} (@${m.username})`,
-						})),
+			try {
+				const members = await gitlab.listProjectMembers(projectId);
+				const memberList = members as unknown as Array<{
+					id: number;
+					name: string;
+					username: string;
+				}>;
+				const pick = await searchSelect(t("mr.selectReviewer"), (input) => {
+					const all = [
+						{ id: 0, name: t("mr.skipReviewer"), username: "" },
+						...memberList,
 					];
-					if (memberList.length <= AUTOSELECT_THRESHOLD) {
-						const pick = await clack.select({
-							message: t("mr.selectReviewer"),
-							options: memberOptions,
-						});
-						if (clack.isCancel(pick)) {
-							clack.log.info(pc.dim(t("mr.skipReviewer")));
-						} else {
-							const picked = pick as number;
-							if (picked !== 0) reviewerId = picked;
-						}
-					} else {
-						const { default: Search } = await import("@inquirer/search");
-						const pick = await Search({
-							message: t("mr.selectReviewer"),
-							source: async (input: string) => {
-								const all = [
-									{ id: 0, name: t("mr.skipReviewer"), username: "" },
-									...memberList,
-								];
-								return all
-									.filter((m) =>
-										!input ||
-										m.name.toLowerCase().includes(input.toLowerCase()) ||
-										m.username.toLowerCase().includes(input.toLowerCase()),
-									)
-									.map((m) => ({
-										value: String(m.id),
-										name: m.name,
-										description: m.username ? `@${m.username}` : "",
-									}));
-								},
-							});
-							const picked = Number(pick);
-							if (picked !== 0) reviewerId = picked;
-						}
-				} catch (e: unknown) {
-					const msg = e instanceof Error ? e.message : String(e);
-					clack.log.error(pc.dim(msg));
+					return all
+						.filter(
+							(m) =>
+								!input ||
+								m.name.toLowerCase().includes(input.toLowerCase()) ||
+								m.username.toLowerCase().includes(input.toLowerCase()),
+						)
+						.map((m) => ({
+							value: String(m.id),
+							name: m.name,
+							description: m.username ? `@${m.username}` : "",
+						}));
+				});
+				if (pick === undefined) {
+					clack.log.info(pc.dim(t("mr.skipReviewer")));
+				} else {
+					const picked = Number(pick);
+					if (picked !== 0) reviewerId = picked;
 				}
+			} catch (e: unknown) {
+				const msg = e instanceof Error ? e.message : String(e);
+				clack.log.error(pc.dim(msg));
 			}
 		}
+	}
 
 	// ── Step 7: Draft toggle ──
 
-		let draft = options.draft ?? false;
-		if (fromHistory) {
-			draft = selectedEntry?.draft ?? false;
-		} else if (!draft) {
-			const draftConfirm = await clack.confirm({
-				message: t("mr.confirmDraft"),
-			});
-			if (draftConfirm === true) draft = true;
-		}
+	let draft = options.draft ?? false;
+	if (fromHistory) {
+		draft = selectedEntry?.draft ?? false;
+	} else if (!draft) {
+		const draftConfirm = await clack.confirm({
+			message: t("mr.confirmDraft"),
+		});
+		if (draftConfirm === true) draft = true;
+	}
 
 	s.start(t("mr.creatingMR"));
 	let mrUrl = "";
@@ -428,15 +412,12 @@ export const mrAction = async (options: MrActionProps) => {
 
 		stopSpinner(
 			s,
-			pc.green("✔") +
-				` ${mrExisting ? t("mr.mrExists") : t("mr.mrCreated")}`,
+			`${pc.green("✔")} ${mrExisting ? t("mr.mrExists") : t("mr.mrCreated")}`,
 		);
 
 		if (mrUrl) {
 			await writeText(mrUrl);
-			clack.log.success(
-				`${pc.blue(mrUrl)} ${pc.dim(t("mr.mrCopied"))}`,
-			);
+			clack.log.success(`${pc.blue(mrUrl)} ${pc.dim(t("mr.mrCopied"))}`);
 		}
 	} catch (e: unknown) {
 		const msg = e instanceof Error ? e.message : String(e);
@@ -456,7 +437,9 @@ export const mrAction = async (options: MrActionProps) => {
 			if (commentConfirm === true) {
 				try {
 					await jira.addComment(key, `提交问题 ${key} [代码|${mrUrl}]`);
-					clack.log.success(pc.green("✔") + ` ${t("mr.jiraCommentAdded")}: ${key}`);
+					clack.log.success(
+						`${pc.green("✔")} ${t("mr.jiraCommentAdded")}: ${key}`,
+					);
 				} catch {
 					clack.log.warn(pc.dim(`${t("mr.jiraCommentFailed")}: ${key}`));
 				}
@@ -507,7 +490,7 @@ export const mrAction = async (options: MrActionProps) => {
 					await jira.transitionIssue(key, selectedTransition.id);
 					stopSpinner(
 						s,
-						pc.green("✔") + ` ${key} → ${pc.bold(selectedTransition.name)}`,
+						`${pc.green("✔")} ${key} → ${pc.bold(selectedTransition.name)}`,
 					);
 				}
 			} catch (e: unknown) {

@@ -1,11 +1,10 @@
 import * as clack from "@clack/prompts";
-import search from "@inquirer/search";
-import { writeText } from "tinyclip";
 import pc from "picocolors";
+import { writeText } from "tinyclip";
 import { ConfigJson } from "../../config";
 import { GitlabController } from "../../gitlab-controller";
-import { translateApiError } from "../../i18n/translate-error";
 import { t } from "../../i18n/cli";
+import { translateApiError } from "../../i18n/translate-error";
 import { JiraController } from "../../jira-controller";
 import { openPage } from "../../server";
 import { Store } from "../../store";
@@ -18,7 +17,7 @@ import {
 } from "../../utils/git";
 import { createMrWithFallback } from "../../utils/mr";
 import { cleanVersion, parsePomXml } from "../../utils/pom";
-import { filterByRelevance } from "../../utils/search";
+import { filterByRelevance, searchSelect } from "../../utils/search";
 
 interface ReleaseActionProps {
 	open?: boolean;
@@ -42,8 +41,6 @@ type ReleaseHistoryEntry = {
 const releaseStore = new Store<ReleaseHistoryEntry>("release-history.json");
 const dedupKey = (e: ReleaseHistoryEntry) =>
 	`${e.projectId}:${e.branch}:${e.jiraProjectKey}`;
-
-const AUTOSELECT_THRESHOLD = 30;
 
 function stopSpinner(s: ReturnType<typeof clack.spinner>, msg: string) {
 	try {
@@ -134,7 +131,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 						` ${t("release.projectResolved")}: ${pc.bold(project.name)} (${project.pathWithNamespace ?? projectPath})`,
 				);
 			} catch (e: unknown) {
-				stopSpinner(s, pc.yellow("⚠") + ` ${t("release.resolveFailed")}`);
+				stopSpinner(s, `${pc.yellow("⚠")} ${t("release.resolveFailed")}`);
 				clack.log.warn(pc.dim(translateApiError(e, "gitlabProject")));
 			}
 		}
@@ -156,66 +153,35 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 				clack.log.error(pc.dim(translateApiError(e, "gitlabProject")));
 				return;
 			}
-			stopSpinner(s, pc.green("✔") + ` ${allProjects.length} projects loaded`);
+			stopSpinner(s, `${pc.green("✔")} ${allProjects.length} projects loaded`);
 
-			if (allProjects.length <= AUTOSELECT_THRESHOLD) {
-				const choices = allProjects.map((p) => ({
-					value: p.id,
-					label: `${p.name}  ${pc.dim(p.pathWithNamespace ?? "")}`,
-				}));
+			const selectedId = await searchSelect(
+				t("release.selectProject"),
+				(term) => {
+					const matched = filterByRelevance(
+						allProjects.map((p) => ({
+							name: p.name,
+							path: p.pathWithNamespace ?? "",
+							id: p.id,
+						})),
+						term ?? "",
+					);
+					return matched.map((p) => ({
+						value: p.id,
+						name: `${p.name}  ${pc.dim(p.path ?? "")}`,
+						description: p.path,
+					}));
+				},
+			);
 
-				const selectedId = await clack.select({
-					message: t("release.selectProject"),
-					options: choices,
-				});
-
-				if (clack.isCancel(selectedId)) {
-					clack.cancel(t("release.aborted"));
-					return;
-				}
-
-				const picked = allProjects.find((p) => p.id === selectedId);
-				projectId = selectedId as number;
-				projectName = picked?.name ?? String(selectedId);
-			} else {
-				const selectedId = await search({
-					message: t("release.selectProject"),
-					source: async (term: string | undefined) => {
-						const matched = filterByRelevance(
-							allProjects.map((p) => ({
-								name: p.name,
-								path: p.pathWithNamespace ?? "",
-								id: p.id,
-							})),
-							term ?? "",
-							30,
-						);
-						if (matched.length === 0) {
-							return [
-								{
-									value: null as any,
-									name: pc.dim("(no matches)"),
-									disabled: true,
-								},
-							];
-						}
-						return matched.map((p) => ({
-							value: p.id,
-							name: `${p.name}  ${pc.dim(p.path ?? "")}`,
-							description: p.path,
-						}));
-					},
-				});
-
-				if (selectedId === undefined) {
-					clack.cancel(t("release.aborted"));
-					return;
-				}
-
-				const picked = allProjects.find((p) => p.id === selectedId);
-				projectId = selectedId as number;
-				projectName = picked?.name ?? String(selectedId);
+			if (selectedId === undefined) {
+				clack.cancel(t("release.aborted"));
+				return;
 			}
+
+			const picked = allProjects.find((p) => p.id === selectedId);
+			projectId = selectedId as number;
+			projectName = picked?.name ?? String(selectedId);
 		}
 	}
 
@@ -234,69 +200,31 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 			clack.log.error(pc.dim(translateApiError(e, "gitlabBranch")));
 			return;
 		}
-		stopSpinner(s, pc.green("✔") + ` ${branches.length} branches loaded`);
+		stopSpinner(s, `${pc.green("✔")} ${branches.length} branches loaded`);
 
-		if (branches.length <= AUTOSELECT_THRESHOLD) {
-			const branchChoices = branches.map((b) => ({
-				value: b.name,
-				label:
-					b.name +
-					(b.default ? pc.cyan(` (${t("release.defaultBranch")})`) : ""),
-			}));
-			const defaultBranch = branches.find((b) => b.default)?.name;
-
-			const pick = await clack.select({
-				message: t("release.selectBranch"),
-				options: branchChoices,
-				initialValue: defaultBranch,
+		const pick = await searchSelect(t("release.selectBranch"), (term) => {
+			const matched = filterByRelevance(
+				branches.map((b) => ({ name: b.name, path: b.name })),
+				term ?? "",
+			);
+			return matched.map((m) => {
+				const branch = branches.find((b) => b.name === m.name)!;
+				return {
+					value: branch.name,
+					name:
+						branch.name +
+						(branch.default ? pc.cyan(` (${t("release.defaultBranch")})`) : ""),
+					...(branch.default ? { description: "default branch" } : {}),
+				};
 			});
+		});
 
-			if (clack.isCancel(pick)) {
-				clack.cancel(t("release.aborted"));
-				return;
-			}
-
-			selectedBranch = pick as string;
-		} else {
-			const pick = await search({
-				message: t("release.selectBranch"),
-				source: async (term: string | undefined) => {
-					const matched = filterByRelevance(
-						branches.map((b) => ({ name: b.name, path: b.name })),
-						term ?? "",
-						30,
-					);
-					if (matched.length === 0) {
-						return [
-							{
-								value: null as any,
-								name: pc.dim("(no matches)"),
-								disabled: true,
-							},
-						];
-					}
-					return matched.map((m) => {
-						const branch = branches.find((b) => b.name === m.name)!;
-						return {
-							value: branch.name,
-							name:
-								branch.name +
-								(branch.default
-									? pc.cyan(` (${t("release.defaultBranch")})`)
-									: ""),
-							description: branch.default ? "default branch" : undefined,
-						};
-					});
-				},
-			});
-
-			if (pick === undefined) {
-				clack.cancel(t("release.aborted"));
-				return;
-			}
-
-			selectedBranch = pick as string;
+		if (pick === undefined) {
+			clack.cancel(t("release.aborted"));
+			return;
 		}
+
+		selectedBranch = pick as string;
 	}
 
 	// ── Step 3: Fetch pom.xml and extract version ──
@@ -318,8 +246,11 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 		pomInfo = parsePomXml(raw);
 	} catch (e: unknown) {
 		const translated = translateApiError(e, "gitlabFile");
-		if (translated === t("error.http404File") || translated === t("error.http404Project")) {
-			stopSpinner(s, pc.yellow("⚠") + ` ${t("release.noPomFound")}`);
+		if (
+			translated === t("error.http404File") ||
+			translated === t("error.http404Project")
+		) {
+			stopSpinner(s, `${pc.yellow("⚠")} ${t("release.noPomFound")}`);
 			return;
 		}
 		stopSpinner(s, pc.red(`${t("release.fetchPomFailed")}`));
@@ -356,63 +287,32 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 		}
 		stopSpinner(
 			s,
-			pc.green("✔") + ` ${jiraProjects.length} Jira projects loaded`,
+			`${pc.green("✔")} ${jiraProjects.length} Jira projects loaded`,
 		);
 
-		if (jiraProjects.length <= AUTOSELECT_THRESHOLD) {
-			const jiraChoices = jiraProjects.map((p) => ({
-				value: p.key,
-				label: `${p.key}  ${pc.dim(p.name ?? "")}`,
+		const pick = await searchSelect(t("release.selectJiraProject"), (term) => {
+			const matched = filterByRelevance(
+				jiraProjects.map((p) => ({
+					name: `${p.key} ${p.name ?? ""}`,
+					path: p.key,
+					key: p.key,
+					projectName: p.name,
+				})),
+				term ?? "",
+			);
+			return matched.map((m) => ({
+				value: (m as any).key,
+				name: `${(m as any).key}  ${pc.dim((m as any).projectName ?? "")}`,
+				description: (m as any).projectName,
 			}));
+		});
 
-			const pick = await clack.select({
-				message: t("release.selectJiraProject"),
-				options: jiraChoices,
-			});
-
-			if (clack.isCancel(pick)) {
-				clack.cancel(t("release.aborted"));
-				return;
-			}
-			selectedJiraKey = pick as string;
-		} else {
-			const pick = await search({
-				message: t("release.selectJiraProject"),
-				source: async (term: string | undefined) => {
-					const matched = filterByRelevance(
-						jiraProjects.map((p) => ({
-							name: `${p.key} ${p.name ?? ""}`,
-							path: p.key,
-							key: p.key,
-							projectName: p.name,
-						})),
-						term ?? "",
-						30,
-					);
-					if (matched.length === 0) {
-						return [
-							{
-								value: null as any,
-								name: pc.dim("(no matches)"),
-								disabled: true,
-							},
-						];
-					}
-					return matched.map((m) => ({
-						value: (m as any).key,
-						name: `${(m as any).key}  ${pc.dim((m as any).projectName ?? "")}`,
-						description: (m as any).projectName,
-					}));
-				},
-			});
-
-			if (pick === undefined) {
-				clack.cancel(t("release.aborted"));
-				return;
-			}
-
-			selectedJiraKey = pick as string;
+		if (pick === undefined) {
+			clack.cancel(t("release.aborted"));
+			return;
 		}
+
+		selectedJiraKey = pick as string;
 	}
 
 	let jiraUrl = "";
@@ -431,7 +331,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 			jiraUrl = config.jiraHost
 				? `${config.jiraHost}/browse/${existingKey}`
 				: "";
-			stopSpinner(s, pc.green("✔") + ` ${t("release.issueExists")}`);
+			stopSpinner(s, `${pc.green("✔")} ${t("release.issueExists")}`);
 			issueExists = true;
 
 			if (jiraUrl) {
@@ -445,7 +345,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 		}
 		if (!issueExists) stopSpinner(s, pc.dim("No existing issue found"));
 	} catch (e: unknown) {
-		stopSpinner(s, pc.yellow("⚠") + ` ${t("release.searchFailed")}`);
+		stopSpinner(s, `${pc.yellow("⚠")} ${t("release.searchFailed")}`);
 		clack.log.warn(pc.dim(translateApiError(e, "jiraSearch")));
 	}
 
@@ -462,7 +362,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 				versionId = existing.id;
 				stopSpinner(
 					s,
-					pc.green("✔") + ` ${t("release.versionExists")}: ${versionName}`,
+					`${pc.green("✔")} ${t("release.versionExists")}: ${versionName}`,
 				);
 			} else {
 				const created = await jira.createVersion(selectedJiraKey, versionName);
@@ -470,7 +370,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 				versionCreated = true;
 				stopSpinner(
 					s,
-					pc.green("✔") + ` ${t("release.versionCreated")}: ${versionName}`,
+					`${pc.green("✔")} ${t("release.versionCreated")}: ${versionName}`,
 				);
 			}
 		} catch (e: unknown) {
@@ -489,10 +389,8 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 				customfield_13410: [{ id: versionId }],
 				customfield_13341: [{ name: "licheng.li" }],
 			});
-			jiraUrl = config.jiraHost
-				? `${config.jiraHost}/browse/${issue.key}`
-				: "";
-			stopSpinner(s, pc.green("✔") + ` ${t("release.issueCreated")}`);
+			jiraUrl = config.jiraHost ? `${config.jiraHost}/browse/${issue.key}` : "";
+			stopSpinner(s, `${pc.green("✔")} ${t("release.issueCreated")}`);
 
 			if (jiraUrl) {
 				await writeText(jiraUrl);
@@ -553,10 +451,14 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 				clack.outro(pc.dim(t("end.done")));
 				return;
 			}
-			stopSpinner(mrSpinner, pc.green("✔") + ` ${mrBranches.length} branches loaded`);
+			stopSpinner(
+				mrSpinner,
+				`${pc.green("✔")} ${mrBranches.length} branches loaded`,
+			);
 
-			const mrBranchChoices = mrBranches
-				.filter((b) => b.name !== selectedBranch);
+			const mrBranchChoices = mrBranches.filter(
+				(b) => b.name !== selectedBranch,
+			);
 
 			if (mrBranchChoices.length === 0) {
 				clack.log.warn(pc.yellow(t("release.noSourceBranches")));
@@ -564,67 +466,34 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 				return;
 			}
 
-			if (mrBranchChoices.length <= AUTOSELECT_THRESHOLD) {
-				const sourceChoices = mrBranchChoices.map((b) => ({
-					value: b.name,
-					label:
-						b.name +
-						(b.default ? pc.cyan(` (${t("release.defaultBranch")})`) : ""),
-				}));
-				const defaultBranch = mrBranchChoices.find((b) => b.default)?.name;
+			const sourceBranchPick = await searchSelect(
+				t("release.selectSourceBranch"),
+				(term) => {
+					const matched = filterByRelevance(
+						mrBranchChoices.map((b) => ({ name: b.name, path: b.name })),
+						term ?? "",
+					);
+					return matched.map((m) => {
+						const branch = mrBranchChoices.find((b) => b.name === m.name)!;
+						return {
+							value: branch.name,
+							name:
+								branch.name +
+								(branch.default
+									? pc.cyan(` (${t("release.defaultBranch")})`)
+									: ""),
+							...(branch.default ? { description: "default branch" } : {}),
+						};
+					});
+				},
+			);
 
-				const sourceBranchPick = await clack.select({
-					message: t("release.selectSourceBranch"),
-					options: sourceChoices,
-					initialValue: defaultBranch,
-				});
-
-				if (clack.isCancel(sourceBranchPick)) {
-					clack.cancel(t("release.aborted"));
-					return;
-				}
-
-				mrSourceBranch = sourceBranchPick as string;
-			} else {
-				const sourceBranchPick = await search({
-					message: t("release.selectSourceBranch"),
-					source: async (term: string | undefined) => {
-						const matched = filterByRelevance(
-							mrBranchChoices.map((b) => ({ name: b.name, path: b.name })),
-							term ?? "",
-							30,
-						);
-						if (matched.length === 0) {
-							return [
-								{
-									value: null as any,
-									name: pc.dim("(no matches)"),
-									disabled: true,
-								},
-							];
-						}
-						return matched.map((m) => {
-							const branch = mrBranchChoices.find((b) => b.name === m.name)!;
-							return {
-								value: branch.name,
-								name:
-									branch.name +
-									(branch.default
-										? pc.cyan(` (${t("release.defaultBranch")})`)
-										: ""),
-								description: branch.default ? "default branch" : undefined,
-							};
-						});
-					},
-				});
-
-				if (sourceBranchPick === undefined) {
-					clack.cancel(t("release.aborted"));
-					return;
-				}
-
-				mrSourceBranch = sourceBranchPick as string;
+			if (sourceBranchPick === undefined) {
+				clack.cancel(t("release.aborted"));
+				return;
 			}
+
+			mrSourceBranch = sourceBranchPick as string;
 
 			mrTargetBranch = selectedBranch;
 		}
@@ -655,22 +524,24 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 
 		if (mrUrl) {
 			await writeText(mrUrl);
-			clack.log.success(
-				`${pc.blue(mrUrl)} ${pc.dim(t("end.copied"))}`,
-			);
+			clack.log.success(`${pc.blue(mrUrl)} ${pc.dim(t("end.copied"))}`);
 
 			// Update history entry with MR info
 			const current = releaseStore.getAll();
 			const match = current.find(
-				(e) => e.projectId === (projectId as number) && e.branch === mrTargetBranch,
+				(e) =>
+					e.projectId === (projectId as number) && e.branch === mrTargetBranch,
 			);
 			if (match) {
-				releaseStore.add({
-					...match,
-					mrUrl,
-					mrSourceBranch,
-					mrTargetBranch,
-				}, dedupKey);
+				releaseStore.add(
+					{
+						...match,
+						mrUrl,
+						mrSourceBranch,
+						mrTargetBranch,
+					},
+					dedupKey,
+				);
 			}
 		}
 	}
@@ -678,16 +549,19 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 	// ── Step 9: Save to history ──
 
 	if (!fromHistory) {
-		releaseStore.add({
-			id: `${Date.now()}`,
-			createdAt: new Date().toLocaleString(),
-			projectId: projectId as number,
-			projectName,
-			projectPath: "",
-			branch: selectedBranch,
-			jiraProjectKey: selectedJiraKey,
-			...(mrUrl ? { mrUrl, mrSourceBranch, mrTargetBranch } : {}),
-		}, dedupKey);
+		releaseStore.add(
+			{
+				id: `${Date.now()}`,
+				createdAt: new Date().toLocaleString(),
+				projectId: projectId as number,
+				projectName,
+				projectPath: "",
+				branch: selectedBranch,
+				jiraProjectKey: selectedJiraKey,
+				...(mrUrl ? { mrUrl, mrSourceBranch, mrTargetBranch } : {}),
+			},
+			dedupKey,
+		);
 	}
 
 	clack.outro(pc.dim(t("end.done")));

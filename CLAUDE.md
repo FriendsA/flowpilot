@@ -51,6 +51,7 @@ Examples:
 - `src/jira-controller.ts` — Jira API wrapper
 - `src/jenkins-controller.ts` — Jenkins API wrapper (crumb auth, build trigger)
 - `src/utils/git.ts` — Git CLI helpers (execSync, no simple-git dependency)
+- `src/utils/search.ts` — `searchSelect` (always-searchable CLI selection) + `filterByRelevance`
 - `src/utils/mr.ts` — MR creation helpers (description generation, project resolution, fallback logic)
 - `src/shared/components/` — Shared Web UI components (common, pipeline, select)
 - `src/i18n/` — i18next with `cli/` (CLI) and `web/` (Web) namespaces
@@ -64,6 +65,6 @@ Examples:
 - GitBeaker `camelize: true` converts `web_url` → `webUrl` in API responses
 - Clipboard: use `tinyclip` (`writeText`), NOT `clipboardy`
 - Jenkins config fields: `jenkinsHost`, `jenkinsUser`, `jenkinsPassword` in `~/.flowpilotrc`
-- CLI branch/project/Jira selection: ≤30 items use `clack.select`, >30 use `@inquirer/search` with `filterByRelevance` (AUTOSELECT_THRESHOLD = 30)
+- CLI branch/project/reviewer/Jira selection: always use `searchSelect` from `src/utils/search.ts` (searchable, no threshold). Small fixed-choice selections (history, Jira transitions) keep `clack.select`
 - i18n: CLI uses `t("key")` from `src/i18n/cli.ts`, Web uses `useT()` from `src/i18n/web.ts`
 - Code comments language: match existing codebase (auto-detect, currently English)

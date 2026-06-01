@@ -1,6 +1,6 @@
 import * as clack from "@clack/prompts";
-import { writeText } from "tinyclip";
 import pc from "picocolors";
+import { writeText } from "tinyclip";
 import { GitlabController } from "../../gitlab-controller";
 import { t } from "../../i18n/cli";
 import { JiraController } from "../../jira-controller";
@@ -17,9 +17,12 @@ import {
 	gitRebaseAsync,
 	isGitRepo,
 } from "../../utils/git";
-import { createMrWithFallback, generateMrDescription, resolveProjectFromRemote } from "../../utils/mr";
-
-const AUTOSELECT_THRESHOLD = 30;
+import {
+	createMrWithFallback,
+	generateMrDescription,
+	resolveProjectFromRemote,
+} from "../../utils/mr";
+import { searchSelect } from "../../utils/search";
 
 interface EndActionProps {
 	branch?: string;
@@ -69,31 +72,38 @@ export const endAction = async (options: EndActionProps) => {
 				message: `${t("end.confirmBranch")} ${pc.cyan(detected)} ?`,
 			});
 			if (clack.isCancel(confirm) || confirm === false) {
-				// Let user pick manually
 				const branches = getLocalBranches();
-				const pick = await clack.select({
-					message: t("end.selectBranch"),
-					options: branches.map((b) => ({ value: b, label: b })),
+				const pick = await searchSelect(t("end.selectBranch"), (term) => {
+					const filtered = !term
+						? branches
+						: branches.filter((b) =>
+								b.toLowerCase().includes(term.toLowerCase()),
+							);
+					return filtered.map((b) => ({ value: b, name: b }));
 				});
-				if (clack.isCancel(pick)) {
+				if (pick === undefined) {
 					clack.cancel(t("end.aborted"));
 					return;
 				}
-				targetBranch = pick as string;
+				targetBranch = pick;
 			} else {
 				targetBranch = detected;
 			}
 		} else {
 			const branches = getLocalBranches();
-			const pick = await clack.select({
-				message: t("end.selectBranch"),
-				options: branches.map((b) => ({ value: b, label: b })),
+			const pick = await searchSelect(t("end.selectBranch"), (term) => {
+				const filtered = !term
+					? branches
+					: branches.filter((b) =>
+							b.toLowerCase().includes(term.toLowerCase()),
+						);
+				return filtered.map((b) => ({ value: b, name: b }));
 			});
-			if (clack.isCancel(pick)) {
+			if (pick === undefined) {
 				clack.cancel(t("end.aborted"));
 				return;
 			}
-			targetBranch = pick as string;
+			targetBranch = pick;
 		}
 	}
 
@@ -121,7 +131,7 @@ export const endAction = async (options: EndActionProps) => {
 
 	stopSpinner(
 		s,
-		pc.green("✔") + ` ${t("end.rebaseSuccess")}: ${pc.cyan(targetBranch)}`,
+		`${pc.green("✔")} ${t("end.rebaseSuccess")}: ${pc.cyan(targetBranch)}`,
 	);
 
 	// ── Step 3: Push current branch ──
@@ -131,7 +141,7 @@ export const endAction = async (options: EndActionProps) => {
 		await gitPushAsync("origin", currentBranch);
 		stopSpinner(
 			s,
-			pc.green("✔") + ` ${t("end.pushSuccess")}: ${pc.cyan(currentBranch)}`,
+			`${pc.green("✔")} ${t("end.pushSuccess")}: ${pc.cyan(currentBranch)}`,
 		);
 	} catch (e: unknown) {
 		const msg = e instanceof Error ? e.message : String(e);
@@ -147,7 +157,7 @@ export const endAction = async (options: EndActionProps) => {
 	const ticketKeys = extractTicketKeys(messages);
 
 	if (ticketKeys.length === 0) {
-		stopSpinner(s, pc.yellow("⚠") + ` ${t("end.noTickets")}`);
+		stopSpinner(s, `${pc.yellow("⚠")} ${t("end.noTickets")}`);
 	} else {
 		stopSpinner(
 			s,
@@ -158,9 +168,9 @@ export const endAction = async (options: EndActionProps) => {
 
 	// ── Step 5: Create Merge Request ──
 
-		const mrConfirm = await clack.confirm({
-			message: t("end.createMR"),
-		});
+	const mrConfirm = await clack.confirm({
+		message: t("end.createMR"),
+	});
 
 	let mrUrl = "";
 
@@ -173,7 +183,7 @@ export const endAction = async (options: EndActionProps) => {
 		try {
 			s.start(t("end.resolveProject"));
 			project = await resolveProjectFromRemote(gitlab);
-			stopSpinner(s, pc.green("✔") + ` ${t("end.projectResolved")}`);
+			stopSpinner(s, `${pc.green("✔")} ${t("end.projectResolved")}`);
 		} catch (e: unknown) {
 			const msg = e instanceof Error ? e.message : String(e);
 			stopSpinner(s, pc.red(t("end.resolveFailed")));
@@ -199,46 +209,27 @@ export const endAction = async (options: EndActionProps) => {
 					name: string;
 					username: string;
 				}>;
-				const memberOptions = [
-					{ value: 0, label: t("end.skipReviewer") },
-					...memberList.map((m) => ({
-						value: m.id,
-						label: `${m.name} (@${m.username})`,
-					})),
-				];
-				if (memberList.length <= AUTOSELECT_THRESHOLD) {
-					const pick = await clack.select({
-						message: t("end.selectReviewer"),
-						options: memberOptions,
-					});
-					if (clack.isCancel(pick)) {
-						clack.log.info(pc.dim(t("end.skipReviewer")));
-					} else {
-						const picked = pick as number;
-						if (picked !== 0) assigneeId = picked;
-					}
+				const pick = await searchSelect(t("end.selectReviewer"), (input) => {
+					const all = [
+						{ id: 0, name: t("end.skipReviewer"), username: "" },
+						...memberList,
+					];
+					return all
+						.filter(
+							(m) =>
+								!input ||
+								m.name.toLowerCase().includes(input.toLowerCase()) ||
+								m.username.toLowerCase().includes(input.toLowerCase()),
+						)
+						.map((m) => ({
+							value: String(m.id),
+							name: m.name,
+							description: m.username ? `@${m.username}` : "",
+						}));
+				});
+				if (pick === undefined) {
+					clack.log.info(pc.dim(t("end.skipReviewer")));
 				} else {
-					const { default: Search } = await import("@inquirer/search");
-					const pick = await Search({
-						message: t("end.selectReviewer"),
-						source: async (input: string | undefined) => {
-							const all = [
-								{ id: 0, name: t("end.skipReviewer"), username: "" },
-								...memberList,
-							];
-							return all
-								.filter((m) =>
-									!input ||
-									m.name.toLowerCase().includes(input.toLowerCase()) ||
-									m.username.toLowerCase().includes(input.toLowerCase()),
-								)
-								.map((m) => ({
-									value: String(m.id),
-									name: m.name,
-									description: m.username ? `@${m.username}` : "",
-								}));
-						},
-					});
 					const picked = Number(pick);
 					if (picked !== 0) assigneeId = picked;
 				}
@@ -252,7 +243,11 @@ export const endAction = async (options: EndActionProps) => {
 
 		s.start(t("end.creatingMR"));
 		try {
-			const description = await generateMrDescription(jira, ticketKeys, messages);
+			const description = await generateMrDescription(
+				jira,
+				ticketKeys,
+				messages,
+			);
 
 			const result = await createMrWithFallback(gitlab, {
 				projectId: project.id as number,
@@ -263,13 +258,15 @@ export const endAction = async (options: EndActionProps) => {
 				...(assigneeId ? { assigneeId } : {}),
 			});
 			mrUrl = result.mrUrl;
-			stopSpinner(s, pc.green("✔") + ` ${t("end.mrCreated")}${result.existing ? " (existing)" : ""}`);
+			stopSpinner(
+				s,
+				pc.green("✔") +
+					` ${t("end.mrCreated")}${result.existing ? " (existing)" : ""}`,
+			);
 
 			if (mrUrl) {
 				await writeText(mrUrl);
-				clack.log.success(
-					`${pc.blue(mrUrl)} ${pc.dim(t("end.copied"))}`,
-				);
+				clack.log.success(`${pc.blue(mrUrl)} ${pc.dim(t("end.copied"))}`);
 			}
 		} catch (e: unknown) {
 			const msg = e instanceof Error ? e.message : String(e);
@@ -280,7 +277,7 @@ export const endAction = async (options: EndActionProps) => {
 		clack.log.info(pc.dim(`${t("end.manualMR")} ${pc.cyan(targetBranch)}`));
 	}
 
-		// ── Step 6: Update Jira issues ──
+	// ── Step 6: Update Jira issues ──
 
 	for (const key of ticketKeys) {
 		// Add comment with MR link
@@ -334,7 +331,7 @@ export const endAction = async (options: EndActionProps) => {
 					await jira.transitionIssue(key, selectedTransition.id);
 					stopSpinner(
 						s,
-						pc.green("✔") + ` ${key} → ${pc.bold(selectedTransition.name)}`,
+						`${pc.green("✔")} ${key} → ${pc.bold(selectedTransition.name)}`,
 					);
 				}
 			} catch (e: unknown) {

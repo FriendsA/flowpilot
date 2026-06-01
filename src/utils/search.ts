@@ -1,3 +1,43 @@
+import search from "@inquirer/search";
+import pc from "picocolors";
+
+export interface SearchSelectItem<T> {
+	value: T;
+	name: string;
+	description?: string;
+	disabled?: boolean;
+}
+
+/**
+ * Always-searchable selection component.
+ * Replaces clack.select + AUTOSELECT_THRESHOLD pattern.
+ * Returns undefined on user cancel (Ctrl+C / Escape).
+ */
+export async function searchSelect<T>(
+	message: string,
+	source: (
+		term: string | undefined,
+	) => SearchSelectItem<T>[] | Promise<SearchSelectItem<T>[]>,
+): Promise<T | undefined> {
+	const pick = await search<T>({
+		message,
+		source: async (term: string | undefined) => {
+			const items = await source(term);
+			if (items.length === 0) {
+				return [
+					{
+						value: undefined as unknown as T,
+						name: pc.dim("(no matches)"),
+						disabled: true,
+					},
+				];
+			}
+			return items;
+		},
+	});
+	return pick;
+}
+
 export function filterByRelevance<T extends { name: string; path?: string }>(
 	items: T[],
 	query: string,

@@ -1,17 +1,20 @@
-import { defineConfig } from "rolldown";
 import fs from "node:fs";
 import path from "node:path";
+import { defineConfig } from "rolldown";
 
-const sharedExternals = [
-	"node:fs",
-	"node:os",
-	"node:path",
-	"node:url",
-	"node:http",
-	"node:https",
-	"node:child_process",
-	"node:crypto",
-];
+// Match all Node.js built-in modules (node:* prefix + bare names like 'tty', 'stream')
+const nodeBuiltins =
+	/^node:|^(tty|stream|util|async_hooks|readline|process|fs|os|path|url|http|https|child_process|crypto|buffer|events|net|dns|timers|zlib|string_decoder|vm|assert|inspector|perf_hooks|worker_threads|dgram|console|constants|domain|module|punycode|querystring|tls|v8|wasi)$/;
+
+// Node-target builds: externalize node built-ins, suppress resolve warnings
+// (node:* modules are available at runtime — UNRESOLVED_IMPORT is noise)
+// NOTE: checks.unresolvedImport=false doesn't suppress warnings in rolldown v1.0.1
+// (bug: Rust resolver prints UNRESOLVED_IMPORT before JS onLog/checks can intercept).
+// Keep the config for forward-compat — will work once rolldown fixes the bug.
+const nodeBuildConfig = {
+	external: [nodeBuiltins],
+	checks: { unresolvedImport: false },
+};
 
 // Plugin to copy favicon assets after each build
 function copyFaviconsPlugin() {
@@ -40,7 +43,7 @@ export default defineConfig([
 			banner: "#!/usr/bin/env node",
 		},
 		platform: "node",
-		external: sharedExternals,
+		...nodeBuildConfig,
 		transform: {
 			jsx: { runtime: "automatic", importSource: "hono/jsx" },
 		},
@@ -55,7 +58,7 @@ export default defineConfig([
 			entryFileNames: "[name].js",
 		},
 		platform: "node",
-		external: sharedExternals,
+		...nodeBuildConfig,
 		transform: {
 			jsx: { runtime: "automatic", importSource: "hono/jsx" },
 		},
@@ -70,7 +73,7 @@ export default defineConfig([
 			entryFileNames: "[name].js",
 		},
 		platform: "node",
-		external: sharedExternals,
+		...nodeBuildConfig,
 		transform: {
 			jsx: { runtime: "automatic", importSource: "hono/jsx" },
 		},
