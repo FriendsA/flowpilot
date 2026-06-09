@@ -153,7 +153,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 				clack.log.error(pc.dim(translateApiError(e, "gitlabProject")));
 				return;
 			}
-			stopSpinner(s, `${pc.green("✔")} ${allProjects.length} projects loaded`);
+			stopSpinner(s, `${pc.green("✔")} ${t("cli.projectsLoaded", { count: allProjects.length })}`);
 
 			const selectedId = await searchSelect(
 				t("release.selectProject"),
@@ -200,7 +200,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 			clack.log.error(pc.dim(translateApiError(e, "gitlabBranch")));
 			return;
 		}
-		stopSpinner(s, `${pc.green("✔")} ${branches.length} branches loaded`);
+		stopSpinner(s, `${pc.green("✔")} ${t("cli.branchesLoaded", { count: branches.length })}`);
 
 		const pick = await searchSelect(t("release.selectBranch"), (term) => {
 			const matched = filterByRelevance(
@@ -287,7 +287,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 		}
 		stopSpinner(
 			s,
-			`${pc.green("✔")} ${jiraProjects.length} Jira projects loaded`,
+			`${pc.green("✔")} ${t("cli.jiraProjectsLoaded", { count: jiraProjects.length })}`,
 		);
 
 		const pick = await searchSelect(t("release.selectJiraProject"), (term) => {
@@ -343,7 +343,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 				clack.log.success(pc.bold(pc.cyan(existingKey)));
 			}
 		}
-		if (!issueExists) stopSpinner(s, pc.dim("No existing issue found"));
+		if (!issueExists) stopSpinner(s, pc.dim(t("cli.noExistingIssue")));
 	} catch (e: unknown) {
 		stopSpinner(s, `${pc.yellow("⚠")} ${t("release.searchFailed")}`);
 		clack.log.warn(pc.dim(translateApiError(e, "jiraSearch")));
@@ -453,7 +453,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 			}
 			stopSpinner(
 				mrSpinner,
-				`${pc.green("✔")} ${mrBranches.length} branches loaded`,
+				`${pc.green("✔")} ${t("cli.branchesLoaded", { count: mrBranches.length })}`,
 			);
 
 			const mrBranchChoices = mrBranches.filter(
@@ -515,7 +515,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 			stopSpinner(
 				mrSpinner,
 				pc.green("✔") +
-					` ${t("release.mrCreated")}${result.existing ? " (existing)" : ""}`,
+					` ${t("release.mrCreated")}${result.existing ? t("cli.mrExisting") : ""}`,
 			);
 		} catch (e: unknown) {
 			stopSpinner(mrSpinner, pc.red(t("end.mrFailed")));

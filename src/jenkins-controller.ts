@@ -44,7 +44,10 @@ export class JenkinsController {
 				},
 			});
 			if (res.ok) {
-				const data = await res.json() as { crumb: string; crumbRequestField: string };
+				const data = (await res.json()) as {
+					crumb: string;
+					crumbRequestField: string;
+				};
 				this.crumb = data.crumb;
 				this.crumbHeaderName = data.crumbRequestField;
 			}
@@ -67,7 +70,10 @@ export class JenkinsController {
 
 		const res = await fetch(`${this.host}${path}`, {
 			...init,
-			headers: { ...headers, ...(init?.headers as Record<string, string> ?? {}) },
+			headers: {
+				...headers,
+				...((init?.headers as Record<string, string>) ?? {}),
+			},
 		});
 
 		if (!res.ok) {
@@ -131,7 +137,10 @@ export class JenkinsController {
 	// ── Build Status ────────────────────────────────────────────
 
 	/** Get build status by job name and build number. */
-	async getBuildStatus(jobName: string, buildNumber: number): Promise<JenkinsBuild> {
+	async getBuildStatus(
+		jobName: string,
+		buildNumber: number,
+	): Promise<JenkinsBuild> {
 		return this.request<JenkinsBuild>(
 			`/job/${encodeURIComponent(jobName)}/${buildNumber}/api/json`,
 		);
@@ -145,6 +154,37 @@ export class JenkinsController {
 		return data.lastBuild?.number ?? null;
 	}
 
+	// ── Job Search ──────────────────────────────────────────────
+
+	/** List all jobs (name, url, color). */
+	async listJobs(): Promise<JenkinsJob[]> {
+		const data = await this.request<{ jobs: JenkinsJob[] }>(
+			"/api/json?tree=jobs[name,url,color,fullName]",
+		);
+		return data.jobs ?? [];
+	}
+
+	// ── Build Info (with artifacts) ─────────────────────────────
+
+	/** Get build info including artifacts. */
+	async getBuildInfo(
+		jobName: string,
+		buildNumber: number,
+	): Promise<JenkinsBuildWithArtifacts> {
+		return this.request<JenkinsBuildWithArtifacts>(
+			`/job/${encodeURIComponent(jobName)}/${buildNumber}/api/json?tree=number,url,result,building,duration,timestamp,displayName,artifacts[fileName,relativePath]`,
+		);
+	}
+
+	/** Get last build (full info with artifacts). */
+	async getLastBuild(
+		jobName: string,
+	): Promise<JenkinsBuildWithArtifacts | null> {
+		const buildNumber = await this.getLastBuildNumber(jobName);
+		if (buildNumber === null) return null;
+		return this.getBuildInfo(jobName, buildNumber);
+	}
+
 	// ── Build Log ───────────────────────────────────────────────
 
 	/** Get build console log as plain text. */
@@ -153,4 +193,20 @@ export class JenkinsController {
 			`/job/${encodeURIComponent(jobName)}/${buildNumber}/consoleText`,
 		);
 	}
+}
+
+export interface JenkinsJob {
+	name: string;
+	url: string;
+	color: string;
+	fullName?: string;
+}
+
+export interface JenkinsBuildWithArtifacts extends JenkinsBuild {
+	artifacts?: JenkinsArtifact[];
+}
+
+export interface JenkinsArtifact {
+	fileName: string;
+	relativePath: string;
 }

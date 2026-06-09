@@ -436,7 +436,7 @@ export const mrAction = async (options: MrActionProps) => {
 			});
 			if (commentConfirm === true) {
 				try {
-					await jira.addComment(key, `提交问题 ${key} [代码|${mrUrl}]`);
+					await jira.addComment(key, t("cli.jiraCommentTemplate", { key, mrUrl }));
 					clack.log.success(
 						`${pc.green("✔")} ${t("mr.jiraCommentAdded")}: ${key}`,
 					);

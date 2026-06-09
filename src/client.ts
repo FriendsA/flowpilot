@@ -2,6 +2,7 @@ import { meta as config } from "./commands/config/meta";
 import { meta as end } from "./commands/end/meta";
 import { meta as mr } from "./commands/mr/meta";
 import { meta as release } from "./commands/release/meta";
+import { meta as watch } from "./commands/watch/meta";
 
 type ClientModule = { mount: (el: HTMLElement) => void };
 
@@ -10,6 +11,7 @@ const routes: Record<string, () => Promise<ClientModule>> = {
 	[end.href]: () => import("./commands/end/client"),
 	[mr.href]: () => import("./commands/mr/client"),
 	[release.href]: () => import("./commands/release/client"),
+	[watch.href]: () => import("./commands/watch/client"),
 };
 
 async function boot() {

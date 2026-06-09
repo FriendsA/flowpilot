@@ -58,13 +58,15 @@ pnpm build
 
 | Command | Description | Options |
 |---------|-------------|---------|
-| `flowpilot config` | Configure Jira & GitLab credentials | `-o, --open` Open settings in browser |
-| `flowpilot release` | Create a release issue | `-o, --open` Open release page in browser |
-| `flowpilot end` | End current task (rebase, push, MR, Jira update) | `-b <branch>`, `-o, --open` |
-| `flowpilot mr` | Create Merge Request | `-t <branch>`, `--draft`, `-o, --open` |
-| `flowpilot serve` | Start the background web service | — |
-| `flowpilot stop` | Stop the running web service | — |
-| `flowpilot restart` | Restart the web service | — |
+| `flowpilot config` | Configure credentials (Jira, GitLab, Jenkins) | `-o, --open` Open settings in browser |
+| `flowpilot release` | Create release request (auto-extract version and create Jira Issue) | `-o, --open` Open release page in browser |
+| `flowpilot end` | Complete current task (auto rebase, push, create MR, update Jira) | `-b <branch>`, `-o, --open` |
+| `flowpilot mr` | Create Merge Request (auto-generate title and description) | `-t <branch>`, `--draft`, `-o, --open` |
+| `flowpilot watch` | Monitor Jenkins builds (auto-poll every 60 seconds) | `-o, --open` |
+| `flowpilot serve` | Start web service | — |
+| `flowpilot stop` | Stop web service | — |
+| `flowpilot restart` | Restart web service | — |
+| `flowpilot update` | Update FlowPilot to latest version | — |
 
 ### Release Workflow (CLI)
 
@@ -328,6 +330,36 @@ Credentials are stored locally at `~/.flowpilot/config.json`:
 - `jenkinsHost` — Jenkins server URL (with protocol prefix)
 - `jenkinsUser` — Jenkins username
 - `jenkinsPassword` — Jenkins password or API token (stored locally only)
+
+## pom.xml Custom Fields
+
+FlowPilot reads custom fields from `pom.xml` to extract metadata for release management and Jenkins integration.
+
+**Supported fields (in priority order):**
+
+1. `<flowpilot><releaseName>` — human-readable name for releases (Jira version/issues)
+2. `<flowpilot><jenkinsJob>` — Jenkins job name for pipeline monitoring
+3. `<properties><flowPilotName>` — legacy fallback for `releaseName`
+4. `<properties><jenkinsJobName>` — legacy fallback for `jenkinsJob`
+
+**Example:**
+
+```xml
+<project>
+  <version>1.2.3-SNAPSHOT</version>
+  
+  <flowpilot>
+    <releaseName>my-service</releaseName>
+    <jenkinsJob>my-service-deploy</jenkinsJob>
+  </flowpilot>
+</project>
+```
+
+**Standard fields also used:**
+- `<version>` — project version (auto-strips `-SNAPSHOT`, `-beta`, etc.)
+- `<groupId>` — Maven group ID
+
+For complete documentation, see [docs/pom-configuration.md](docs/pom-configuration.md).
 
 ## License
 

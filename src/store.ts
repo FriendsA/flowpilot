@@ -51,6 +51,14 @@ export class Store<T> {
 		}
 	}
 
+	remove(id: string): void {
+		const entries = this.getAll().filter((e) => {
+			const entry = e as { id?: string };
+			return entry.id !== id;
+		});
+		this.persist(entries);
+	}
+
 	private persist(entries: T[]): void {
 		this.ensureDir();
 		fs.writeFileSync(this.filepath, JSON.stringify(entries, null, 2));

@@ -9,6 +9,7 @@ import { configRoutes } from "./commands/config/routes";
 import { endRoutes } from "./commands/end/routes";
 import { mrRoutes } from "./commands/mr/routes";
 import { releaseRoutes } from "./commands/release/routes";
+import { watchRoutes } from "./commands/watch/routes";
 import {
 	DATA_DIR,
 	OLD_PID_FILE,
@@ -72,6 +73,7 @@ app.route("/config", configRoutes);
 app.route("/end", endRoutes);
 app.route("/mr", mrRoutes);
 app.route("/release", releaseRoutes);
+app.route("/watch", watchRoutes);
 
 // Serve client-side bundles and shared chunks (all under /client/)
 const __serverDir = dirname(fileURLToPath(import.meta.url));
@@ -180,7 +182,11 @@ export const stopServer = (): boolean => {
 	let stopped = false;
 
 	// Try PID file first
-	const pidSource = fs.existsSync(PID_FILE) ? PID_FILE : fs.existsSync(OLD_PID_FILE) ? OLD_PID_FILE : null;
+	const pidSource = fs.existsSync(PID_FILE)
+		? PID_FILE
+		: fs.existsSync(OLD_PID_FILE)
+			? OLD_PID_FILE
+			: null;
 	if (pidSource) {
 		try {
 			const raw = fs.readFileSync(pidSource, "utf-8");
@@ -213,7 +219,9 @@ export const stopServer = (): boolean => {
 	// Fallback: find process by port if PID file missing or kill failed
 	if (!stopped) {
 		try {
-			const pidStr = execSync(`lsof -ti :${PORT}`, { encoding: "utf-8" }).trim();
+			const pidStr = execSync(`lsof -ti :${PORT}`, {
+				encoding: "utf-8",
+			}).trim();
 			if (pidStr) {
 				const pid = Number(pidStr);
 				if (pid > 0) {

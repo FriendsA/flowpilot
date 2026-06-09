@@ -173,6 +173,7 @@ describe("parsePomXml", () => {
 			version: "1.2.3",
 			groupId: "com.example",
 			flowPilotName: "my-flow-app",
+			jenkinsJobName: null,
 		});
 	});
 
@@ -209,13 +210,46 @@ describe("parsePomXml", () => {
 
 	it("returns null for all fields on empty string", () => {
 		const result = parsePomXml("");
-		expect(result).toEqual({ version: null, groupId: null, flowPilotName: null });
+		expect(result).toEqual({ version: null, groupId: null, flowPilotName: null, jenkinsJobName: null });
 	});
 
 	it("returns null when no tags present", () => {
 		const result = parsePomXml("<project></project>");
-		expect(result).toEqual({ version: null, groupId: null, flowPilotName: null });
+		expect(result).toEqual({ version: null, groupId: null, flowPilotName: null, jenkinsJobName: null });
 	});
+
+	it("extracts from <flowpilot> top-level element", () => {
+		const pom = `<project>
+			<groupId>com.example</groupId>
+			<version>2.0.0</version>
+			<flowpilot>
+				<releaseName>my-service</releaseName>
+				<jenkinsJob>my-service-deploy</jenkinsJob>
+			</flowpilot>
+		</project>`;
+		const result = parsePomXml(pom);
+		expect(result.flowPilotName).toBe("my-service");
+		expect(result.jenkinsJobName).toBe("my-service-deploy");
+	});
+
+	it("<flowpilot> takes precedence over properties", () => {
+		const pom = `<project>
+			<groupId>com.example</groupId>
+			<version>2.0.0</version>
+			<flowpilot>
+				<releaseName>new-name</releaseName>
+				<jenkinsJob>new-job</jenkinsJob>
+			</flowpilot>
+			<properties>
+				<flowPilotName>old-name</flowPilotName>
+				<jenkinsJobName>old-job</jenkinsJobName>
+			</properties>
+		</project>`;
+		const result = parsePomXml(pom);
+		expect(result.flowPilotName).toBe("new-name");
+		expect(result.jenkinsJobName).toBe("new-job");
+	});
+
 });
 
 describe("cleanVersion", () => {

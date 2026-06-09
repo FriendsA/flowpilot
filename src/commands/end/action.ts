@@ -261,7 +261,7 @@ export const endAction = async (options: EndActionProps) => {
 			stopSpinner(
 				s,
 				pc.green("✔") +
-					` ${t("end.mrCreated")}${result.existing ? " (existing)" : ""}`,
+					` ${t("end.mrCreated")}${result.existing ? t("cli.mrExisting") : ""}`,
 			);
 
 			if (mrUrl) {
@@ -283,7 +283,7 @@ export const endAction = async (options: EndActionProps) => {
 		// Add comment with MR link
 		if (mrUrl) {
 			try {
-				await jira.addComment(key, `提交问题 ${key} [代码|${mrUrl}]`);
+				await jira.addComment(key, t("cli.jiraCommentTemplate", { key, mrUrl }));
 			} catch {
 				// Comment failure is not critical
 			}

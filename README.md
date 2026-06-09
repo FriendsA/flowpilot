@@ -58,9 +58,21 @@ flowpilot config --open   # 打开 Web 页面配置
 
 ## 使用方式
 
-每个命令都支持 CLI 交互和 Web 页面两种操作方式，`--open` 打开对应的浏览器页面。
+每个命令都支持 CLI 交互和 Web 页面两种操作方式，`--open` 在浏览器中打开对应的操作页面。
 
 所有带输入的命令支持**历史记录快速执行**：保存每次的输入数据，下次一键复用，无需重新填写。
+
+| 命令 | 描述 |
+|------|------|
+| `flowpilot config` | 配置凭证（Jira、GitLab、Jenkins） |
+| `flowpilot release` | 创建发布申请（自动提取版本号并创建 Jira Issue） |
+| `flowpilot end` | 完成当前任务（自动 rebase、push、创建 MR、更新 Jira） |
+| `flowpilot mr` | 创建 Merge Request（自动生成标题和描述） |
+| `flowpilot watch` | 监控 Jenkins 构建（每 60 秒自动轮询） |
+| `flowpilot serve` | 启动 Web 服务 |
+| `flowpilot stop` | 停止 Web 服务 |
+| `flowpilot restart` | 重启 Web 服务 |
+| `flowpilot update` | 更新 FlowPilot 到最新版本 |
 
 ### 发布申请
 
@@ -68,13 +80,16 @@ flowpilot config --open   # 打开 Web 页面配置
 
 **变量提取规则：**
 - **版本号**：从 `pom.xml` 的 `<version>` 标签提取（自动去除 `-SNAPSHOT` 等后缀）
-- **项目名称（flowPilotName）**：从 `pom.xml` 的 `<properties><flowPilotName>` 标签提取，用于生成版本名和 Issue 概要。若 `<properties>` 中无 `<flowPilotName>`，则回退使用 GitLab 项目名称
-- **Jira 版本名**：`{flowPilotName}-{version}`，如 `my-flow-app-1.2.3`
-- **Issue 概要**：`{flowPilotName}-{version} release request`
+- **发布名称（releaseName）**：优先从 `pom.xml` 的 `<flowpilot><releaseName>` 提取；回退到 `<properties><flowPilotName>`；最终回退到 GitLab 项目名称
+- **Jenkins 任务（jenkinsJob）**：优先从 `pom.xml` 的 `<flowpilot><jenkinsJob>` 提取；回退到 `<properties><jenkinsJobName>`
+- **Jira 版本名**：`{releaseName}-{version}`，如 `my-service-1.2.3`
+- **Issue 概要**：`{releaseName}-{version} release request`
+
+完整的 pom.xml 配置说明见 [POM Configuration](docs/pom-configuration.md)
 
 ```bash
 flowpilot release          # CLI
-flowpilot release --open   # Web
+flowpilot release --open   # 在浏览器中打开发布页面
 ```
 
 ### 结束任务
@@ -84,7 +99,7 @@ flowpilot release --open   # Web
 ```bash
 flowpilot end               # 自动检测源分支
 flowpilot end -b develop    # 指定目标分支
-flowpilot end --open        # Web
+flowpilot end --open        # 在浏览器中打开任务完成页面
 ```
 
 ### 创建 Merge Request
@@ -95,15 +110,23 @@ flowpilot end --open        # Web
 flowpilot mr                # CLI 交互式
 flowpilot mr -t develop     # 指定目标分支
 flowpilot mr --draft        # 创建为草稿 MR
-flowpilot mr --open         # Web
+flowpilot mr --open         # 在浏览器中打开 MR 创建页面
+```
+
+### 监控 Jenkins 构建
+
+实时监控 Jenkins 流水线的构建状态，每 60 秒自动轮询更新。
+
+```bash
+flowpilot watch --open      # 在浏览器中打开监控页面
 ```
 
 ### 服务管理
 
 ```bash
-flowpilot serve     # 启动后台服务
-flowpilot stop      # 停止
-flowpilot restart   # 重启
+flowpilot serve     # 启动 Web 服务
+flowpilot stop      # 停止 Web 服务
+flowpilot restart   # 重启 Web 服务
 ```
 
 ---

@@ -11,6 +11,8 @@ type ErrorContext =
 	| "jiraVersion"
 	| "jiraCreateIssue"
 	| "jiraGeneral"
+	| "jenkinsSearch"
+	| "jenkinsBuild"
 	| "network";
 
 const HTTP_CODE_MAP: Record<string, string> = {
@@ -31,6 +33,8 @@ const CONTEXT_404_MAP: Record<ErrorContext, string> = {
 	jiraVersion: "error.http404",
 	jiraCreateIssue: "error.http404",
 	jiraGeneral: "error.http404",
+	jenkinsSearch: "error.http404",
+	jenkinsBuild: "error.noBuild",
 	network: "error.network",
 };
 
@@ -45,6 +49,8 @@ const CONTEXT_FALLBACK_MAP: Record<ErrorContext, string> = {
 	jiraVersion: "error.jiraVersionFailed",
 	jiraCreateIssue: "error.jiraCreateIssueFailed",
 	jiraGeneral: "error.gitlabApiFailed",
+	jenkinsSearch: "error.jenkinsSearchFailed",
+	jenkinsBuild: "error.jenkinsBuildFailed",
 	network: "error.network",
 };
 
