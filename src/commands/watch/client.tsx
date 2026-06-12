@@ -1628,28 +1628,15 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 		restartToken: s.quickPollingStartedAt,
 	});
 
-	// Load jobs when dropdown is opened for the first time
+	// Load quick jobs list when dropdown is opened for the first time
 	useEffect(() => {
-		if (!s.quickJobOpen) return;
-		if (s.quickJobs.length > 0 || s.quickJobsLoading) return;
+		if (!s.quickJobOpen || s.quickJobs.length > 0 || s.quickJobsLoading) return;
 		d({ type: "QUICK_JOBS_LOADING" });
-		fetch("/watch/api/jenkins/search")
+		fetch("/watch/api/jenkins/jobs")
 			.then((r) => r.json())
-			.then((data) => {
-				const jobs = Array.isArray(data) ? data : [];
-				d({ type: "QUICK_JOBS_LOADED", jobs });
-			})
+			.then((jobs: any[]) => d({ type: "QUICK_JOBS_LOADED", jobs }))
 			.catch(() => d({ type: "QUICK_JOBS_LOADED", jobs: [] }));
 	}, [s.quickJobOpen, s.quickJobs.length, s.quickJobsLoading]);
-
-	const filteredJobs = filterByRelevance(
-		s.quickJobs.map((j) => ({ ...j, name: j.name })),
-		s.quickSearch,
-	);
-
-	useEffect(() => {
-		if (s.quickJobOpen) setTimeout(() => jobSearchRef.current?.focus(), 50);
-	}, [s.quickJobOpen]);
 
 	// Close dropdown when clicking outside
 	useEffect(() => {
@@ -1667,30 +1654,40 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 	const handleConfirmWatch = async () => {
 		if (!s.quickSelectedJob) return;
 		const jobName = s.quickSelectedJob.name;
-		// Save to history
-		await fetch("/watch/api/history", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				id: Date.now().toString(36),
-				createdAt: new Date().toISOString(),
-				projectId: 0,
-				projectName: "",
-				projectPath: "",
-				branch: "",
-				jenkinsJobName: jobName,
-			}),
-		});
-		// Refresh history
+		// Check if job already exists in history
 		const histRes = await fetch("/watch/api/history");
 		const histData = await histRes.json();
-		d({ type: "SET_HISTORY", history: histData });
-		// Start first build for the newly saved entry
-		const entryId = histData.find(
+		const existingEntry = histData.find(
 			(e: WatchHistoryEntry) => e.jenkinsJobName === jobName,
-		)?.id;
-		if (entryId) {
-			d({ type: "HISTORY_BUILD_START", id: entryId });
+		);
+		d({ type: "SET_HISTORY", history: histData });
+		if (existingEntry) {
+			// Already in history, just trigger monitoring
+			d({ type: "HISTORY_BUILD_START", id: existingEntry.id });
+		} else {
+			// Save to history then trigger
+			await fetch("/watch/api/history", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					id: Date.now().toString(36),
+					createdAt: new Date().toISOString(),
+					projectId: 0,
+					projectName: "",
+					projectPath: "",
+					branch: "",
+					jenkinsJobName: jobName,
+				}),
+			});
+			const newHistRes = await fetch("/watch/api/history");
+			const newHistData = await newHistRes.json();
+			d({ type: "SET_HISTORY", history: newHistData });
+			const entryId = newHistData.find(
+				(e: WatchHistoryEntry) => e.jenkinsJobName === jobName,
+			)?.id;
+			if (entryId) {
+				d({ type: "HISTORY_BUILD_START", id: entryId });
+			}
 		}
 		// Reset quick form
 		d({ type: "QUICK_BUILD_RESET" });
@@ -1812,7 +1809,6 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 const WatchFlow: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 	const projectSearchRef = useRef<HTMLInputElement>(null);
 	const branchSearchRef = useRef<HTMLInputElement>(null);
-	const jobSearchRef = useRef<HTMLInputElement>(null);
 
 	const handleSelectProject = (project: Project) => {
 		d({ type: "SELECT_PROJECT", project });
@@ -1892,50 +1888,6 @@ const WatchFlow: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 			.catch(() => d({ type: "POM_ERROR", error: "Failed to fetch pom.xml" }));
 	}, [s.selected, s.selectedBranch, s.pomInfo, s.pomLoading]);
 
-	useEffect(() => {
-		if (!s.jenkinsJobName || s.jenkinsJobsLoading || s.jenkinsJobs.length > 0)
-			return;
-		d({ type: "JENKINS_JOBS_LOADING" });
-		fetch(`/watch/api/jenkins/search?q=${encodeURIComponent(s.jenkinsJobName)}`)
-			.then((r) => r.json())
-			.then((data) => {
-				if (Array.isArray(data)) d({ type: "JENKINS_JOBS_LOADED", jobs: data });
-				else d({ type: "JENKINS_JOBS_LOADED", jobs: [] });
-			})
-			.catch(() => d({ type: "JENKINS_JOBS_LOADED", jobs: [] }));
-	}, [s.jenkinsJobName, s.jenkinsJobsLoading, s.jenkinsJobs.length]);
-
-	const filteredJobs = filterByRelevance(
-		s.jenkinsJobs.map((j) => ({ ...j, name: j.name })),
-		s.jenkinsJobSearch || s.jenkinsJobName,
-	);
-
-	// Auto-select exact match or open dropdown for multiple matches
-	const autoSelectedRef = useRef<string | null>(null);
-	useEffect(() => {
-		if (!s.jenkinsJobName) {
-			autoSelectedRef.current = null;
-			return;
-		}
-		if (autoSelectedRef.current === s.jenkinsJobName) return;
-		if (s.jenkinsJobsLoading || s.jenkinsJobs.length === 0) return;
-
-		const exact = s.jenkinsJobs.find(
-			(j) => j.name.toLowerCase() === s.jenkinsJobName.toLowerCase(),
-		);
-		if (exact) {
-			d({ type: "SELECT_JENKINS_JOB", job: exact });
-			autoSelectedRef.current = s.jenkinsJobName;
-			return;
-		}
-		if (filteredJobs.length === 1) {
-			d({ type: "SELECT_JENKINS_JOB", job: filteredJobs[0] as JenkinsJob });
-			autoSelectedRef.current = s.jenkinsJobName;
-		} else if (filteredJobs.length > 1 && !s.jenkinsJobOpen) {
-			d({ type: "SET_JENKINS_JOB_OPEN", open: true });
-		}
-	}, [s.jenkinsJobName, s.jenkinsJobsLoading, s.jenkinsJobs.length, filteredJobs.length]);
-
 	const fp = filterByRelevance(
 		s.projects.map((p) => ({
 			...p,
@@ -1955,14 +1907,6 @@ const WatchFlow: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 	const step2Active = !!s.selected && !step2Done;
 	const step3Done = !!s.pomInfo && !!s.jenkinsJobName;
 	const step3Active = !!s.selectedBranch && !step3Done;
-	const step4Done = !!s.selectedJob;
-	const step4Active = step3Done && !step4Done && !s.jenkinsJobsLoading;
-	const step5Done =
-		s.buildStatus === "success" ||
-		s.buildStatus === "failure" ||
-		s.buildStatus === "aborted" ||
-		s.buildStatus === "building";
-	const step5Active = step4Done && !step5Done;
 
 	if (s.projectsLoading) {
 		return (
@@ -1991,16 +1935,6 @@ const WatchFlow: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 					<span class="pipeline-node" />
 					{t("web.watchJobName")}
 				</div>
-				<div class={pipelineLineClass(step3Done)} />
-				<div class={pipelineStepClass(step4Done, step4Active)}>
-					<span class="pipeline-node" />
-					{t("web.watchSelectJob")}
-				</div>
-				<div class={pipelineLineClass(step4Done)} />
-				<div class={pipelineStepClass(step5Done, step5Active)}>
-					<span class="pipeline-node" />
-					{t("web.watchBuild")}
-				</div>
 			</div>
 
 			{/* Project select */}
@@ -2017,7 +1951,6 @@ const WatchFlow: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 					aria-haspopup="listbox"
 					onClick={() => {
 						d({ type: "SET_BRANCH_OPEN", open: false });
-						d({ type: "SET_JENKINS_JOB_OPEN", open: false });
 						d({ type: "SET_PROJECT_OPEN", open: !s.projectOpen });
 					}}
 				>
@@ -2107,7 +2040,6 @@ const WatchFlow: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 								aria-haspopup="listbox"
 								onClick={() => {
 									d({ type: "SET_PROJECT_OPEN", open: false });
-									d({ type: "SET_JENKINS_JOB_OPEN", open: false });
 									d({ type: "SET_BRANCH_OPEN", open: !s.branchOpen });
 								}}
 							>
@@ -2198,149 +2130,6 @@ const WatchFlow: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 					)
 				))}
 
-			{/* Jenkins job selection */}
-			{s.jenkinsJobName &&
-				!step4Done &&
-				(s.jenkinsJobsLoading ? (
-					<div class="loading-row">
-						<span class="spinner" />
-						{t("web.watchSearchingJobs")}
-					</div>
-				) : (
-					<div
-						class="sel"
-						data-sel="job"
-						style={`z-index:${s.jenkinsJobOpen ? 100 : 1}`}
-					>
-						<button
-							class={`sel-trigger${s.jenkinsJobOpen ? " open" : ""}`}
-							type="button"
-							role="combobox"
-							aria-expanded={s.jenkinsJobOpen}
-							aria-haspopup="listbox"
-							onClick={() => {
-								d({ type: "SET_PROJECT_OPEN", open: false });
-								d({ type: "SET_BRANCH_OPEN", open: false });
-								d({ type: "SET_JENKINS_JOB_OPEN", open: !s.jenkinsJobOpen });
-							}}
-						>
-							<span class="sel-trigger-label">{t("web.watchSelectJob")}</span>
-							<span class={`sel-trigger-value${s.selectedJob ? "" : " empty"}`}>
-								{s.selectedJob
-									? s.selectedJob.name
-									: t("web.watchSelectJobPlaceholder")}
-							</span>
-							<span class="sel-trigger-arrow">▼</span>
-						</button>
-						{s.jenkinsJobOpen && (
-							<div
-								class="sel-dropdown"
-								role="listbox"
-								aria-label={t("web.watchSelectJob")}
-							>
-								<div class="sel-search">
-									<input
-										ref={jobSearchRef}
-										class="sel-search-input"
-										type="text"
-										placeholder={t("web.watchFilterJobs")}
-										value={s.jenkinsJobSearch}
-										onChange={(e: Event) =>
-											d({
-												type: "SET_JENKINS_JOB_SEARCH",
-												search: (e.target as HTMLInputElement).value,
-											})
-										}
-										onKeyDown={(e: KeyboardEvent) => {
-											const n = selKeyDown(
-												e,
-												s.jenkinsJobOpen,
-												filteredJobs.length,
-												s.jenkinsJobIndex,
-												(i) => {
-													const j = filteredJobs[i];
-													if (j)
-														d({
-															type: "SELECT_JENKINS_JOB",
-															job: j as JenkinsJob,
-														});
-												},
-												() => d({ type: "SET_JENKINS_JOB_OPEN", open: false }),
-											);
-											if (n !== undefined)
-												d({ type: "SET_JENKINS_JOB_INDEX", index: n });
-										}}
-									/>
-								</div>
-								{filteredJobs.length > 0 ? (
-									filteredJobs.map((j, i) => (
-										<div
-											class={`sel-item${s.selectedJob?.name === (j as JenkinsJob).name ? " active" : ""}${i === s.jenkinsJobIndex ? " highlighted" : ""}`}
-											onMouseEnter={() =>
-												d({ type: "SET_JENKINS_JOB_INDEX", index: i })
-											}
-											onClick={() =>
-												d({ type: "SELECT_JENKINS_JOB", job: j as JenkinsJob })
-											}
-										>
-											<span class="sel-item-name">{(j as JenkinsJob).name}</span>
-										</div>
-									))
-								) : (
-									<div class="sel-empty">{t("web.watchNoMatchingJobs")}</div>
-								)}
-							</div>
-						)}
-					</div>
-				))}
-
-			{/* Build result */}
-			{s.selectedJob && (
-				<BuildPanel
-					buildStatus={s.buildStatus}
-					buildInfo={s.buildInfo}
-					buildError={s.buildError}
-					polling={s.polling}
-					selectedJob={s.selectedJob}
-					onStopPoll={() => d({ type: "BUILD_RESET" })}
-					onReselectJob={() => {
-						d({ type: "CLEAR_JENKINS_JOB" });
-						d({ type: "SET_JENKINS_JOB_OPEN", open: true });
-					}}
-				/>
-			)}
-
-			{/* Save to history */}
-			{s.selected &&
-				s.selectedBranch &&
-				s.selectedJob &&
-				s.buildStatus === "success" && (
-					<button
-						class="watch-btn"
-						type="button"
-						onClick={async () => {
-							await fetch("/watch/api/history", {
-								method: "POST",
-								headers: { "Content-Type": "application/json" },
-								body: JSON.stringify({
-									id: Date.now().toString(36),
-									createdAt: new Date().toISOString(),
-									projectId: s.selected!.id,
-									projectName: s.selected!.name,
-									projectPath: s.selected!.pathWithNamespace ?? "",
-									branch: s.selectedBranch,
-									jenkinsJobName: s.selectedJob!.name,
-								}),
-							});
-							const histRes = await fetch("/watch/api/history");
-							const histData = await histRes.json();
-							d({ type: "SET_HISTORY", history: histData });
-						}}
-					>
-						{t("web.watchSaveHistory")}
-					</button>
-				)}
-
 			{!s.selected && <div class="empty-hint">{t("web.watchEmptyHint")}</div>}
 		</div>
 	);
@@ -2363,21 +2152,57 @@ const WatchClient: FC = () => {
 		}
 	}, []);
 
-	// Start polling automatically when a job is selected in project flow
+	// Auto-trigger monitoring when jenkinsJobName becomes available (POM loaded or project name fallback)
+	// Save to history (or trigger existing entry) and start polling automatically
+	const autoTriggeredRef = useRef<string | null>(null);
 	useEffect(() => {
-		if (s.selectedJob && s.buildStatus === "idle" && s.selectedBranch && !s.polling) {
-			d({ type: "BUILD_START_POLL" });
+		if (!s.jenkinsJobName || !s.selectedBranch) {
+			if (!s.jenkinsJobName) autoTriggeredRef.current = null;
+			return;
 		}
-	}, [s.selectedJob, s.buildStatus, s.selectedBranch]);
+		if (autoTriggeredRef.current === s.jenkinsJobName) return;
+		autoTriggeredRef.current = s.jenkinsJobName;
 
-	// Chain polling for project flow build
-	useChainPolling({
-		active: s.polling,
-		jobName: s.selectedJob?.name,
-		onResult: (info) => d({ type: "BUILD_POLL_RESULT", info: info as JenkinsBuildInfo }),
-		onError: (error) => d({ type: "BUILD_ERROR", error }),
-		restartToken: s.projectFlowStartedAt,
-	});
+		const jobName = s.jenkinsJobName;
+
+		fetch("/watch/api/history")
+			.then((r) => r.json())
+			.then((histData) => {
+				d({ type: "SET_HISTORY", history: histData });
+				const existingEntry = histData.find(
+					(e: WatchHistoryEntry) => e.jenkinsJobName === jobName,
+				);
+
+				if (existingEntry) {
+					d({ type: "HISTORY_BUILD_START", id: existingEntry.id });
+				} else {
+					fetch("/watch/api/history", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							id: Date.now().toString(36),
+							createdAt: new Date().toISOString(),
+							projectId: s.selected?.id ?? 0,
+							projectName: s.selected?.name ?? "",
+							projectPath: s.selected?.pathWithNamespace ?? "",
+							branch: s.selectedBranch,
+							jenkinsJobName: jobName,
+						}),
+					})
+						.then(() => fetch("/watch/api/history"))
+						.then((r) => r.json())
+						.then((newHistData) => {
+							d({ type: "SET_HISTORY", history: newHistData });
+							const entryId = newHistData.find(
+								(e: WatchHistoryEntry) => e.jenkinsJobName === jobName,
+							)?.id;
+							if (entryId) {
+								d({ type: "HISTORY_BUILD_START", id: entryId });
+							}
+						});
+				}
+			});
+	}, [s.jenkinsJobName, s.selectedBranch, s.selected]);
 
 	return (
 		<div>

@@ -28,6 +28,7 @@
     "release:patch": "vitest run && pnpm build && npm version patch && git push && git push --tags",
     "release:minor": "vitest run && pnpm build && npm version minor && git push && git push --tags",
     "release:major": "vitest run && pnpm build && npm version major && git push && git push --tags",
+    "preinstall": "node -e \"const{execSync}=require('child_process');try{execSync('node ./dist/cli.js stop',{stdio:'ignore'})}catch(e){}\"",
     "postinstall": "node dist/cli.js serve",
     "prepublishOnly": "pnpm build"
   },
