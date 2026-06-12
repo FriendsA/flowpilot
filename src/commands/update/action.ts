@@ -5,7 +5,7 @@ import path from "node:path";
 import pc from "picocolors";
 import { VERSION } from "../../constants";
 import { t } from "../../i18n/cli";
-import { restartServerInBackground } from "../../server";
+import { restartServerInBackground, stopServer } from "../../server";
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
@@ -94,39 +94,49 @@ export const updateAction = async () => {
 	console.log(pc.dim(t("cli.versionTransition", { from: VERSION, to: latest })));
 	console.log("");
 
-	// Phase 3: Check write permissions
-	const hasAccess = await checkWritePermission();
-	if (!hasAccess) {
-		showPermissionHint();
-	}
+  // Phase 3: Check write permissions
+  const hasAccess = await checkWritePermission();
+  if (!hasAccess) {
+    showPermissionHint();
+  }
 
-	// Phase 4: Execute update with captured stdio (no raw npm noise)
-	const spinner2 = startSpinner(t("cli.updating"));
-	const updateResult = await new Promise<{ code: number; stderr: string }>((resolve) => {
-		const child = spawn("npm", ["update", "-g", "flowpilot"], {
-			stdio: ["ignore", "pipe", "pipe"],
-		});
-		let stderr = "";
-		child.stderr?.on("data", (d: Buffer) => (stderr += d.toString()));
-		child.on("error", () => resolve({ code: 1, stderr: "" }));
-		child.on("close", (code) => resolve({ code: code ?? 1, stderr }));
-	});
+  // Phase 4: Stop server before update to release file locks
+  let serverWasStopped = false;
+  const spinner2 = startSpinner(t("cli.stoppingService"));
+  try {
+    serverWasStopped = stopServer();
+    spinner2.stop(`${pc.green("✔")} ${t("cli.serviceStopped")}`);
+  } catch {
+    spinner2.stop(`${pc.yellow("⚠")} ${t("cli.stopServiceFailed")}`);
+  }
 
-	if (updateResult.code !== 0) {
-		spinner2.stop(`${pc.red("✘")} ${t("cli.updateFailed")}`);
-		if (updateResult.stderr.trim()) {
-			console.error(`\n${pc.dim(updateResult.stderr.trim())}`);
-		}
-		process.exit(1);
-	}
-	spinner2.stop(`${pc.green("✔")} ${t("cli.updateSuccess")}`);
+  // Phase 5: Execute update with captured stdio (no raw npm noise)
+  const spinner3 = startSpinner(t("cli.updating"));
+  const updateResult = await new Promise<{ code: number; stderr: string }>((resolve) => {
+    const child = spawn("npm", ["update", "-g", "flowpilot"], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stderr = "";
+    child.stderr?.on("data", (d: Buffer) => (stderr += d.toString()));
+    child.on("error", () => resolve({ code: 1, stderr: "" }));
+    child.on("close", (code) => resolve({ code: code ?? 1, stderr }));
+  });
 
-	// Phase 5: Restart service
-	const spinner3 = startSpinner(t("cli.restartingService"));
-	try {
-		await restartServerInBackground();
-		spinner3.stop(`${pc.green("✔")} ${t("cli.serviceRestarted")}`);
-	} catch {
-		spinner3.stop(`${pc.yellow("⚠")} ${t("cli.restartServiceFailed")}`);
-	}
+  if (updateResult.code !== 0) {
+    spinner3.stop(`${pc.red("✘")} ${t("cli.updateFailed")}`);
+    if (updateResult.stderr.trim()) {
+      console.error(`\n${pc.dim(updateResult.stderr.trim())}`);
+    }
+    process.exit(1);
+  }
+  spinner3.stop(`${pc.green("✔")} ${t("cli.updateSuccess")}`);
+
+  // Phase 6: Restart service
+  const spinner4 = startSpinner(t("cli.restartingService"));
+  try {
+    await restartServerInBackground();
+    spinner4.stop(`${pc.green("✔")} ${t("cli.serviceRestarted")}`);
+  } catch {
+    spinner4.stop(`${pc.yellow("⚠")} ${t("cli.restartServiceFailed")}`);
+  }
 };
