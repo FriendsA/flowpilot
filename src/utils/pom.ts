@@ -8,21 +8,33 @@ export function parsePomXml(raw: string): {
 	const pick = (src: string, tag: string): string | null =>
 		src.match(new RegExp(`<${tag}>([^<]+)</${tag}>`))?.[1] ?? null;
 
-	// Try <flowpilot> top-level element first
+	let flowPilotName: string | null = null;
+	let jenkinsJobName: string | null = null;
+
+	// Try <flowpilot> top-level element first (nested form)
 	const flowpilotMatch =
 		stripped.match(/<flowpilot>([\s\S]*?)<\/flowpilot>/)?.[1] ??
 		raw.match(/<flowpilot>([\s\S]*?)<\/flowpilot>/)?.[1] ??
 		null;
-
-	let flowPilotName: string | null = null;
-	let jenkinsJobName: string | null = null;
 
 	if (flowpilotMatch) {
 		flowPilotName = pick(flowpilotMatch, "releaseName");
 		jenkinsJobName = pick(flowpilotMatch, "jenkinsJob");
 	}
 
-	// Fallback to <properties> for backward compatibility
+	// Also support dot notation: <flowpilot.releaseName>value</flowpilot.releaseName>
+	if (!flowPilotName) {
+		flowPilotName =
+			pick(stripped, "flowpilot\\.releaseName") ??
+			pick(raw, "flowpilot\\.releaseName");
+	}
+	if (!jenkinsJobName) {
+		jenkinsJobName =
+			pick(stripped, "flowpilot\\.jenkinsJob") ??
+			pick(raw, "flowpilot\\.jenkinsJob");
+	}
+
+	// Fallback to <properties> (field names match flowpilot element)
 	if (!flowPilotName || !jenkinsJobName) {
 		const propertiesMatch =
 			stripped.match(/<properties>([\s\S]*?)<\/properties>/)?.[1] ??
@@ -30,10 +42,10 @@ export function parsePomXml(raw: string): {
 			"";
 		if (propertiesMatch) {
 			if (!flowPilotName) {
-				flowPilotName = pick(propertiesMatch, "flowPilotName");
+				flowPilotName = pick(propertiesMatch, "releaseName");
 			}
 			if (!jenkinsJobName) {
-				jenkinsJobName = pick(propertiesMatch, "jenkinsJobName");
+				jenkinsJobName = pick(propertiesMatch, "jenkinsJob");
 			}
 		}
 	}

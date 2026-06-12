@@ -159,13 +159,13 @@ describe("extractProjectPath", () => {
 // pom.ts – parsePomXml & cleanVersion
 // ---------------------------------------------------------------------------
 describe("parsePomXml", () => {
-	it("extracts version, groupId, flowPilotName from properties", () => {
+	it("extracts version, groupId, releaseName from properties", () => {
 		const pom = `<project>
 			<groupId>com.example</groupId>
 			<artifactId>my-app</artifactId>
 			<version>1.2.3</version>
 			<properties>
-				<flowPilotName>my-flow-app</flowPilotName>
+				<releaseName>my-flow-app</releaseName>
 			</properties>
 		</project>`;
 		const result = parsePomXml(pom);
@@ -177,7 +177,7 @@ describe("parsePomXml", () => {
 		});
 	});
 
-	it("returns null for flowPilotName when properties section is missing", () => {
+	it("returns null for releaseName when properties section is missing", () => {
 		const pom = `<project>
 			<groupId>com.example</groupId>
 			<artifactId>my-app</artifactId>
@@ -199,13 +199,28 @@ describe("parsePomXml", () => {
 			<groupId>com.example</groupId>
 			<artifactId>my-app</artifactId>
 			<properties>
-				<flowPilotName>my-flow-app</flowPilotName>
+				<releaseName>my-flow-app</releaseName>
 			</properties>
 		</project>`;
 		const result = parsePomXml(pom);
 		expect(result.version).toBe("1.0.0");
 		expect(result.groupId).toBe("com.example");
 		expect(result.flowPilotName).toBe("my-flow-app");
+	});
+
+	it("supports dot notation in properties", () => {
+		const pom = `<project>
+			<groupId>com.example</groupId>
+			<artifactId>my-app</artifactId>
+			<version>1.2.3</version>
+			<properties>
+				<flowpilot.releaseName>dot-name</flowpilot.releaseName>
+				<flowpilot.jenkinsJob>dot-job</flowpilot.jenkinsJob>
+			</properties>
+		</project>`;
+		const result = parsePomXml(pom);
+		expect(result.flowPilotName).toBe("dot-name");
+		expect(result.jenkinsJobName).toBe("dot-job");
 	});
 
 	it("returns null for all fields on empty string", () => {
@@ -241,8 +256,8 @@ describe("parsePomXml", () => {
 				<jenkinsJob>new-job</jenkinsJob>
 			</flowpilot>
 			<properties>
-				<flowPilotName>old-name</flowPilotName>
-				<jenkinsJobName>old-job</jenkinsJobName>
+				<releaseName>old-name</releaseName>
+				<jenkinsJob>old-job</jenkinsJob>
 			</properties>
 		</project>`;
 		const result = parsePomXml(pom);

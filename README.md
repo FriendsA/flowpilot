@@ -79,11 +79,28 @@ flowpilot config --open   # 打开 Web 页面配置
 自动从 GitLab 项目分支提取 `pom.xml` 版本号，在 Jira 创建发布 Issue，链接自动复制到剪贴板。
 
 **变量提取规则：**
-- **版本号**：从 `pom.xml` 的 `<version>` 标签提取（自动去除 `-SNAPSHOT` 等后缀）
-- **发布名称（releaseName）**：优先从 `pom.xml` 的 `<flowpilot><releaseName>` 提取；回退到 `<properties><flowPilotName>`；最终回退到 GitLab 项目名称
-- **Jenkins 任务（jenkinsJob）**：优先从 `pom.xml` 的 `<flowpilot><jenkinsJob>` 提取；回退到 `<properties><jenkinsJobName>`
-- **Jira 版本名**：`{releaseName}-{version}`，如 `my-service-1.2.3`
-- **Issue 概要**：`{releaseName}-{version} release request`
+
+**版本号（version）：**
+从 `pom.xml` 的 `<version>` 标签提取，自动去除后缀（`-SNAPSHOT`、`-RC1` 等）：
+- `1.2.3-SNAPSHOT` → `1.2.3`
+- `2.0.0-RC1` → `2.0.0`
+- `3.1.4-beta-2` → `3.1.4`
+- 如果项目无 `<version>`，回退到 `<parent><version>`
+
+**发布名称（releaseName）：** 按以下优先级提取：
+1. `<flowpilot><releaseName>my-service</releaseName></flowpilot>` （推荐）
+2. `<flowpilot.releaseName>my-service</flowpilot.releaseName>` （点号语法）
+3. `<properties><releaseName>my-service</releaseName></properties>` （向后兼容）
+4. GitLab 项目名称（最终回退）
+
+**Jenkins 任务（jenkinsJob）：** 按以下优先级提取：
+1. `<flowpilot><jenkinsJob>my-service-deploy</jenkinsJob></flowpilot>` （推荐）
+2. `<flowpilot.jenkinsJob>my-service-deploy</flowpilot.jenkinsJob>` （点号语法）
+3. `<properties><jenkinsJob>my-service-deploy</jenkinsJob></properties>` （向后兼容）
+
+**生成内容：**
+- Jira 版本名：`{releaseName}-{version}`，如 `my-service-1.2.3`
+- Issue 概要：`{releaseName}-{version} release request`
 
 完整的 pom.xml 配置说明见 [POM Configuration](docs/pom-configuration.md)
 

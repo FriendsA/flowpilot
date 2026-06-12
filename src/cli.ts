@@ -117,4 +117,16 @@ if (process.argv.includes("-v") || process.argv.includes("--version")) {
 	process.exit(0);
 }
 
-cli.parse();
+try {
+	cli.parse();
+} catch (err) {
+	if (err instanceof Error) {
+		const isCacError = err.name === "CACError" || err.message?.includes("Unknown option");
+		if (isCacError) {
+			console.error(pc.red(`✘ ${err.message}`));
+			console.error(pc.dim(`\n运行 ${pc.cyan("flowpilot --help")} 查看所有可用命令和选项`));
+			process.exit(1);
+		}
+	}
+	throw err;
+}
