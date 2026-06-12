@@ -334,8 +334,10 @@ const watchStyle = `${pipelineCss}${selectCss}${commonCss}
   }
   .retry-icon {
     display: inline-block;
-    font-size: 12px;
-    line-height: 1;
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    vertical-align: middle;
   }
   .watch-btn .stop-icon {
     display: inline-block;
@@ -1229,6 +1231,8 @@ const HistoryBuildItem: FC<{
 	const handleRetry = async () => {
 		try {
 			await fetch(`/watch/api/jenkins/trigger?job=${encodeURIComponent(entry.jenkinsJobName)}`, { method: "POST" });
+			// Wait a bit for Jenkins to start the build
+			await new Promise(resolve => setTimeout(resolve, 1000));
 			handleWatch();
 		} catch (e) {
 			d({
@@ -1342,7 +1346,13 @@ const HistoryBuildItem: FC<{
 						<div class="artifacts-grid" style="gap:4px">
 							{bi.artifacts.map((a) => (
 								<div class="artifact-item" style="padding:4px 8px">
-									<span class="artifact-icon" style="font-size:10px">📦</span>
+									<span class="artifact-icon">
+										<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+											<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+											<polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+											<line x1="12" y1="22.08" x2="12" y2="12" />
+										</svg>
+									</span>
 									<a class="artifact-link" style="font-size:11px" href={`${bi.url}artifact/${a.relativePath}`} target="_blank" rel="noreferrer">
 										{a.fileName || a.relativePath}
 									</a>
@@ -1372,10 +1382,13 @@ const HistoryBuildItem: FC<{
 					) : (status === "error" || status === "success" || status === "failure" || status === "aborted") ? (
 						<>
 							{(status === "failure" || status === "aborted" || status === "error") && (
-								<button class="history-action-btn retry" type="button" onClick={handleRetry}>
-									<span class="retry-icon">↻</span>
-									{t("web.watchRetry")}
-								</button>
+						<button class="history-action-btn retry" type="button" onClick={handleRetry}>
+							<svg class="retry-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+								<path d="M3 3v5h5" />
+							</svg>
+							{t("web.watchRetry")}
+						</button>
 							)}
 							<button class="history-action-btn secondary" type="button" onClick={handleWatch}>
 								{t("web.watchNow")}
@@ -1388,7 +1401,10 @@ const HistoryBuildItem: FC<{
 						onClick={handleDelete}
 						title={t("web.watchDeleteHistory")}
 					>
-						✕
+						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<line x1="18" y1="6" x2="6" y2="18" />
+							<line x1="6" y1="6" x2="18" y2="18" />
+						</svg>
 					</button>
 				</div>
 			</div>
@@ -1595,7 +1611,13 @@ const BuildPanel: FC<{
 							const artifactUrl = `${bi.url}artifact/${a.relativePath}`;
 							return (
 								<div class="artifact-item">
-									<span class="artifact-icon">📦</span>
+									<span class="artifact-icon">
+										<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+											<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+											<polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+											<line x1="12" y1="22.08" x2="12" y2="12" />
+										</svg>
+									</span>
 									<a
 										class="artifact-link"
 										href={artifactUrl}

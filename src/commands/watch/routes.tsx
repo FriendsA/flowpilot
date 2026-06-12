@@ -97,6 +97,20 @@ router.get("/api/jenkins/search", async (c) => {
 	}
 });
 
+router.post("/api/jenkins/trigger", async (c) => {
+	try {
+		const jobName = c.req.query("job");
+		if (!jobName) {
+			return c.json({ error: "job parameter is required" }, 400);
+		}
+		const jenkins = new JenkinsController();
+		await jenkins.triggerBuild(jobName);
+		return c.json({ success: true });
+	} catch (e: unknown) {
+		return c.json({ error: translateApiError(e, "jenkinsBuild") }, 500);
+	}
+});
+
 router.get("/api/jenkins/build", async (c) => {
 	try {
 		const job = c.req.query("job") || "";

@@ -298,7 +298,8 @@
     "watchArtifacts": "Artifacts",
     "watchEmptyHint": "Start a new monitor above",
     "watchSaveHistory": "Save to History",
-    "watchDeleteHistory": "Delete this history entry"
+    "watchDeleteHistory": "Delete this history entry",
+    "watchRetry": "Retry"
   },
   "mr": {
     "notGitRepo": "Not a git repository. Run this inside a git project.",

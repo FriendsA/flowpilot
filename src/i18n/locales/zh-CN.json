@@ -298,7 +298,8 @@
     "watchArtifacts": "产物",
     "watchEmptyHint": "上方新建监控以开始",
     "watchSaveHistory": "保存到历史记录",
-    "watchDeleteHistory": "删除此条历史记录"
+    "watchDeleteHistory": "删除此条历史记录",
+    "watchRetry": "重试"
   },
   "mr": {
     "notGitRepo": "当前不在 git 仓库中。请在 git 项目内运行。",
