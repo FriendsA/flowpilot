@@ -1277,7 +1277,9 @@ const HistoryBuildItem: FC<{
 							type="button"
 							onClick={handleStop}
 						>
-							<span class="stop-icon" />
+							<svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+								<rect x="4" y="4" width="16" height="16" rx="2" />
+							</svg>
 							{t("web.watchStopPolling")}
 						</button>
 					</div>
@@ -1310,7 +1312,9 @@ const HistoryBuildItem: FC<{
 					type="button"
 					onClick={handleStop}
 				>
-					<span class="stop-icon" />
+					<svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+						<rect x="4" y="4" width="16" height="16" rx="2" />
+					</svg>
 					{t("web.watchStopPolling")}
 				</button>
 			</div>
@@ -1565,7 +1569,9 @@ const BuildPanel: FC<{
 							type="button"
 							onClick={onStopPoll}
 						>
-							<span class="stop-icon" />
+							<svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+								<rect x="4" y="4" width="16" height="16" rx="2" />
+							</svg>
 							{t("web.watchStopPolling")}
 						</button>
 					)}
