@@ -153,7 +153,10 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 				clack.log.error(pc.dim(translateApiError(e, "gitlabProject")));
 				return;
 			}
-			stopSpinner(s, `${pc.green("✔")} ${t("cli.projectsLoaded", { count: allProjects.length })}`);
+			stopSpinner(
+				s,
+				`${pc.green("✔")} ${t("cli.projectsLoaded", { count: allProjects.length })}`,
+			);
 
 			const selectedId = await searchSelect(
 				t("release.selectProject"),
@@ -200,7 +203,10 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 			clack.log.error(pc.dim(translateApiError(e, "gitlabBranch")));
 			return;
 		}
-		stopSpinner(s, `${pc.green("✔")} ${t("cli.branchesLoaded", { count: branches.length })}`);
+		stopSpinner(
+			s,
+			`${pc.green("✔")} ${t("cli.branchesLoaded", { count: branches.length })}`,
+		);
 
 		const pick = await searchSelect(t("release.selectBranch"), (term) => {
 			const matched = filterByRelevance(

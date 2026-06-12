@@ -25,7 +25,15 @@ export function useChainPolling(options: {
 	url?: string;
 	restartToken?: number;
 }): void {
-	const { active, jobName, onResult, onError, delay = 60_000, url, restartToken } = options;
+	const {
+		active,
+		jobName,
+		onResult,
+		onError,
+		delay = 60_000,
+		url,
+		restartToken,
+	} = options;
 
 	// Keep latest callbacks/delay in refs so the loop doesn't restart on their change
 	const callbacksRef = useRef({ onResult, onError, delay });

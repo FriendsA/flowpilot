@@ -118,11 +118,7 @@ export function getLocalBranches(opts?: GitOpts): string[] {
 	}
 }
 
-export function gitFetch(
-	remote: string,
-	branch: string,
-	opts?: GitOpts,
-): void {
+export function gitFetch(remote: string, branch: string, opts?: GitOpts): void {
 	execFileSync("git", ["fetch", remote, branch], {
 		stdio: "pipe",
 		cwd: resolveCwd(opts),
@@ -182,11 +178,7 @@ export async function gitRebaseAsync(
 	}
 }
 
-export function gitPush(
-	remote: string,
-	branch: string,
-	opts?: GitOpts,
-): void {
+export function gitPush(remote: string, branch: string, opts?: GitOpts): void {
 	execFileSync("git", ["push", remote, branch], {
 		stdio: "pipe",
 		cwd: resolveCwd(opts),

@@ -4,6 +4,7 @@ import { GitlabController } from "../../gitlab-controller";
 import { translateApiError } from "../../i18n/translate-error";
 import { t } from "../../i18n/web";
 import { JiraController } from "../../jira-controller";
+import { Store } from "../../store";
 import type { Config } from "../../types";
 import {
 	extractProjectPath,
@@ -22,7 +23,6 @@ import {
 	generateMrDescription,
 	resolveProjectFromRemote,
 } from "../../utils/mr";
-import { Store } from "../../store";
 
 // ── Session cwd ──
 
@@ -111,7 +111,9 @@ router.get("/api/init", (c) => {
 			try {
 				remoteUrl = getGitRemoteUrl({ cwd });
 				projectPath = extractProjectPath(remoteUrl);
-			} catch { /* remote resolution failed */ }
+			} catch {
+				/* remote resolution failed */
+			}
 		}
 		return c.json({
 			isGitRepo: true,
@@ -161,7 +163,14 @@ router.get("/api/git/status", (c) => {
 				/* remote resolution failed */
 			}
 		}
-		return c.json({ currentBranch, localBranches, detectedSource, remoteUrl, projectPath, cwd });
+		return c.json({
+			currentBranch,
+			localBranches,
+			detectedSource,
+			remoteUrl,
+			projectPath,
+			cwd,
+		});
 	} catch (e: unknown) {
 		return c.json({ error: translateApiError(e) }, 500);
 	}
@@ -256,7 +265,7 @@ router.post("/api/create-mr", async (c) => {
 		draft?: boolean;
 		cwd?: string;
 	}>();
-	const workDir = body.cwd || sessionCwd || undefined;
+	const _workDir = body.cwd || sessionCwd || undefined;
 
 	try {
 		const gitlab = new GitlabController();
@@ -271,7 +280,6 @@ router.post("/api/create-mr", async (c) => {
 		});
 
 		// Save to history
-		const cwd = workDir ?? process.cwd();
 		const currentBranch = body.sourceBranch;
 		const entry: MrHistoryEntry = {
 			id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -298,7 +306,13 @@ router.post("/api/create-mr", async (c) => {
 			existing: result.existing,
 		});
 	} catch (e: unknown) {
-		return c.json({ error: translateApiError(e, "gitlabMR"), detail: e instanceof Error ? e.message : String(e) }, 500);
+		return c.json(
+			{
+				error: translateApiError(e, "gitlabMR"),
+				detail: e instanceof Error ? e.message : String(e),
+			},
+			500,
+		);
 	}
 });
 
@@ -401,7 +415,13 @@ router.post("/api/history/:id/execute", async (c) => {
 			existing: result.existing,
 		});
 	} catch (e: unknown) {
-		return c.json({ error: translateApiError(e, "gitlabMR"), detail: e instanceof Error ? e.message : String(e) }, 500);
+		return c.json(
+			{
+				error: translateApiError(e, "gitlabMR"),
+				detail: e instanceof Error ? e.message : String(e),
+			},
+			500,
+		);
 	}
 });
 

@@ -72,9 +72,7 @@ export function Pipeline({ steps }: { steps: PipelineStep[] }) {
 						<span class="pipeline-node" />
 						{step.label}
 					</div>
-					{i < steps.length - 1 && (
-						<div class={pipelineLineClass(step.done)} />
-					)}
+					{i < steps.length - 1 && <div class={pipelineLineClass(step.done)} />}
 				</>
 			))}
 		</div>

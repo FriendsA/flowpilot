@@ -1,5 +1,5 @@
-import { GitlabController } from "../gitlab-controller";
-import { JiraController } from "../jira-controller";
+import type { GitlabController } from "../gitlab-controller";
+import type { JiraController } from "../jira-controller";
 import { extractProjectPath, getGitRemoteUrl, hasGitRemoteOrigin } from "./git";
 
 export type CreateMrOptions = {
@@ -44,7 +44,9 @@ export async function createMrWithFallback(
 				...(options.labels ? { labels: options.labels } : {}),
 				...(options.assigneeId ? { assigneeId: options.assigneeId } : {}),
 				...(options.milestoneId ? { milestoneId: options.milestoneId } : {}),
-				...(options.removeSourceBranch !== undefined ? { removeSourceBranch: options.removeSourceBranch } : {}),
+				...(options.removeSourceBranch !== undefined
+					? { removeSourceBranch: options.removeSourceBranch }
+					: {}),
 				...(options.draft !== undefined ? { draft: options.draft } : {}),
 			},
 		);
@@ -137,9 +139,7 @@ export async function generateMrDescription(
 	);
 
 	if (validIssues.length > 0) {
-		return validIssues
-			.map((i) => `- ${i.key} ${i.fields.summary}`)
-			.join("\n");
+		return validIssues.map((i) => `- ${i.key} ${i.fields.summary}`).join("\n");
 	}
 
 	return ticketKeys.join(", ");

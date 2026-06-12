@@ -1,10 +1,14 @@
 import { type FC, useEffect, useReducer, useRef } from "hono/jsx";
 import { render } from "hono/jsx/dom";
 import i18next from "i18next";
-import { filterByRelevance } from "../../utils/search";
-import { pipelineCss, pipelineStepClass, pipelineLineClass, Pipeline, type PipelineStep } from "../../shared/components/pipeline";
-import { selectCss, selKeyDown } from "../../shared/components/select";
 import { commonCss } from "../../shared/components/common";
+import {
+	pipelineCss,
+	pipelineLineClass,
+	pipelineStepClass,
+} from "../../shared/components/pipeline";
+import { selectCss, selKeyDown } from "../../shared/components/select";
+import { filterByRelevance } from "../../utils/search";
 
 const initPromise =
 	typeof window !== "undefined" &&
@@ -601,15 +605,20 @@ type Action =
 	| { type: "CLEAR_CONFIRM_TOGGLE" }
 	| { type: "CLEAR_HISTORY_DONE" }
 	| { type: "TOGGLE_CREATE_MR"; id: string }
-		| { type: "MR_LOADING" }
-			| { type: "MR_SELECTING"; branches: { name: string; default?: boolean }[] }
-		| { type: "MR_SOURCE_SELECTED"; branch: string }
-		| { type: "SET_MR_BRANCH_OPEN"; open: boolean }
-		| { type: "SET_MR_BRANCH_SEARCH"; search: string }
-		| { type: "SET_MR_BRANCH_INDEX"; index: number }
-		| { type: "MR_CREATING" }
-		| { type: "MR_DONE"; mrUrl: string; mrSourceBranch: string; mrTargetBranch: string }
-		| { type: "MR_ERROR"; error: string };
+	| { type: "MR_LOADING" }
+	| { type: "MR_SELECTING"; branches: { name: string; default?: boolean }[] }
+	| { type: "MR_SOURCE_SELECTED"; branch: string }
+	| { type: "SET_MR_BRANCH_OPEN"; open: boolean }
+	| { type: "SET_MR_BRANCH_SEARCH"; search: string }
+	| { type: "SET_MR_BRANCH_INDEX"; index: number }
+	| { type: "MR_CREATING" }
+	| {
+			type: "MR_DONE";
+			mrUrl: string;
+			mrSourceBranch: string;
+			mrTargetBranch: string;
+	  }
+	| { type: "MR_ERROR"; error: string };
 
 const reducer = (state: State, action: Action): State => {
 	switch (action.type) {
@@ -805,36 +814,84 @@ const reducer = (state: State, action: Action): State => {
 		case "CLEAR_CONFIRM_TOGGLE":
 			return { ...state, clearConfirm: !state.clearConfirm };
 		case "CLEAR_HISTORY_DONE":
-			return { ...state, history: [], clearConfirm: false, quickResults: {}, quickErrors: {} };
+			return {
+				...state,
+				history: [],
+				clearConfirm: false,
+				quickResults: {},
+				quickErrors: {},
+			};
 		case "TOGGLE_CREATE_MR":
-			return { ...state, createMrChecked: { ...state.createMrChecked, [action.id]: !state.createMrChecked[action.id] } };
+			return {
+				...state,
+				createMrChecked: {
+					...state.createMrChecked,
+					[action.id]: !state.createMrChecked[action.id],
+				},
+			};
 		case "MR_SELECTING":
-			return { ...state, mrStatus: "selecting", mrBranches: action.branches, mrSourceBranch: "", mrTargetBranch: "", mrError: "" };
+			return {
+				...state,
+				mrStatus: "selecting",
+				mrBranches: action.branches,
+				mrSourceBranch: "",
+				mrTargetBranch: "",
+				mrError: "",
+			};
 		case "MR_SOURCE_SELECTED":
-			return { ...state, mrSourceBranch: action.branch, mrBranchOpen: false, mrBranchSearch: "", mrBranchIndex: -1 };
+			return {
+				...state,
+				mrSourceBranch: action.branch,
+				mrBranchOpen: false,
+				mrBranchSearch: "",
+				mrBranchIndex: -1,
+			};
 		case "SET_MR_BRANCH_OPEN":
-			return { ...state, mrBranchOpen: action.open, ...(action.open ? {} : { mrBranchSearch: "", mrBranchIndex: -1 }) };
+			return {
+				...state,
+				mrBranchOpen: action.open,
+				...(action.open ? {} : { mrBranchSearch: "", mrBranchIndex: -1 }),
+			};
 		case "SET_MR_BRANCH_SEARCH":
 			return { ...state, mrBranchSearch: action.search, mrBranchIndex: -1 };
 		case "SET_MR_BRANCH_INDEX":
 			return { ...state, mrBranchIndex: action.index };
 		case "MR_LOADING":
-			return { ...state, mrStatus: "loading", mrBranches: [], mrSourceBranch: "", mrTargetBranch: "", mrError: "" };
+			return {
+				...state,
+				mrStatus: "loading",
+				mrBranches: [],
+				mrSourceBranch: "",
+				mrTargetBranch: "",
+				mrError: "",
+			};
 		case "MR_CREATING":
-			return { ...state, mrStatus: "creating", mrUrl: "", mrTargetBranch: "", mrError: "" };
+			return {
+				...state,
+				mrStatus: "creating",
+				mrUrl: "",
+				mrTargetBranch: "",
+				mrError: "",
+			};
 		case "MR_DONE":
 			return {
-					...state,
-					mrStatus: "done",
-					mrUrl: action.mrUrl,
-					mrSourceBranch: action.mrSourceBranch,
-					mrTargetBranch: action.mrTargetBranch,
-					history: state.history.map((e) =>
-						e.projectId === state.selected?.id && e.branch === state.selectedBranch
-							? { ...e, mrUrl: action.mrUrl, mrSourceBranch: action.mrSourceBranch, mrTargetBranch: action.mrTargetBranch }
-							: e,
-					),
-				};
+				...state,
+				mrStatus: "done",
+				mrUrl: action.mrUrl,
+				mrSourceBranch: action.mrSourceBranch,
+				mrTargetBranch: action.mrTargetBranch,
+				history: state.history.map((e) =>
+					e.projectId === state.selected?.id &&
+					e.branch === state.selectedBranch
+						? {
+								...e,
+								mrUrl: action.mrUrl,
+								mrSourceBranch: action.mrSourceBranch,
+								mrTargetBranch: action.mrTargetBranch,
+							}
+						: e,
+				),
+			};
 		case "MR_ERROR":
 			return { ...state, mrStatus: "error", mrError: action.error };
 	}
@@ -844,11 +901,7 @@ const reducer = (state: State, action: Action): State => {
 
 const cleanVersion = (v: string | null) => (v ?? "").split("-")[0];
 
-
-
 // ── Pipeline step class helper ──
-
-
 
 // ── History List Component ──
 
@@ -903,21 +956,26 @@ const HistoryList: FC<{ s: State; d: (action: Action) => void }> = ({
 									</span>
 									{entry.mrUrl && (
 										<span style="font-size:12px;color:var(--text-3);margin-left:6px">
-											{t("release.mrFromTo", { source: entry.mrSourceBranch ?? "", target: entry.mrTargetBranch ?? entry.branch })}
+											{t("release.mrFromTo", {
+												source: entry.mrSourceBranch ?? "",
+												target: entry.mrTargetBranch ?? entry.branch,
+											})}
 										</span>
 									)}
 								</div>
 								<div class="history-actions">
-										{entry.mrUrl && (
+									{entry.mrUrl && (
 										<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-3);cursor:pointer">
 											<input
 												type="checkbox"
 												checked={s.createMrChecked[entry.id] ?? false}
-												onChange={() => d({ type: "TOGGLE_CREATE_MR", id: entry.id })}
+												onChange={() =>
+													d({ type: "TOGGLE_CREATE_MR", id: entry.id })
+												}
 											/>
 											{t("web.createMrCheckbox")}
 										</label>
-										)}
+									)}
 									<button
 										class={`history-quick-btn${s.quickExecuting === entry.id ? " executing" : ""}`}
 										type="button"
@@ -933,37 +991,51 @@ const HistoryList: FC<{ s: State; d: (action: Action) => void }> = ({
 							{s.quickResults[entry.id] && (
 								<div class="history-result">
 									<a
-									class="history-result-key"
-									href={s.quickResults[entry.id].issueUrl}
-									target="_blank"
-									rel="noreferrer"
+										class="history-result-key"
+										href={s.quickResults[entry.id].issueUrl}
+										target="_blank"
+										rel="noreferrer"
 									>
-									{s.quickResults[entry.id].issueKey}
+										{s.quickResults[entry.id].issueKey}
 									</a>
 									<span
-									class={`jira-result-badge ${s.quickResults[entry.id].issueCreated ? "created" : "exists"}`}
+										class={`jira-result-badge ${s.quickResults[entry.id].issueCreated ? "created" : "exists"}`}
 									>
-										{s.quickResults[entry.id].issueCreated ? t("web.createdBadge") : t("web.existsBadge")}
+										{s.quickResults[entry.id].issueCreated
+											? t("web.createdBadge")
+											: t("web.existsBadge")}
 									</span>
 									<span style="font-size:12px;color:var(--text-3);margin-left:8px">
 										v{s.quickResults[entry.id].version}
 									</span>
 									{s.quickResults[entry.id].versionCreated && (
-									<span style="font-size:10px;color:var(--neon);margin-left:4px">
-										{t("web.createdBadge")}
-									</span>
+										<span style="font-size:10px;color:var(--neon);margin-left:4px">
+											{t("web.createdBadge")}
+										</span>
 									)}
 									{s.quickResults[entry.id].mrUrl && (
-									<span style="font-size:12px;margin-left:12px">
-										<a href={s.quickResults[entry.id].mrUrl} target="_blank" rel="noreferrer" style="color:var(--cyan);text-decoration:none;border-bottom:1px dashed var(--cyan)">
-											{t("release.mrFromTo", { source: s.quickResults[entry.id].mrSourceBranch ?? "", target: s.quickResults[entry.id].mrTargetBranch ?? entry.branch })}
-										</a>
-									</span>
+										<span style="font-size:12px;margin-left:12px">
+											<a
+												href={s.quickResults[entry.id].mrUrl}
+												target="_blank"
+												rel="noreferrer"
+												style="color:var(--cyan);text-decoration:none;border-bottom:1px dashed var(--cyan)"
+											>
+												{t("release.mrFromTo", {
+													source: s.quickResults[entry.id].mrSourceBranch ?? "",
+													target:
+														s.quickResults[entry.id].mrTargetBranch ??
+														entry.branch,
+												})}
+											</a>
+										</span>
 									)}
 								</div>
 							)}
 							{s.quickErrors[entry.id] && (
-								<div class="history-result-error">{s.quickErrors[entry.id]}</div>
+								<div class="history-result-error">
+									{s.quickErrors[entry.id]}
+								</div>
 							)}
 						</div>
 					))}
@@ -1046,13 +1118,19 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 	}, []);
 
 	useEffect(() => {
-		if (!s.projectOpen && !s.branchOpen && !s.jiraProjectOpen && !s.mrBranchOpen) return;
+		if (
+			!s.projectOpen &&
+			!s.branchOpen &&
+			!s.jiraProjectOpen &&
+			!s.mrBranchOpen
+		)
+			return;
 		const handler = (e: Event) => {
 			const target = e.target as HTMLElement;
 			if (!target.closest(".sel") && !target.closest(".mr-branch-sel")) {
 				d({ type: "SET_PROJECT_OPEN", open: false });
 				d({ type: "SET_BRANCH_OPEN", open: false });
-												d({ type: "SET_MR_BRANCH_OPEN", open: false });
+				d({ type: "SET_MR_BRANCH_OPEN", open: false });
 				d({ type: "SET_JIRA_PROJECT_OPEN", open: false });
 			}
 		};
@@ -1064,15 +1142,17 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 		if (s.projectOpen) setTimeout(() => projectSearchRef.current?.focus(), 50);
 		if (s.branchOpen) setTimeout(() => branchSearchRef.current?.focus(), 50);
 		if (s.jiraProjectOpen) setTimeout(() => jiraSearchRef.current?.focus(), 50);
-		if (s.mrBranchOpen) setTimeout(() => mrBranchSearchRef.current?.focus(), 50);
+		if (s.mrBranchOpen)
+			setTimeout(() => mrBranchSearchRef.current?.focus(), 50);
 	}, [s.projectOpen, s.branchOpen, s.jiraProjectOpen, s.mrBranchOpen]);
 
 	// Auto-create MR after branch is selected
 	useEffect(() => {
 		if (s.mrStatus !== "creating" || !s.mrSourceBranch || !s.selected) return;
-		const jiraUrl2 = s.jiraResult && s.jiraHost
-			? `${s.jiraHost}/browse/${s.jiraResult.key}`
-			: "";
+		const jiraUrl2 =
+			s.jiraResult && s.jiraHost
+				? `${s.jiraHost}/browse/${s.jiraResult.key}`
+				: "";
 		fetch("/release/api/create-mr", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -1086,10 +1166,16 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 			.then((r) => r.json())
 			.then((data) => {
 				if (data.mrUrl) {
-					d({ type: "MR_DONE", mrUrl: data.mrUrl, mrSourceBranch: data.sourceBranch, mrTargetBranch: data.targetBranch });
-					fetch("/release/api/history").then((r) => r.json()).then((h) => d({ type: "HISTORY_LOADED", history: h }));
-				}
-				else d({ type: "MR_ERROR", error: data.error ?? "Failed" });
+					d({
+						type: "MR_DONE",
+						mrUrl: data.mrUrl,
+						mrSourceBranch: data.sourceBranch,
+						mrTargetBranch: data.targetBranch,
+					});
+					fetch("/release/api/history")
+						.then((r) => r.json())
+						.then((h) => d({ type: "HISTORY_LOADED", history: h }));
+				} else d({ type: "MR_ERROR", error: data.error ?? "Failed" });
 			})
 			.catch((e) =>
 				d({
@@ -1340,7 +1426,7 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 					onClick={() => {
 						d({ type: "SET_BRANCH_OPEN", open: false });
 						d({ type: "SET_JIRA_PROJECT_OPEN", open: false });
-										d({ type: "SET_MR_BRANCH_OPEN", open: false });
+						d({ type: "SET_MR_BRANCH_OPEN", open: false });
 						d({ type: "SET_PROJECT_OPEN", open: !s.projectOpen });
 					}}
 				>
@@ -1431,7 +1517,7 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 								onClick={() => {
 									d({ type: "SET_PROJECT_OPEN", open: false });
 									d({ type: "SET_JIRA_PROJECT_OPEN", open: false });
-												d({ type: "SET_MR_BRANCH_OPEN", open: false });
+									d({ type: "SET_MR_BRANCH_OPEN", open: false });
 									d({ type: "SET_BRANCH_OPEN", open: !s.branchOpen });
 								}}
 							>
@@ -1702,116 +1788,194 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 							{s.jiraError}
 						</div>
 					)}
-						{s.jiraResult && (s.mrStatus === "idle" || s.mrStatus === "loading") && (
+					{s.jiraResult &&
+						(s.mrStatus === "idle" || s.mrStatus === "loading") && (
 							<button
-							class="jira-btn"
-							type="button"
-							disabled={s.mrStatus === "loading"}
-							style="background:var(--cyan);margin-top:12px"
-							onClick={async () => {
-								if (s.mrStatus === "loading") return;
-								d({ type: "MR_LOADING" });
-								try {
-									const res = await fetch(`/release/api/projects/${s.selected!.id}/branches`);
-									const data = await res.json();
-									const branches = (Array.isArray(data) ? data : []).filter((b: { name: string }) => b.name !== s.selectedBranch);
-									if (branches.length === 0) {
-										d({ type: "MR_ERROR", error: t("release.noSourceBranches") });
-										return;
+								class="jira-btn"
+								type="button"
+								disabled={s.mrStatus === "loading"}
+								style="background:var(--cyan);margin-top:12px"
+								onClick={async () => {
+									if (s.mrStatus === "loading") return;
+									d({ type: "MR_LOADING" });
+									try {
+										const res = await fetch(
+											`/release/api/projects/${s.selected?.id}/branches`,
+										);
+										const data = await res.json();
+										const branches = (Array.isArray(data) ? data : []).filter(
+											(b: { name: string }) => b.name !== s.selectedBranch,
+										);
+										if (branches.length === 0) {
+											d({
+												type: "MR_ERROR",
+												error: t("release.noSourceBranches"),
+											});
+											return;
+										}
+										d({ type: "MR_SELECTING", branches });
+									} catch (e) {
+										d({
+											type: "MR_ERROR",
+											error: e instanceof Error ? e.message : "Failed",
+										});
 									}
-									d({ type: "MR_SELECTING", branches });
-								} catch (e) {
-									d({ type: "MR_ERROR", error: e instanceof Error ? e.message : "Failed" });
-								}
-							}}
+								}}
 							>
-							{s.mrStatus === "loading" ? <><span class="spinner" style="width:12px;height:12px;border-width:1px;margin-right:6px;vertical-align:middle" />{t("web.loadingMr")}</> : t("web.createMrBtn")}
+								{s.mrStatus === "loading" ? (
+									<>
+										<span
+											class="spinner"
+											style="width:12px;height:12px;border-width:1px;margin-right:6px;vertical-align:middle"
+										/>
+										{t("web.loadingMr")}
+									</>
+								) : (
+									t("web.createMrBtn")
+								)}
 							</button>
 						)}
-					{s.mrStatus === "selecting" && (() => {
-						const mrb = s.mrBranches.filter((b) => b.name.toLowerCase().includes(s.mrBranchSearch.toLowerCase()));
-						return (
-							<div class="mr-branch-sel" style="margin-top:12px">
-										<div style="font-size:13px;color:var(--text-2);margin-bottom:4px">{t("release.selectMrBranch")}</div>
-										<div class="sel" style="position:relative;z-index:100">
-									<button
-										type="button"
-										class="sel-trigger"
-										onClick={() => d({ type: "SET_MR_BRANCH_OPEN", open: !s.mrBranchOpen })}
-									>
-										<span class="sel-trigger-label">{t("web.branchLabel")}</span>
-										<span class={`sel-trigger-value${s.mrSourceBranch ? "" : " empty"}`}>
-											{s.mrSourceBranch || t("web.selectBranch")}
-										</span>
-										<span class="sel-trigger-arrow">▼</span>
-									</button>
-									{s.mrBranchOpen && (
-										<div
-											class="sel-dropdown"
-											role="listbox"
-											aria-label={t("release.selectMrBranch")}
+					{s.mrStatus === "selecting" &&
+						(() => {
+							const mrb = s.mrBranches.filter((b) =>
+								b.name.toLowerCase().includes(s.mrBranchSearch.toLowerCase()),
+							);
+							return (
+								<div class="mr-branch-sel" style="margin-top:12px">
+									<div style="font-size:13px;color:var(--text-2);margin-bottom:4px">
+										{t("release.selectMrBranch")}
+									</div>
+									<div class="sel" style="position:relative;z-index:100">
+										<button
+											type="button"
+											class="sel-trigger"
+											onClick={() =>
+												d({ type: "SET_MR_BRANCH_OPEN", open: !s.mrBranchOpen })
+											}
 										>
-											<div class="sel-search">
-												<input
-													ref={mrBranchSearchRef}
-													class="sel-search-input"
-													type="text"
-													placeholder={t("web.filterBranches")}
-													value={s.mrBranchSearch}
-													onChange={(e: Event) => d({ type: "SET_MR_BRANCH_SEARCH", search: (e.target as HTMLInputElement).value })}
-													onKeyDown={(e: KeyboardEvent) => {
-														const n = selKeyDown(e, s.mrBranchOpen, mrb.length, s.mrBranchIndex, (i) => { if (mrb[i]) d({ type: "MR_SOURCE_SELECTED", branch: mrb[i].name }); }, () => d({ type: "SET_MR_BRANCH_OPEN", open: false }));
-														if (n !== undefined) d({ type: "SET_MR_BRANCH_INDEX", index: n });
-													}}
-												/>
+											<span class="sel-trigger-label">
+												{t("web.branchLabel")}
+											</span>
+											<span
+												class={`sel-trigger-value${s.mrSourceBranch ? "" : " empty"}`}
+											>
+												{s.mrSourceBranch || t("web.selectBranch")}
+											</span>
+											<span class="sel-trigger-arrow">▼</span>
+										</button>
+										{s.mrBranchOpen && (
+											<div
+												class="sel-dropdown"
+												role="listbox"
+												aria-label={t("release.selectMrBranch")}
+											>
+												<div class="sel-search">
+													<input
+														ref={mrBranchSearchRef}
+														class="sel-search-input"
+														type="text"
+														placeholder={t("web.filterBranches")}
+														value={s.mrBranchSearch}
+														onChange={(e: Event) =>
+															d({
+																type: "SET_MR_BRANCH_SEARCH",
+																search: (e.target as HTMLInputElement).value,
+															})
+														}
+														onKeyDown={(e: KeyboardEvent) => {
+															const n = selKeyDown(
+																e,
+																s.mrBranchOpen,
+																mrb.length,
+																s.mrBranchIndex,
+																(i) => {
+																	if (mrb[i])
+																		d({
+																			type: "MR_SOURCE_SELECTED",
+																			branch: mrb[i].name,
+																		});
+																},
+																() =>
+																	d({
+																		type: "SET_MR_BRANCH_OPEN",
+																		open: false,
+																	}),
+															);
+															if (n !== undefined)
+																d({ type: "SET_MR_BRANCH_INDEX", index: n });
+														}}
+													/>
+												</div>
+												{mrb.length > 0 ? (
+													mrb.map((b, i) => (
+														<div
+															class={`sel-item${b.name === s.mrSourceBranch ? " active" : ""}${i === s.mrBranchIndex ? " highlighted" : ""}`}
+															onMouseEnter={() =>
+																d({ type: "SET_MR_BRANCH_INDEX", index: i })
+															}
+															onClick={() =>
+																d({
+																	type: "MR_SOURCE_SELECTED",
+																	branch: b.name,
+																})
+															}
+														>
+															<span class="sel-item-name">{b.name}</span>
+															{b.default && (
+																<span style="font-size:10px;color:var(--neon);margin-left:6px">
+																	{t("web.defaultBranch")}
+																</span>
+															)}
+														</div>
+													))
+												) : (
+													<div class="sel-empty">{t("web.noBranches")}</div>
+												)}
 											</div>
-											{mrb.length > 0 ? (
-												mrb.map((b, i) => (
-													<div
-														class={`sel-item${b.name === s.mrSourceBranch ? " active" : ""}${i === s.mrBranchIndex ? " highlighted" : ""}`}
-														onMouseEnter={() => d({ type: "SET_MR_BRANCH_INDEX", index: i })}
-														onClick={() => d({ type: "MR_SOURCE_SELECTED", branch: b.name })}
-													>
-														<span class="sel-item-name">{b.name}</span>
-														{b.default && (
-															<span style="font-size:10px;color:var(--neon);margin-left:6px">{t("web.defaultBranch")}</span>
-														)}
-													</div>
-												))
-											) : (
-												<div class="sel-empty">{t("web.noBranches")}</div>
-											)}
-										</div>
-									)}
+										)}
+									</div>
 								</div>
+							);
+						})()}
+					{s.mrStatus === "selecting" && s.mrSourceBranch && (
+						<div style="margin-top:8px">
+							<div style="font-size:13px;color:var(--text-2);margin-bottom:6px">
+								{t("release.mrFromTo", {
+									source: s.mrSourceBranch,
+									target: s.selectedBranch,
+								})}
 							</div>
-						);
-					})()}
-							{s.mrStatus === "selecting" && s.mrSourceBranch && (
-								<div style="margin-top:8px">
-									<div style="font-size:13px;color:var(--text-2);margin-bottom:6px">{t("release.mrFromTo", { source: s.mrSourceBranch, target: s.selectedBranch })}</div>
-									<button
-									class="jira-btn" type="button"
-									style="background:var(--cyan);font-size:13px;padding:4px 12px"
-									onClick={() => d({ type: "MR_CREATING" })}
-									>
-									{t("release.confirmCreateMr")}
-									</button>
-								</div>
-							)}
+							<button
+								class="jira-btn"
+								type="button"
+								style="background:var(--cyan);font-size:13px;padding:4px 12px"
+								onClick={() => d({ type: "MR_CREATING" })}
+							>
+								{t("release.confirmCreateMr")}
+							</button>
+						</div>
+					)}
 					{s.mrStatus === "creating" && (
 						<div class="loading-row" style="margin-top:12px">
 							<span class="spinner" />
 							{t("release.creatingMrBtn")}
 						</div>
 					)}
-						{s.mrStatus === "done" && s.mrUrl && (
-							<div class="jira-result" style="margin-top:12px">
-								<div class="jira-result-label">MR</div>
-								<a class="jira-result-key" href={s.mrUrl} target="_blank" rel="noreferrer">
-								{t("release.mrFromTo", { source: s.mrSourceBranch, target: s.selectedBranch })}
-								</a>
-							</div>
+					{s.mrStatus === "done" && s.mrUrl && (
+						<div class="jira-result" style="margin-top:12px">
+							<div class="jira-result-label">MR</div>
+							<a
+								class="jira-result-key"
+								href={s.mrUrl}
+								target="_blank"
+								rel="noreferrer"
+							>
+								{t("release.mrFromTo", {
+									source: s.mrSourceBranch,
+									target: s.selectedBranch,
+								})}
+							</a>
+						</div>
 					)}
 					{s.mrStatus === "error" && s.mrError && (
 						<div class="jira-error" role="alert" style="margin-top:12px">
@@ -1861,10 +2025,13 @@ const ReleaseClient: FC = () => {
 							fetch("/release/api/history")
 								.then((r) => r.json())
 								.then((data) => {
-									d({ type: "SET_HISTORY", history: Array.isArray(data) ? data : [] });
+									d({
+										type: "SET_HISTORY",
+										history: Array.isArray(data) ? data : [],
+									});
 									d({ type: "HIDE_NEW_MODAL" });
 								})
-							.catch(() => d({ type: "HIDE_NEW_MODAL" }));
+								.catch(() => d({ type: "HIDE_NEW_MODAL" }));
 						}
 					}}
 				>
@@ -1878,17 +2045,29 @@ const ReleaseClient: FC = () => {
 									fetch("/release/api/history")
 										.then((r) => r.json())
 										.then((data) => {
-											d({ type: "SET_HISTORY", history: Array.isArray(data) ? data : [] });
+											d({
+												type: "SET_HISTORY",
+												history: Array.isArray(data) ? data : [],
+											});
 											d({ type: "HIDE_NEW_MODAL" });
 										})
 										.catch(() => d({ type: "HIDE_NEW_MODAL" }));
-							}}
-						>
-							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-								<line x1="18" y1="6" x2="6" y2="18" />
-								<line x1="6" y1="6" x2="18" y2="18" />
-							</svg>
-						</button>
+								}}
+							>
+								<svg
+									width="16"
+									height="16"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<line x1="18" y1="6" x2="6" y2="18" />
+									<line x1="6" y1="6" x2="18" y2="18" />
+								</svg>
+							</button>
 						</div>
 						<ReleaseFlow s={s} d={d} />
 					</div>

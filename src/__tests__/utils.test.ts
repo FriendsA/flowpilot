@@ -225,12 +225,22 @@ describe("parsePomXml", () => {
 
 	it("returns null for all fields on empty string", () => {
 		const result = parsePomXml("");
-		expect(result).toEqual({ version: null, groupId: null, flowPilotName: null, jenkinsJobName: null });
+		expect(result).toEqual({
+			version: null,
+			groupId: null,
+			flowPilotName: null,
+			jenkinsJobName: null,
+		});
 	});
 
 	it("returns null when no tags present", () => {
 		const result = parsePomXml("<project></project>");
-		expect(result).toEqual({ version: null, groupId: null, flowPilotName: null, jenkinsJobName: null });
+		expect(result).toEqual({
+			version: null,
+			groupId: null,
+			flowPilotName: null,
+			jenkinsJobName: null,
+		});
 	});
 
 	it("extracts from <flowpilot> top-level element", () => {
@@ -264,7 +274,6 @@ describe("parsePomXml", () => {
 		expect(result.flowPilotName).toBe("new-name");
 		expect(result.jenkinsJobName).toBe("new-job");
 	});
-
 });
 
 describe("cleanVersion", () => {

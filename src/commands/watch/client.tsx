@@ -8,8 +8,8 @@ import {
 	pipelineStepClass,
 } from "../../shared/components/pipeline";
 import { selectCss, selKeyDown } from "../../shared/components/select";
-import { filterByRelevance } from "../../utils/search";
 import { useChainPolling } from "../../utils/polling";
+import { filterByRelevance } from "../../utils/search";
 
 const initPromise =
 	typeof window !== "undefined" &&
@@ -626,13 +626,16 @@ type State = {
 	projectFlowStartedAt: number;
 	history: WatchHistoryEntry[];
 	historyLoading: boolean;
-	historyBuilds: Record<string, {
-		buildStatus: BuildStatus;
-		buildInfo: JenkinsBuildInfo | null;
-		buildError: string;
-		polling: boolean;
-		startedAt?: number;
-	}>;
+	historyBuilds: Record<
+		string,
+		{
+			buildStatus: BuildStatus;
+			buildInfo: JenkinsBuildInfo | null;
+			buildError: string;
+			polling: boolean;
+			startedAt?: number;
+		}
+	>;
 	activeTab: "quick" | "project";
 	quickSearch: string;
 	quickJobs: JenkinsJob[];
@@ -1025,7 +1028,12 @@ const reducer = (state: State, action: Action): State => {
 				historyBuilds: {
 					...state.historyBuilds,
 					[id]: {
-						...(state.historyBuilds[id] ?? { buildStatus: "idle", buildInfo: null, buildError: "", polling: true }),
+						...(state.historyBuilds[id] ?? {
+							buildStatus: "idle",
+							buildInfo: null,
+							buildError: "",
+							polling: true,
+						}),
 						buildStatus: status,
 						buildInfo: info,
 						buildError: "",
@@ -1040,7 +1048,12 @@ const reducer = (state: State, action: Action): State => {
 				historyBuilds: {
 					...state.historyBuilds,
 					[id]: {
-						...(state.historyBuilds[id] ?? { buildStatus: "idle", buildInfo: null, buildError: "", polling: true }),
+						...(state.historyBuilds[id] ?? {
+							buildStatus: "idle",
+							buildInfo: null,
+							buildError: "",
+							polling: true,
+						}),
 						buildStatus: "error",
 						buildError: action.error,
 					},
@@ -1056,7 +1069,12 @@ const reducer = (state: State, action: Action): State => {
 					...state.historyBuilds,
 					[id]: prev
 						? { ...prev, polling: false }
-						: { buildStatus: "idle", buildInfo: null, buildError: "", polling: false },
+						: {
+								buildStatus: "idle",
+								buildInfo: null,
+								buildError: "",
+								polling: false,
+							},
 				},
 			};
 		}
@@ -1123,7 +1141,12 @@ const reducer = (state: State, action: Action): State => {
 				quickPolling: false,
 			};
 		case "QUICK_JOBS_LOADING":
-			return { ...state, quickJobsLoading: true, quickJobs: [], quickSelectedJob: null };
+			return {
+				...state,
+				quickJobsLoading: true,
+				quickJobs: [],
+				quickSelectedJob: null,
+			};
 		case "QUICK_JOBS_LOADED":
 			return { ...state, quickJobsLoading: false, quickJobs: action.jobs };
 		case "QUICK_BUILD_START":
@@ -1210,7 +1233,8 @@ const HistoryBuildItem: FC<{
 	useChainPolling({
 		active: build.polling,
 		jobName: entry.jenkinsJobName,
-		onResult: (info) => d({ type: "HISTORY_BUILD_RESULT", id, info: info as JenkinsBuildInfo }),
+		onResult: (info) =>
+			d({ type: "HISTORY_BUILD_RESULT", id, info: info as JenkinsBuildInfo }),
 		onError: (error) => d({ type: "HISTORY_BUILD_ERROR", id, error }),
 		restartToken: build.startedAt,
 	});
@@ -1224,15 +1248,20 @@ const HistoryBuildItem: FC<{
 	};
 
 	const handleDelete = async () => {
-		await fetch(`/watch/api/history/${encodeURIComponent(id)}`, { method: "DELETE" });
+		await fetch(`/watch/api/history/${encodeURIComponent(id)}`, {
+			method: "DELETE",
+		});
 		d({ type: "REMOVE_HISTORY_ENTRY", id });
 	};
 
 	const handleRetry = async () => {
 		try {
-			await fetch(`/watch/api/jenkins/trigger?job=${encodeURIComponent(entry.jenkinsJobName)}`, { method: "POST" });
+			await fetch(
+				`/watch/api/jenkins/trigger?job=${encodeURIComponent(entry.jenkinsJobName)}`,
+				{ method: "POST" },
+			);
 			// Wait a bit for Jenkins to start the build
-			await new Promise(resolve => setTimeout(resolve, 1000));
+			await new Promise((resolve) => setTimeout(resolve, 1000));
 			handleWatch();
 		} catch (e) {
 			d({
@@ -1272,12 +1301,14 @@ const HistoryBuildItem: FC<{
 								{t("web.watchBuildError")}
 							</span>
 						</div>
-						<button
-							class="watch-btn stop"
-							type="button"
-							onClick={handleStop}
-						>
-							<svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+						<button class="watch-btn stop" type="button" onClick={handleStop}>
+							<svg
+								width="8"
+								height="8"
+								viewBox="0 0 24 24"
+								fill="currentColor"
+								stroke="none"
+							>
 								<rect x="4" y="4" width="16" height="16" rx="2" />
 							</svg>
 							{t("web.watchStopPolling")}
@@ -1290,13 +1321,20 @@ const HistoryBuildItem: FC<{
 			);
 		}
 		if (!bi) return null;
-		const statusClass = bi.building ? "building" :
-			bi.result === "SUCCESS" ? "success" :
-			bi.result === "FAILURE" ? "failure" : "aborted";
-		const statusLabel = bi.building ? t("web.watchBuilding") :
-			bi.result === "SUCCESS" ? t("web.watchBuildSuccess") :
-			bi.result === "FAILURE" ? t("web.watchBuildFailed") :
-			bi.result ?? t("web.watchBuildUnknown");
+		const statusClass = bi.building
+			? "building"
+			: bi.result === "SUCCESS"
+				? "success"
+				: bi.result === "FAILURE"
+					? "failure"
+					: "aborted";
+		const statusLabel = bi.building
+			? t("web.watchBuilding")
+			: bi.result === "SUCCESS"
+				? t("web.watchBuildSuccess")
+				: bi.result === "FAILURE"
+					? t("web.watchBuildFailed")
+					: (bi.result ?? t("web.watchBuildUnknown"));
 
 		return (
 			<div class={`build-section ${statusClass}`} style="margin-top:12px">
@@ -1307,28 +1345,36 @@ const HistoryBuildItem: FC<{
 							{statusLabel}
 						</span>
 					</div>
-				<button
-					class="watch-btn stop"
-					type="button"
-					onClick={handleStop}
-				>
-					<svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-						<rect x="4" y="4" width="16" height="16" rx="2" />
-					</svg>
-					{t("web.watchStopPolling")}
-				</button>
-			</div>
-			<div class="build-meta-grid">
-				<div class="build-meta-cell">
-					<div class="build-meta-label">{t("web.watchBuild")}</div>
+					<button class="watch-btn stop" type="button" onClick={handleStop}>
+						<svg
+							width="8"
+							height="8"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+							stroke="none"
+							role="img"
+							aria-label={t("web.watchStopPolling")}
+						>
+							<rect x="4" y="4" width="16" height="16" rx="2" />
+						</svg>
+						{t("web.watchStopPolling")}
+					</button>
+				</div>
+				<div class="build-meta-grid">
+					<div class="build-meta-cell">
+						<div class="build-meta-label">{t("web.watchBuild")}</div>
 						<div class="build-meta-value" style="font-size:12px">
-							<a href={bi.url} target="_blank" rel="noreferrer">#{bi.number}</a>
+							<a href={bi.url} target="_blank" rel="noreferrer">
+								#{bi.number}
+							</a>
 						</div>
 					</div>
 					<div class="build-meta-cell">
 						<div class="build-meta-label">{t("web.watchDuration")}</div>
 						<div class="build-meta-value" style="font-size:12px">
-							{!bi.building && bi.duration > 0 ? formatDuration(bi.duration) : "—"}
+							{!bi.building && bi.duration > 0
+								? formatDuration(bi.duration)
+								: "—"}
 						</div>
 					</div>
 					<div class="build-meta-cell">
@@ -1339,25 +1385,51 @@ const HistoryBuildItem: FC<{
 					</div>
 				</div>
 				{bi.building && (
-					<div class="build-polling-bar" style="padding:6px 12px;font-size:11px">
-						<span class="spinner" style="width:8px;height:8px;border-width:1px" />
+					<div
+						class="build-polling-bar"
+						style="padding:6px 12px;font-size:11px"
+					>
+						<span
+							class="spinner"
+							style="width:8px;height:8px;border-width:1px"
+						/>
 						{t("web.watchPollingHint")}
 					</div>
 				)}
 				{!bi.building && bi.artifacts && bi.artifacts.length > 0 && (
 					<div class="artifacts-list" style="padding:10px 12px">
-						<div class="artifacts-title" style="font-size:9px;margin-bottom:6px">{t("web.watchArtifacts")}</div>
+						<div
+							class="artifacts-title"
+							style="font-size:9px;margin-bottom:6px"
+						>
+							{t("web.watchArtifacts")}
+						</div>
 						<div class="artifacts-grid" style="gap:4px">
 							{bi.artifacts.map((a) => (
 								<div class="artifact-item" style="padding:4px 8px">
 									<span class="artifact-icon">
-										<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<svg
+											width="10"
+											height="10"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										>
 											<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
 											<polyline points="3.27 6.96 12 12.01 20.73 6.96" />
 											<line x1="12" y1="22.08" x2="12" y2="12" />
 										</svg>
 									</span>
-									<a class="artifact-link" style="font-size:11px" href={`${bi.url}artifact/${a.relativePath}`} target="_blank" rel="noreferrer">
+									<a
+										class="artifact-link"
+										style="font-size:11px"
+										href={`${bi.url}artifact/${a.relativePath}`}
+										target="_blank"
+										rel="noreferrer"
+									>
 										{a.fileName || a.relativePath}
 									</a>
 								</div>
@@ -1373,28 +1445,57 @@ const HistoryBuildItem: FC<{
 		<div class="history-item">
 			<div class="history-item-row">
 				<div class="history-info">
-					<span class="history-project" style="font-size:15px">{entry.jenkinsJobName}</span>
+					<span class="history-project" style="font-size:15px">
+						{entry.jenkinsJobName}
+					</span>
 					<span class="history-detail" style="font-size:11px;opacity:0.7">
 						{entry.projectName} · {entry.branch}
 					</span>
 				</div>
 				<div class="history-actions">
 					{status === "idle" ? (
-						<button class="history-action-btn primary" type="button" onClick={handleWatch}>
+						<button
+							class="history-action-btn primary"
+							type="button"
+							onClick={handleWatch}
+						>
 							{t("web.watchNow")}
 						</button>
-					) : (status === "error" || status === "success" || status === "failure" || status === "aborted") ? (
+					) : status === "error" ||
+						status === "success" ||
+						status === "failure" ||
+						status === "aborted" ? (
 						<>
-							{(status === "failure" || status === "aborted" || status === "error") && (
-						<button class="history-action-btn retry" type="button" onClick={handleRetry}>
-							<svg class="retry-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-								<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-								<path d="M3 3v5h5" />
-							</svg>
-							{t("web.watchRetry")}
-						</button>
+							{(status === "failure" ||
+								status === "aborted" ||
+								status === "error") && (
+								<button
+									class="history-action-btn retry"
+									type="button"
+									onClick={handleRetry}
+								>
+									<svg
+										class="retry-icon"
+										width="14"
+										height="14"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									>
+										<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+										<path d="M3 3v5h5" />
+									</svg>
+									{t("web.watchRetry")}
+								</button>
 							)}
-							<button class="history-action-btn secondary" type="button" onClick={handleWatch}>
+							<button
+								class="history-action-btn secondary"
+								type="button"
+								onClick={handleWatch}
+							>
 								{t("web.watchNow")}
 							</button>
 						</>
@@ -1405,7 +1506,16 @@ const HistoryBuildItem: FC<{
 						onClick={handleDelete}
 						title={t("web.watchDeleteHistory")}
 					>
-						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<svg
+							width="12"
+							height="12"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
 							<line x1="18" y1="6" x2="6" y2="18" />
 							<line x1="6" y1="6" x2="18" y2="18" />
 						</svg>
@@ -1542,7 +1652,9 @@ const BuildPanel: FC<{
 				: (bi.result ?? t("web.watchBuildUnknown"));
 
 	return (
-		<div class={`build-section ${bi.building ? "building" : bi.result === "SUCCESS" ? "success" : bi.result === "FAILURE" ? "failure" : bi.result === "ABORTED" ? "aborted" : ""}`}>
+		<div
+			class={`build-section ${bi.building ? "building" : bi.result === "SUCCESS" ? "success" : bi.result === "FAILURE" ? "failure" : bi.result === "ABORTED" ? "aborted" : ""}`}
+		>
 			{/* Top bar: status badge + action buttons */}
 			<div class="build-top">
 				<div class="build-top-left">
@@ -1558,18 +1670,20 @@ const BuildPanel: FC<{
 							onClick={onReselectJob}
 							title={t("web.watchClickToReselectJob")}
 						>
-							{s.selectedJob?.name ?? selectedJob.name}
+							{selectedJob.name}
 						</button>
 					)}
 				</div>
 				<div class="build-top-right">
 					{polling && !bi.building && onStopPoll && (
-						<button
-							class="watch-btn stop"
-							type="button"
-							onClick={onStopPoll}
-						>
-							<svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+						<button class="watch-btn stop" type="button" onClick={onStopPoll}>
+							<svg
+								width="8"
+								height="8"
+								viewBox="0 0 24 24"
+								fill="currentColor"
+								stroke="none"
+							>
 								<rect x="4" y="4" width="16" height="16" rx="2" />
 							</svg>
 							{t("web.watchStopPolling")}
@@ -1583,13 +1697,17 @@ const BuildPanel: FC<{
 				<div class="build-meta-cell">
 					<div class="build-meta-label">{t("web.watchBuild")}</div>
 					<div class="build-meta-value">
-						<a href={bi.url} target="_blank" rel="noreferrer">#{bi.number}</a>
+						<a href={bi.url} target="_blank" rel="noreferrer">
+							#{bi.number}
+						</a>
 					</div>
 				</div>
 				<div class="build-meta-cell">
 					<div class="build-meta-label">{t("web.watchDuration")}</div>
 					<div class="build-meta-value">
-						{!bi.building && bi.duration > 0 ? formatDuration(bi.duration) : "—"}
+						{!bi.building && bi.duration > 0
+							? formatDuration(bi.duration)
+							: "—"}
 					</div>
 				</div>
 				<div class="build-meta-cell">
@@ -1603,7 +1721,10 @@ const BuildPanel: FC<{
 			{/* Polling indicator */}
 			{bi.building && (
 				<div class="build-polling-bar">
-					<span class="spinner" style="width:10px;height:10px;border-width:1px" />
+					<span
+						class="spinner"
+						style="width:10px;height:10px;border-width:1px"
+					/>
 					{t("web.watchPollingHint")}
 				</div>
 			)}
@@ -1611,14 +1732,25 @@ const BuildPanel: FC<{
 			{/* Artifacts — full width grid */}
 			{!bi.building && bi.artifacts && bi.artifacts.length > 0 && (
 				<div class="artifacts-list">
-					<div class="artifacts-title">{t("web.watchArtifacts")} ({bi.artifacts.length})</div>
+					<div class="artifacts-title">
+						{t("web.watchArtifacts")} ({bi.artifacts.length})
+					</div>
 					<div class="artifacts-grid">
 						{bi.artifacts.map((a) => {
 							const artifactUrl = `${bi.url}artifact/${a.relativePath}`;
 							return (
 								<div class="artifact-item">
 									<span class="artifact-icon">
-										<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<svg
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										>
 											<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
 											<polyline points="3.27 6.96 12 12.01 20.73 6.96" />
 											<line x1="12" y1="22.08" x2="12" y2="12" />
@@ -1651,7 +1783,8 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 	useChainPolling({
 		active: s.quickPolling,
 		jobName: s.quickSelectedJob?.name,
-		onResult: (info) => d({ type: "QUICK_BUILD_RESULT", info: info as JenkinsBuildInfo }),
+		onResult: (info) =>
+			d({ type: "QUICK_BUILD_RESULT", info: info as JenkinsBuildInfo }),
 		onError: (error) => d({ type: "QUICK_BUILD_ERROR", error }),
 		restartToken: s.quickPollingStartedAt,
 	});
@@ -1660,9 +1793,18 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 	useEffect(() => {
 		if (!s.quickJobOpen || s.quickJobs.length > 0 || s.quickJobsLoading) return;
 		d({ type: "QUICK_JOBS_LOADING" });
-		fetch("/watch/api/jenkins/jobs")
+		fetch("/watch/api/jenkins/search")
 			.then((r) => r.json())
-			.then((jobs: any[]) => d({ type: "QUICK_JOBS_LOADED", jobs }))
+			.then(
+				(
+					jobs: {
+						name: string;
+						url: string;
+						color: string;
+						fullName?: string;
+					}[],
+				) => d({ type: "QUICK_JOBS_LOADED", jobs }),
+			)
 			.catch(() => d({ type: "QUICK_JOBS_LOADED", jobs: [] }));
 	}, [s.quickJobOpen, s.quickJobs.length, s.quickJobsLoading]);
 
@@ -1671,7 +1813,7 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 		if (!s.quickJobOpen) return;
 		const handler = (e: Event) => {
 			const target = e.target as HTMLElement;
-			if (!target.closest("[data-sel=\"quick-job\"]")) {
+			if (!target.closest('[data-sel="quick-job"]')) {
 				d({ type: "QUICK_SET_JOB_OPEN", open: false });
 			}
 		};
@@ -1689,11 +1831,8 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 			(e: WatchHistoryEntry) => e.jenkinsJobName === jobName,
 		);
 		d({ type: "SET_HISTORY", history: histData });
-		if (existingEntry) {
-			// Already in history, just trigger monitoring
-			d({ type: "HISTORY_BUILD_START", id: existingEntry.id });
-		} else {
-			// Save to history then trigger
+		if (!existingEntry) {
+			// Save to history
 			await fetch("/watch/api/history", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -1707,20 +1846,19 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 					jenkinsJobName: jobName,
 				}),
 			});
+			// Refresh history list
 			const newHistRes = await fetch("/watch/api/history");
 			const newHistData = await newHistRes.json();
 			d({ type: "SET_HISTORY", history: newHistData });
-			const entryId = newHistData.find(
-				(e: WatchHistoryEntry) => e.jenkinsJobName === jobName,
-			)?.id;
-			if (entryId) {
-				d({ type: "HISTORY_BUILD_START", id: entryId });
-			}
 		}
-		// Reset quick form
-		d({ type: "QUICK_BUILD_RESET" });
-		d({ type: "QUICK_SET_SEARCH", search: "" });
+		// Start monitoring in Quick tab (don't reset form)
+		d({ type: "QUICK_BUILD_START" });
 	};
+
+	const filteredJobs = filterByRelevance(
+		s.quickJobs.map((j) => ({ ...j, name: j.name })),
+		s.quickSearch,
+	);
 
 	return (
 		<div class="quick-section">
@@ -1740,7 +1878,9 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 					}}
 				>
 					<span class="sel-trigger-label">{t("web.watchSelectJob")}</span>
-					<span class={`sel-trigger-value${s.quickSelectedJob ? "" : " empty"}`}>
+					<span
+						class={`sel-trigger-value${s.quickSelectedJob ? "" : " empty"}`}
+					>
 						{s.quickSelectedJob
 							? s.quickSelectedJob.name
 							: t("web.watchSelectJobPlaceholder")}
@@ -1748,7 +1888,11 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 					<span class="sel-trigger-arrow">▼</span>
 				</button>
 				{s.quickJobOpen && (
-					<div class="sel-dropdown" role="listbox" aria-label={t("web.watchSelectJob")}>
+					<div
+						class="sel-dropdown"
+						role="listbox"
+						aria-label={t("web.watchSelectJob")}
+					>
 						<div class="sel-search">
 							<input
 								ref={jobSearchRef}
@@ -1770,7 +1914,8 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 										s.quickJobIndex,
 										(i) => {
 											const j = filteredJobs[i];
-											if (j) d({ type: "QUICK_SELECT_JOB", job: j as JenkinsJob });
+											if (j)
+												d({ type: "QUICK_SELECT_JOB", job: j as JenkinsJob });
 										},
 										() => d({ type: "QUICK_SET_JOB_OPEN", open: false }),
 									);
@@ -1782,7 +1927,10 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 						{s.quickJobsLoading ? (
 							<div class="sel-empty">
 								<div style="display:flex;align-items:center;justify-content:center;gap:6px">
-									<span class="spinner" style="width:10px;height:10px;border-width:1px" />
+									<span
+										class="spinner"
+										style="width:10px;height:10px;border-width:1px"
+									/>
 									{t("web.watchSearchingJobs")}
 								</div>
 							</div>
@@ -1790,8 +1938,12 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 							filteredJobs.map((j, i) => (
 								<div
 									class={`sel-item${s.quickSelectedJob?.name === (j as JenkinsJob).name ? " active" : ""}${i === s.quickJobIndex ? " highlighted" : ""}`}
-									onMouseEnter={() => d({ type: "QUICK_SET_JOB_INDEX", index: i })}
-									onClick={() => d({ type: "QUICK_SELECT_JOB", job: j as JenkinsJob })}
+									onMouseEnter={() =>
+										d({ type: "QUICK_SET_JOB_INDEX", index: i })
+									}
+									onClick={() =>
+										d({ type: "QUICK_SELECT_JOB", job: j as JenkinsJob })
+									}
 								>
 									<span class="sel-item-name">{(j as JenkinsJob).name}</span>
 								</div>
@@ -1803,21 +1955,27 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 				)}
 			</div>
 
-			{s.quickSelectedJob && !s.quickPolling && s.quickBuildStatus === "idle" && (
-				<div style="margin-bottom:16px">
-					<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px">
-						<span style="font-size:12px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;font-family:var(--mono)">{t("web.watchSelectedJob")}</span>
-						<span style="font-family:var(--mono);font-size:14px;font-weight:600;color:var(--cyan)">{s.quickSelectedJob.name}</span>
+			{s.quickSelectedJob &&
+				!s.quickPolling &&
+				s.quickBuildStatus === "idle" && (
+					<div style="margin-bottom:16px">
+						<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px">
+							<span style="font-size:12px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;font-family:var(--mono)">
+								{t("web.watchSelectedJob")}
+							</span>
+							<span style="font-family:var(--mono);font-size:14px;font-weight:600;color:var(--cyan)">
+								{s.quickSelectedJob.name}
+							</span>
+						</div>
+						<button
+							class="watch-btn"
+							type="button"
+							onClick={handleConfirmWatch}
+						>
+							{t("web.watchConfirmStart")}
+						</button>
 					</div>
-					<button
-						class="watch-btn"
-						type="button"
-						onClick={handleConfirmWatch}
-					>
-						{t("web.watchConfirmStart")}
-					</button>
-				</div>
-			)}
+				)}
 
 			{s.quickSelectedJob && (
 				<BuildPanel
@@ -1868,7 +2026,9 @@ const WatchFlow: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 				}
 				d({ type: "PROJECTS_LOADED", projects: data });
 				// Auto-select project from query param (CLI: `watch -o` passes `?project=path`)
-				const projectPath = new URLSearchParams(window.location.search).get("project");
+				const projectPath = new URLSearchParams(window.location.search).get(
+					"project",
+				);
 				if (projectPath && Array.isArray(data)) {
 					const match = data.find(
 						(p: Project) => (p.pathWithNamespace ?? "") === projectPath,
@@ -2174,7 +2334,9 @@ const WatchClient: FC = () => {
 			)
 			.catch(() => d({ type: "SET_HISTORY", history: [] }));
 		// Auto-switch to "project" tab if URL has `?project=` (CLI: `watch -o`)
-		const projectPath = new URLSearchParams(window.location.search).get("project");
+		const projectPath = new URLSearchParams(window.location.search).get(
+			"project",
+		);
 		if (projectPath) {
 			d({ type: "SET_ACTIVE_TAB", tab: "project" });
 		}

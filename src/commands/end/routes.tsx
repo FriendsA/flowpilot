@@ -16,7 +16,11 @@ import {
 	gitRebase,
 	isGitRepo,
 } from "../../utils/git";
-import { createMrWithFallback, generateMrDescription, resolveProjectFromRemote } from "../../utils/mr";
+import {
+	createMrWithFallback,
+	generateMrDescription,
+	resolveProjectFromRemote,
+} from "../../utils/mr";
 
 // ── Session cwd ──
 // Stores the working directory for git operations.

@@ -255,8 +255,13 @@ const ConfigClient: FC = () => {
 	const [config, setConfig] = useState<Config>({});
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
-	const [toast, setToast] = useState<{ show: boolean; type: "success" | "error" }>({ show: false, type: "success" });
-	const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+	const [toast, setToast] = useState<{
+		show: boolean;
+		type: "success" | "error";
+	}>({ show: false, type: "success" });
+	const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>(
+		{},
+	);
 
 	useEffect(() => {
 		fetch("/config/api/config")
@@ -315,7 +320,11 @@ const ConfigClient: FC = () => {
 			</div>
 
 			{toast.show && (
-				<div class={`toast visible ${toast.type === "error" ? "error" : ""}`} role="status" aria-live="polite">
+				<div
+					class={`toast visible ${toast.type === "error" ? "error" : ""}`}
+					role="status"
+					aria-live="polite"
+				>
 					<span class="toast-dot" />
 					{toast.type === "error" ? t("web.saveFailed") : t("web.savedToast")}
 				</div>
@@ -329,8 +338,14 @@ const ConfigClient: FC = () => {
 					</div>
 					<div class="section-body">
 						<div class="field">
-							<label class="field-label" for="locale">{t("web.localeLabel")}</label>
-							<select id="locale" name="locale" value={config.locale ?? "zh-CN"}>
+							<label class="field-label" for="locale">
+								{t("web.localeLabel")}
+							</label>
+							<select
+								id="locale"
+								name="locale"
+								value={config.locale ?? "zh-CN"}
+							>
 								<option value="zh-CN">中文 (zh-CN)</option>
 								<option value="en">English (en)</option>
 							</select>
@@ -385,8 +400,17 @@ const ConfigClient: FC = () => {
 								<button
 									class="password-toggle"
 									type="button"
-									aria-label={showPasswords.jiraPassword ? "Hide password" : "Show password"}
-									onClick={() => setShowPasswords({ ...showPasswords, jiraPassword: !showPasswords.jiraPassword })}
+									aria-label={
+										showPasswords.jiraPassword
+											? "Hide password"
+											: "Show password"
+									}
+									onClick={() =>
+										setShowPasswords({
+											...showPasswords,
+											jiraPassword: !showPasswords.jiraPassword,
+										})
+									}
 									dangerouslySetInnerHTML={{
 										__html: showPasswords.jiraPassword ? EYE_OFF_SVG : EYE_SVG,
 									}}
@@ -477,10 +501,21 @@ const ConfigClient: FC = () => {
 								<button
 									class="password-toggle"
 									type="button"
-									aria-label={showPasswords.jenkinsPassword ? "Hide password" : "Show password"}
-									onClick={() => setShowPasswords({ ...showPasswords, jenkinsPassword: !showPasswords.jenkinsPassword })}
+									aria-label={
+										showPasswords.jenkinsPassword
+											? "Hide password"
+											: "Show password"
+									}
+									onClick={() =>
+										setShowPasswords({
+											...showPasswords,
+											jenkinsPassword: !showPasswords.jenkinsPassword,
+										})
+									}
 									dangerouslySetInnerHTML={{
-										__html: showPasswords.jenkinsPassword ? EYE_OFF_SVG : EYE_SVG,
+										__html: showPasswords.jenkinsPassword
+											? EYE_OFF_SVG
+											: EYE_SVG,
 									}}
 								/>
 							</div>

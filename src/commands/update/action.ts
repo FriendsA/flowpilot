@@ -18,7 +18,9 @@ async function getLatestVersion(): Promise<string> {
 		child.stdout?.on("data", (d: Buffer) => (stdout += d.toString()));
 		child.on("error", reject);
 		child.on("close", (code) =>
-			code === 0 ? resolve(stdout.trim()) : reject(new Error("npm view failed")),
+			code === 0
+				? resolve(stdout.trim())
+				: reject(new Error("npm view failed")),
 		);
 	});
 }
@@ -32,7 +34,9 @@ async function checkWritePermission(): Promise<boolean> {
 			let out = "";
 			child.stdout?.on("data", (d: Buffer) => (out += d.toString()));
 			child.on("error", reject);
-			child.on("close", (code) => (code === 0 ? resolve(out.trim()) : reject()));
+			child.on("close", (code) =>
+				code === 0 ? resolve(out.trim()) : reject(),
+			);
 		});
 		const globalDir = path.join(prefixRaw, "lib", "node_modules");
 		fs.accessSync(globalDir, fs.constants.W_OK);
@@ -57,7 +61,9 @@ function startSpinner(text: string): { stop: (finalText: string) => void } {
 	let frame = 0;
 	const stream = process.stdout;
 	const render = () => {
-		stream.write(`\r${pc.cyan(SPINNER_FRAMES[frame % SPINNER_FRAMES.length])} ${text}`);
+		stream.write(
+			`\r${pc.cyan(SPINNER_FRAMES[frame % SPINNER_FRAMES.length])} ${text}`,
+		);
 		frame++;
 	};
 	render();
@@ -86,57 +92,64 @@ export const updateAction = async () => {
 	}
 
 	if (latest === VERSION) {
-		spinner1.stop(`${pc.green("✔")} ${t("cli.alreadyLatestVersion", { version: VERSION })}`);
+		spinner1.stop(
+			`${pc.green("✔")} ${t("cli.alreadyLatestVersion", { version: VERSION })}`,
+		);
 		process.exit(0);
 	}
 
-	spinner1.stop(`${pc.green("✔")} ${t("cli.foundNewVersion", { version: latest })}`);
-	console.log(pc.dim(t("cli.versionTransition", { from: VERSION, to: latest })));
+	spinner1.stop(
+		`${pc.green("✔")} ${t("cli.foundNewVersion", { version: latest })}`,
+	);
+	console.log(
+		pc.dim(t("cli.versionTransition", { from: VERSION, to: latest })),
+	);
 	console.log("");
 
-  // Phase 3: Check write permissions
-  const hasAccess = await checkWritePermission();
-  if (!hasAccess) {
-    showPermissionHint();
-  }
+	// Phase 3: Check write permissions
+	const hasAccess = await checkWritePermission();
+	if (!hasAccess) {
+		showPermissionHint();
+	}
 
-  // Phase 4: Stop server before update to release file locks
-  let serverWasStopped = false;
-  const spinner2 = startSpinner(t("cli.stoppingService"));
-  try {
-    serverWasStopped = stopServer();
-    spinner2.stop(`${pc.green("✔")} ${t("cli.serviceStopped")}`);
-  } catch {
-    spinner2.stop(`${pc.yellow("⚠")} ${t("cli.stopServiceFailed")}`);
-  }
+	// Phase 4: Stop server before update to release file locks
+	const spinner2 = startSpinner(t("cli.stoppingService"));
+	try {
+		stopServer();
+		spinner2.stop(`${pc.green("✔")} ${t("cli.serviceStopped")}`);
+	} catch {
+		spinner2.stop(`${pc.yellow("⚠")} ${t("cli.stopServiceFailed")}`);
+	}
 
-  // Phase 5: Execute update with captured stdio (no raw npm noise)
-  const spinner3 = startSpinner(t("cli.updating"));
-  const updateResult = await new Promise<{ code: number; stderr: string }>((resolve) => {
-    const child = spawn("npm", ["update", "-g", "flowpilot"], {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    let stderr = "";
-    child.stderr?.on("data", (d: Buffer) => (stderr += d.toString()));
-    child.on("error", () => resolve({ code: 1, stderr: "" }));
-    child.on("close", (code) => resolve({ code: code ?? 1, stderr }));
-  });
+	// Phase 5: Execute update with captured stdio (no raw npm noise)
+	const spinner3 = startSpinner(t("cli.updating"));
+	const updateResult = await new Promise<{ code: number; stderr: string }>(
+		(resolve) => {
+			const child = spawn("npm", ["update", "-g", "flowpilot"], {
+				stdio: ["ignore", "pipe", "pipe"],
+			});
+			let stderr = "";
+			child.stderr?.on("data", (d: Buffer) => (stderr += d.toString()));
+			child.on("error", () => resolve({ code: 1, stderr: "" }));
+			child.on("close", (code) => resolve({ code: code ?? 1, stderr }));
+		},
+	);
 
-  if (updateResult.code !== 0) {
-    spinner3.stop(`${pc.red("✘")} ${t("cli.updateFailed")}`);
-    if (updateResult.stderr.trim()) {
-      console.error(`\n${pc.dim(updateResult.stderr.trim())}`);
-    }
-    process.exit(1);
-  }
-  spinner3.stop(`${pc.green("✔")} ${t("cli.updateSuccess")}`);
+	if (updateResult.code !== 0) {
+		spinner3.stop(`${pc.red("✘")} ${t("cli.updateFailed")}`);
+		if (updateResult.stderr.trim()) {
+			console.error(`\n${pc.dim(updateResult.stderr.trim())}`);
+		}
+		process.exit(1);
+	}
+	spinner3.stop(`${pc.green("✔")} ${t("cli.updateSuccess")}`);
 
-  // Phase 6: Restart service
-  const spinner4 = startSpinner(t("cli.restartingService"));
-  try {
-    await restartServerInBackground();
-    spinner4.stop(`${pc.green("✔")} ${t("cli.serviceRestarted")}`);
-  } catch {
-    spinner4.stop(`${pc.yellow("⚠")} ${t("cli.restartServiceFailed")}`);
-  }
+	// Phase 6: Restart service
+	const spinner4 = startSpinner(t("cli.restartingService"));
+	try {
+		await restartServerInBackground();
+		spinner4.stop(`${pc.green("✔")} ${t("cli.serviceRestarted")}`);
+	} catch {
+		spinner4.stop(`${pc.yellow("⚠")} ${t("cli.restartServiceFailed")}`);
+	}
 };

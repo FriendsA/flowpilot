@@ -22,7 +22,8 @@ export function detectLocaleFromEnv(): string {
 
 function detectLocale(): string {
 	const configLocale = new ConfigJson().get("locale");
-	if (configLocale && SUPPORTED_LOCALES.includes(configLocale)) return configLocale;
+	if (configLocale && SUPPORTED_LOCALES.includes(configLocale))
+		return configLocale;
 	return detectLocaleFromEnv();
 }
 

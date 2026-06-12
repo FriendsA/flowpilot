@@ -436,7 +436,10 @@ export const mrAction = async (options: MrActionProps) => {
 			});
 			if (commentConfirm === true) {
 				try {
-					await jira.addComment(key, t("cli.jiraCommentTemplate", { key, mrUrl }));
+					await jira.addComment(
+						key,
+						t("cli.jiraCommentTemplate", { key, mrUrl }),
+					);
 					clack.log.success(
 						`${pc.green("✔")} ${t("mr.jiraCommentAdded")}: ${key}`,
 					);
@@ -471,7 +474,7 @@ export const mrAction = async (options: MrActionProps) => {
 						tr.name.toLowerCase().includes("done"),
 				);
 
-				let selectedTransition;
+				let selectedTransition: { id: string; name: string } | undefined;
 				if (doneTransition) {
 					selectedTransition = doneTransition;
 				} else {

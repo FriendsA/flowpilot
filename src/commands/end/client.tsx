@@ -1,10 +1,14 @@
 import { type FC, useEffect, useReducer, useRef } from "hono/jsx";
 import { render } from "hono/jsx/dom";
 import i18next from "i18next";
-import { filterByRelevance } from "../../utils/search";
-import { pipelineCss, pipelineStepClass, pipelineLineClass, Pipeline, type PipelineStep } from "../../shared/components/pipeline";
-import { selectCss, selKeyDown } from "../../shared/components/select";
 import { commonCss } from "../../shared/components/common";
+import {
+	pipelineCss,
+	pipelineLineClass,
+	pipelineStepClass,
+} from "../../shared/components/pipeline";
+import { selectCss, selKeyDown } from "../../shared/components/select";
+import { filterByRelevance } from "../../utils/search";
 
 const initPromise =
 	typeof window !== "undefined" &&
@@ -515,7 +519,14 @@ type Action =
 	| { type: "SET_CWD_INPUT"; value: string }
 	| { type: "SET_CWD"; cwd: string }
 	| { type: "CWD_ERROR"; error: string }
-	| { type: "LOADED"; data: { currentBranch: string; localBranches: string[]; detectedSource: string } }
+	| {
+			type: "LOADED";
+			data: {
+				currentBranch: string;
+				localBranches: string[];
+				detectedSource: string;
+			};
+	  }
 	| { type: "LOAD_ERROR"; error: string }
 	| { type: "SET_BRANCH_OPEN"; open: boolean }
 	| { type: "SET_BRANCH_SEARCH"; search: string }
@@ -645,14 +656,10 @@ const reducer = (state: State, action: Action): State => {
 
 // ── Helpers ──
 
-
-
-
-
 const cwdParam = (cwd: string) =>
 	cwd ? `&cwd=${encodeURIComponent(cwd)}` : "";
 
-const cwdBody = (cwd: string) => cwd ? { cwd } : {};
+const cwdBody = (cwd: string) => (cwd ? { cwd } : {});
 
 // ── Client Component ──
 
@@ -681,7 +688,10 @@ const EndClient: FC = () => {
 				else d({ type: "LOADED", data });
 			})
 			.catch((e) =>
-				d({ type: "LOAD_ERROR", error: e instanceof Error ? e.message : String(e) }),
+				d({
+					type: "LOAD_ERROR",
+					error: e instanceof Error ? e.message : String(e),
+				}),
 			);
 	}, [s.cwd]);
 
@@ -720,7 +730,10 @@ const EndClient: FC = () => {
 				d({ type: "SET_CWD", cwd: path });
 			}
 		} catch (e) {
-			d({ type: "CWD_ERROR", error: e instanceof Error ? e.message : String(e) });
+			d({
+				type: "CWD_ERROR",
+				error: e instanceof Error ? e.message : String(e),
+			});
 		}
 	};
 
@@ -730,7 +743,10 @@ const EndClient: FC = () => {
 			const res = await fetch("/end/api/rebase", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ targetBranch: s.targetBranch, ...cwdBody(s.cwd) }),
+				body: JSON.stringify({
+					targetBranch: s.targetBranch,
+					...cwdBody(s.cwd),
+				}),
 			});
 			const data = await res.json();
 			if (data.error) {
@@ -741,7 +757,10 @@ const EndClient: FC = () => {
 				d({ type: "REBASE_SUCCESS" });
 			}
 		} catch (e) {
-			d({ type: "REBASE_ERROR", error: e instanceof Error ? e.message : String(e) });
+			d({
+				type: "REBASE_ERROR",
+				error: e instanceof Error ? e.message : String(e),
+			});
 		}
 	};
 
@@ -790,7 +809,10 @@ const EndClient: FC = () => {
 				}
 			}
 		} catch (e) {
-			d({ type: "PUSH_ERROR", error: e instanceof Error ? e.message : String(e) });
+			d({
+				type: "PUSH_ERROR",
+				error: e instanceof Error ? e.message : String(e),
+			});
 		}
 	};
 
@@ -831,7 +853,10 @@ const EndClient: FC = () => {
 				}
 			}
 		} catch (e) {
-			d({ type: "MR_ERROR", error: e instanceof Error ? e.message : String(e) });
+			d({
+				type: "MR_ERROR",
+				error: e instanceof Error ? e.message : String(e),
+			});
 		}
 	};
 
@@ -850,7 +875,11 @@ const EndClient: FC = () => {
 				const trans = s.jiraTransitions[key]?.find(
 					(tr) => tr.id === transitionId,
 				);
-				d({ type: "JIRA_TRANSITION_SUCCESS", key, name: trans?.name ?? "Done" });
+				d({
+					type: "JIRA_TRANSITION_SUCCESS",
+					key,
+					name: trans?.name ?? "Done",
+				});
 			}
 		} catch (e) {
 			d({
@@ -883,7 +912,9 @@ const EndClient: FC = () => {
 	const step4Active = step3Done && s.ticketsLoading;
 	const step5Done = s.mrStatus === "success" || s.mrStatus === "skipped";
 	const step5Active = step4Done && s.mrStatus === "idle";
-	const step6Done = s.ticketKeys.length > 0 && s.ticketKeys.every((k) => s.jiraStatus[k] === "success");
+	const step6Done =
+		s.ticketKeys.length > 0 &&
+		s.ticketKeys.every((k) => s.jiraStatus[k] === "success");
 	const step6Active = step5Done && !step6Done && s.ticketKeys.length > 0;
 	const allDone = s.cwd && step2Done && step3Done && step5Done;
 
@@ -919,8 +950,7 @@ const EndClient: FC = () => {
 							}
 							onKeyDown={(e: KeyboardEvent) => {
 								if (e.key === "Enter") setCwd();
-							}
-							}
+							}}
 						/>
 						<button
 							class="cwd-btn"
@@ -1035,14 +1065,10 @@ const EndClient: FC = () => {
 					role="combobox"
 					aria-expanded={s.branchOpen}
 					aria-haspopup="listbox"
-					onClick={() =>
-						d({ type: "SET_BRANCH_OPEN", open: !s.branchOpen })
-					}
+					onClick={() => d({ type: "SET_BRANCH_OPEN", open: !s.branchOpen })}
 				>
 					<span class="sel-trigger-label">{t("end.targetBranch")}</span>
-					<span
-						class={`sel-trigger-value${s.targetBranch ? "" : " empty"}`}
-					>
+					<span class={`sel-trigger-value${s.targetBranch ? "" : " empty"}`}>
 						{s.targetBranch
 							? s.detectedSource && s.targetBranch === s.detectedSource
 								? `${s.targetBranch} (${t("end.detectedSource")})`
@@ -1095,9 +1121,7 @@ const EndClient: FC = () => {
 							fb.map((b, i) => (
 								<div
 									class={`sel-item${(b as { name: string }).name === s.targetBranch ? " active" : ""}${i === s.branchIndex ? " highlighted" : ""}`}
-									onMouseEnter={() =>
-										d({ type: "SET_BRANCH_INDEX", index: i })
-									}
+									onMouseEnter={() => d({ type: "SET_BRANCH_INDEX", index: i })}
 									onClick={() =>
 										d({
 											type: "SELECT_TARGET_BRANCH",
@@ -1119,11 +1143,7 @@ const EndClient: FC = () => {
 
 			{/* ── Step 2: Rebase ── */}
 			{s.rebaseStatus === "idle" && s.targetBranch && (
-				<button
-					class="action-btn"
-					type="button"
-					onClick={doRebase}
-				>
+				<button class="action-btn" type="button" onClick={doRebase}>
 					{t("end.rebaseBtn")} → {s.targetBranch}
 				</button>
 			)}
@@ -1151,11 +1171,7 @@ const EndClient: FC = () => {
 
 			{/* ── Step 3: Push ── */}
 			{s.rebaseStatus === "success" && s.pushStatus === "idle" && (
-				<button
-					class="action-btn"
-					type="button"
-					onClick={doPush}
-				>
+				<button class="action-btn" type="button" onClick={doPush}>
 					{t("end.pushBtn")} {s.currentBranch}
 				</button>
 			)}
@@ -1190,7 +1206,9 @@ const EndClient: FC = () => {
 					<div class="result-label">{t("end.ticketKeys")}</div>
 					{s.ticketKeys.length > 0
 						? s.ticketKeys.map((key) => (
-								<span class="result-badge" style="margin-right:6px">{key}</span>
+								<span class="result-badge" style="margin-right:6px">
+									{key}
+								</span>
 							))
 						: t("end.noTickets")}
 				</div>
@@ -1202,20 +1220,22 @@ const EndClient: FC = () => {
 			)}
 
 			{/* ── Step 5: Create MR ── */}
-			{s.pushStatus === "success" && !s.ticketsLoading && s.mrStatus === "idle" && (
-				<div style="display:flex;gap:8px">
-					<button class="action-btn" type="button" onClick={doCreateMR}>
-						{t("end.createMrBtn")}
-					</button>
-					<button
-						class="action-btn secondary"
-						type="button"
-						onClick={() => d({ type: "MR_SKIPPED" })}
-					>
-						{t("end.skipMr")}
-					</button>
-				</div>
-			)}
+			{s.pushStatus === "success" &&
+				!s.ticketsLoading &&
+				s.mrStatus === "idle" && (
+					<div style="display:flex;gap:8px">
+						<button class="action-btn" type="button" onClick={doCreateMR}>
+							{t("end.createMrBtn")}
+						</button>
+						<button
+							class="action-btn secondary"
+							type="button"
+							onClick={() => d({ type: "MR_SKIPPED" })}
+						>
+							{t("end.skipMr")}
+						</button>
+					</div>
+				)}
 			{s.mrStatus === "running" && (
 				<div class="loading-row">
 					<span class="spinner" />
@@ -1226,12 +1246,7 @@ const EndClient: FC = () => {
 				<div class="result-card result-success">
 					<div class="result-text success">{t("end.mrCreated")}</div>
 					<div class="mr-url-row">
-						<input
-							class="mr-url-input"
-							type="text"
-							readOnly
-							value={s.mrUrl}
-						/>
+						<input class="mr-url-input" type="text" readOnly value={s.mrUrl} />
 						<a
 							class="result-key"
 							href={s.mrUrl}
@@ -1258,92 +1273,88 @@ const EndClient: FC = () => {
 			)}
 			{s.mrStatus === "skipped" && (
 				<div class="result-card">
-					<div class="result-label">{t("end.manualMR")} {s.targetBranch}</div>
+					<div class="result-label">
+						{t("end.manualMR")} {s.targetBranch}
+					</div>
 				</div>
 			)}
 
 			{/* ── Step 6: Jira transitions ── */}
 			{(s.mrStatus === "success" || s.mrStatus === "skipped") &&
 				s.ticketKeys.length > 0 && (
-				<div class="ticket-list">
-					{s.ticketKeys.map((key) => (
-						<div class="ticket-item">
-							<div style="flex:1">
-								<a
-									class="ticket-key"
-									href={`#/browse/${key}`}
-									target="_blank"
-									rel="noreferrer"
-								>
-									{key}
-								</a>
-								{s.jiraResults[key] && (
-									<span
-										class="ticket-status success"
-										style="margin-left:8px"
+					<div class="ticket-list">
+						{s.ticketKeys.map((key) => (
+							<div class="ticket-item">
+								<div style="flex:1">
+									<a
+										class="ticket-key"
+										href={`#/browse/${key}`}
+										target="_blank"
+										rel="noreferrer"
 									>
-										→ {s.jiraResults[key]}
-									</span>
-								)}
-								{s.jiraErrors[key] && (
-									<span
-										class="ticket-status error"
-										style="margin-left:8px"
-									>
-										{t("end.transitionFailed")}
-									</span>
+										{key}
+									</a>
+									{s.jiraResults[key] && (
+										<span class="ticket-status success" style="margin-left:8px">
+											→ {s.jiraResults[key]}
+										</span>
+									)}
+									{s.jiraErrors[key] && (
+										<span class="ticket-status error" style="margin-left:8px">
+											{t("end.transitionFailed")}
+										</span>
+									)}
+								</div>
+								{s.jiraStatus[key] === "success" ? (
+									<span class="result-badge">{t("end.transitionSuccess")}</span>
+								) : s.jiraStatus[key] === "loading" ? (
+									<span class="spinner" />
+								) : (
+									s.jiraTransitions[key]?.length > 0 && (
+										<div class="ticket-transitions">
+											{s.jiraTransitions[key]
+												.filter(
+													(tr) =>
+														tr.name === "完成" ||
+														tr.name === "Done" ||
+														tr.name.toLowerCase().includes("done"),
+												)
+												.slice(0, 1)
+												.map((tr) => (
+													<button
+														class="trans-btn primary"
+														type="button"
+														onClick={() => doTransition(key, tr.id)}
+														disabled={s.jiraStatus[key] === "loading"}
+													>
+														{tr.name}
+													</button>
+												))}
+											{s.jiraTransitions[key]
+												.filter(
+													(tr) =>
+														tr.name !== "完成" &&
+														tr.name !== "Done" &&
+														!tr.name.toLowerCase().includes("done"),
+												)
+												.slice(0, 3)
+												.map((tr) => (
+													<button
+														class="trans-btn"
+														type="button"
+														onClick={() => doTransition(key, tr.id)}
+														disabled={s.jiraStatus[key] === "loading"}
+													>
+														{tr.name}
+													</button>
+												))}
+										</div>
+									)
 								)}
 							</div>
-							{s.jiraStatus[key] === "success" ? (
-								<span class="result-badge">{t("end.transitionSuccess")}</span>
-							) : s.jiraStatus[key] === "loading" ? (
-								<span class="spinner" />
-							) : (
-								s.jiraTransitions[key]?.length > 0 && (
-									<div class="ticket-transitions">
-										{s.jiraTransitions[key]
-											.filter(
-												(tr) =>
-													tr.name === "完成" ||
-													tr.name === "Done" ||
-													tr.name.toLowerCase().includes("done"),
-											)
-											.slice(0, 1)
-											.map((tr) => (
-												<button
-													class="trans-btn primary"
-													type="button"
-													onClick={() => doTransition(key, tr.id)}
-													disabled={s.jiraStatus[key] === "loading"}
-												>
-													{tr.name}
-												</button>
-											))}
-										{s.jiraTransitions[key]
-											.filter(
-												(tr) =>
-													tr.name !== "完成" &&
-													tr.name !== "Done" &&
-													!tr.name.toLowerCase().includes("done"),
-											)
-											.slice(0, 3)
-											.map((tr) => (
-												<button
-													class="trans-btn"
-													type="button"
-													onClick={() => doTransition(key, tr.id)}
-													disabled={s.jiraStatus[key] === "loading"}
-												>
-													{tr.name}
-												</button>
-											))}
-									</div>
-								)
-							)}
-						</div>
-					))}
-				</div>
-			)}
+						))}
+					</div>
+				)}
 
 			{/* ── Done + Rerun ── */}
 			{allDone && (

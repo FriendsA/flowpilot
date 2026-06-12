@@ -283,7 +283,10 @@ export const endAction = async (options: EndActionProps) => {
 		// Add comment with MR link
 		if (mrUrl) {
 			try {
-				await jira.addComment(key, t("cli.jiraCommentTemplate", { key, mrUrl }));
+				await jira.addComment(
+					key,
+					t("cli.jiraCommentTemplate", { key, mrUrl }),
+				);
 			} catch {
 				// Comment failure is not critical
 			}
@@ -315,7 +318,7 @@ export const endAction = async (options: EndActionProps) => {
 						tr.name.toLowerCase().includes("done"),
 				);
 
-				let selectedTransition;
+				let selectedTransition: { id: string; name: string } | undefined;
 				if (doneTransition) {
 					selectedTransition = doneTransition;
 				} else {

@@ -59,5 +59,5 @@ export function parsePomXml(raw: string): {
 }
 
 export function cleanVersion(v: string | null): string {
-	return (v ?? "").split("-")[0];
+	return (v ?? "").split("-")[0] ?? "";
 }

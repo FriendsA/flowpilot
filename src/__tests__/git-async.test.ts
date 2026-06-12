@@ -38,8 +38,12 @@ describe("async git helpers", () => {
 
 	it("gitRebaseAsync checks conflict status when rebase fails", async () => {
 		execFileMock
-			.mockImplementationOnce((_bin, _args, _opts, cb) => cb(new Error("conflict"), "", ""))
-			.mockImplementationOnce((_bin, _args, _opts, cb) => cb(null, "UU file.ts\n", ""));
+			.mockImplementationOnce((_bin, _args, _opts, cb) =>
+				cb(new Error("conflict"), "", ""),
+			)
+			.mockImplementationOnce((_bin, _args, _opts, cb) =>
+				cb(null, "UU file.ts\n", ""),
+			);
 
 		const { gitRebaseAsync } = await import("../utils/git");
 		const result = await gitRebaseAsync("origin/main");
@@ -62,7 +66,9 @@ describe("async git helpers", () => {
 	});
 
 	it("getCommitMessagesSinceAsync returns commit subjects", async () => {
-		execFileMock.mockImplementation((_bin, _args, _opts, cb) => cb(null, "ABC-1 first\nABC-2 second", ""));
+		execFileMock.mockImplementation((_bin, _args, _opts, cb) =>
+			cb(null, "ABC-1 first\nABC-2 second", ""),
+		);
 
 		const { getCommitMessagesSinceAsync } = await import("../utils/git");
 		const result = await getCommitMessagesSinceAsync("origin/main");

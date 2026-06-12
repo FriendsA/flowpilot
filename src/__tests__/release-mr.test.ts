@@ -85,7 +85,8 @@ vi.mock("../jira-controller", () => ({
 
 const app = releaseRoutes;
 
-const POM_XML = '<project><groupId>com.ex</groupId><artifactId>app</artifactId><version>1.0</version><properties><releaseName>my-flow-app</releaseName></properties></project>';
+const POM_XML =
+	"<project><groupId>com.ex</groupId><artifactId>app</artifactId><version>1.0</version><properties><releaseName>my-flow-app</releaseName></properties></project>";
 const POM_BASE64 = Buffer.from(POM_XML).toString("base64").replace(/\n/g, "");
 
 beforeEach(() => {
@@ -100,7 +101,12 @@ beforeEach(() => {
 });
 
 // Helper: insert a history entry before executing
-async function seedEntry(id: string, branch: string, jiraProjectKey: string, extra?: Record<string, unknown>) {
+async function seedEntry(
+	id: string,
+	branch: string,
+	jiraProjectKey: string,
+	extra?: Record<string, unknown>,
+) {
 	await app.fetch(
 		new Request("http://localhost/api/history", {
 			method: "POST",
@@ -270,7 +276,11 @@ describe("Release routes – POST /release/api/create-mr", () => {
 			new Error("Merge request already exists"),
 		);
 		mockGitlabListMergeRequests.mockResolvedValueOnce([
-			{ sourceBranch: "feature-x", targetBranch: "develop", webUrl: "https://gitlab.com/project/merge_requests/50" },
+			{
+				sourceBranch: "feature-x",
+				targetBranch: "develop",
+				webUrl: "https://gitlab.com/project/merge_requests/50",
+			},
 		]);
 
 		const res = await app.fetch(
@@ -636,7 +646,11 @@ describe("createMrForRelease – branch selection logic", () => {
 			new Error("Merge request already exists: feature-x → develop"),
 		);
 		mockGitlabListMergeRequests.mockResolvedValueOnce([
-			{ sourceBranch: "feature-x", targetBranch: "develop", webUrl: "https://gitlab.com/existing-mr/1" },
+			{
+				sourceBranch: "feature-x",
+				targetBranch: "develop",
+				webUrl: "https://gitlab.com/existing-mr/1",
+			},
 		]);
 
 		const res = await app.fetch(
@@ -686,9 +700,7 @@ describe("createMrForRelease – branch selection logic", () => {
 // ---------------------------------------------------------------------------
 describe("Release routes – History CRUD", () => {
 	it("GET /api/history returns stored entries", async () => {
-		const res = await app.fetch(
-			new Request("http://localhost/api/history"),
-		);
+		const res = await app.fetch(new Request("http://localhost/api/history"));
 		expect(res.status).toBe(200);
 		const data = await res.json();
 		expect(Array.isArray(data)).toBe(true);

@@ -98,7 +98,7 @@ describe("ConfigJson – read", () => {
 			JSON.stringify({ jiraHost: "https://jira.com" }, null, 2),
 		);
 		// Old file renamed to .bak instead of deleted
-			// (renameSync is not mocked in this test, but the logic is verified by the config content)
+		// (renameSync is not mocked in this test, but the logic is verified by the config content)
 	});
 
 	it("returns empty object on corrupt JSON", () => {
