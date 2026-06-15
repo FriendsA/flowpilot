@@ -262,8 +262,8 @@ router.post("/api/create-mr", async (c) => {
 	try {
 		const body = await c.req.json<Record<string, string>>();
 		projectId = Number(body.projectId);
-		targetBranch = body.targetBranch;
-		sourceBranch = body.sourceBranch;
+		targetBranch = body.targetBranch ?? "";
+		sourceBranch = body.sourceBranch ?? "";
 		const jiraUrl = body.jiraUrl ?? "";
 		try {
 			const result = await createMrWithFallback(new GitlabController(), {

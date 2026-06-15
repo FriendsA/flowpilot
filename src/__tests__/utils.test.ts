@@ -10,7 +10,7 @@ import { filterByRelevance } from "../utils/search";
 // ---------------------------------------------------------------------------
 // utils/config.ts – validateConfigOrWarn
 // ---------------------------------------------------------------------------
-const { mockConsoleError } = vi.hoisted(() => ({
+vi.hoisted(() => ({
 	mockConsoleError: vi.fn(),
 }));
 
@@ -318,13 +318,13 @@ describe("filterByRelevance", () => {
 
 	it("exact name match gets highest priority", () => {
 		const result = filterByRelevance(items, "app");
-		expect(result[0].name).toBe("app");
+		expect(result[0]?.name).toBe("app");
 	});
 
 	it("prefix match ranks higher than contains match", () => {
 		const result = filterByRelevance(items, "frontend");
-		expect(result[0].name).toBe("frontend-app");
-		expect(result[1].name).toBe("frontend-admin");
+		expect(result[0]?.name).toBe("frontend-app");
+		expect(result[1]?.name).toBe("frontend-admin");
 	});
 
 	it("filters by path as well as name", () => {

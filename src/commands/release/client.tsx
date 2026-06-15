@@ -988,50 +988,52 @@ const HistoryList: FC<{ s: State; d: (action: Action) => void }> = ({
 									</button>
 								</div>
 							</div>
-							{s.quickResults[entry.id] && (
-								<div class="history-result">
-									<a
-										class="history-result-key"
-										href={s.quickResults[entry.id].issueUrl}
-										target="_blank"
-										rel="noreferrer"
-									>
-										{s.quickResults[entry.id].issueKey}
-									</a>
-									<span
-										class={`jira-result-badge ${s.quickResults[entry.id].issueCreated ? "created" : "exists"}`}
-									>
-										{s.quickResults[entry.id].issueCreated
-											? t("web.createdBadge")
-											: t("web.existsBadge")}
-									</span>
-									<span style="font-size:12px;color:var(--text-3);margin-left:8px">
-										v{s.quickResults[entry.id].version}
-									</span>
-									{s.quickResults[entry.id].versionCreated && (
-										<span style="font-size:10px;color:var(--neon);margin-left:4px">
-											{t("web.createdBadge")}
+							{(() => {
+								const qr = s.quickResults[entry.id];
+								if (!qr) return null;
+								return (
+									<div class="history-result">
+										<a
+											class="history-result-key"
+											href={qr.issueUrl}
+											target="_blank"
+											rel="noreferrer"
+										>
+											{qr.issueKey}
+										</a>
+										<span
+											class={`jira-result-badge ${qr.issueCreated ? "created" : "exists"}`}
+										>
+											{qr.issueCreated
+												? t("web.createdBadge")
+												: t("web.existsBadge")}
 										</span>
-									)}
-									{s.quickResults[entry.id].mrUrl && (
-										<span style="font-size:12px;margin-left:12px">
-											<a
-												href={s.quickResults[entry.id].mrUrl}
-												target="_blank"
-												rel="noreferrer"
-												style="color:var(--cyan);text-decoration:none;border-bottom:1px dashed var(--cyan)"
-											>
-												{t("release.mrFromTo", {
-													source: s.quickResults[entry.id].mrSourceBranch ?? "",
-													target:
-														s.quickResults[entry.id].mrTargetBranch ??
-														entry.branch,
-												})}
-											</a>
+										<span style="font-size:12px;color:var(--text-3);margin-left:8px">
+											v{qr.version}
 										</span>
-									)}
-								</div>
-							)}
+										{qr.versionCreated && (
+											<span style="font-size:10px;color:var(--neon);margin-left:4px">
+												{t("web.createdBadge")}
+											</span>
+										)}
+										{qr.mrUrl && (
+											<span style="font-size:12px;margin-left:12px">
+												<a
+													href={qr.mrUrl}
+													target="_blank"
+													rel="noreferrer"
+													style="color:var(--cyan);text-decoration:none;border-bottom:1px dashed var(--cyan)"
+												>
+													{t("release.mrFromTo", {
+														source: qr.mrSourceBranch ?? "",
+														target: qr.mrTargetBranch ?? entry.branch,
+													})}
+												</a>
+											</span>
+										)}
+									</div>
+								);
+							})()}
 							{s.quickErrors[entry.id] && (
 								<div class="history-result-error">
 									{s.quickErrors[entry.id]}
@@ -1174,7 +1176,7 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 					});
 					fetch("/release/api/history")
 						.then((r) => r.json())
-						.then((h) => d({ type: "HISTORY_LOADED", history: h }));
+						.then((h) => d({ type: "SET_HISTORY", history: h }));
 				} else d({ type: "MR_ERROR", error: data.error ?? "Failed" });
 			})
 			.catch((e) =>
@@ -2064,6 +2066,7 @@ const ReleaseClient: FC = () => {
 									stroke-linecap="round"
 									stroke-linejoin="round"
 								>
+									<title>Close</title>
 									<line x1="18" y1="6" x2="6" y2="18" />
 									<line x1="6" y1="6" x2="18" y2="18" />
 								</svg>

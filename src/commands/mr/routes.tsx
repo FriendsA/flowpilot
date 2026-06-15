@@ -215,7 +215,10 @@ router.get("/api/project", async (c) => {
 	const cwd = c.req.query("cwd") || sessionCwd || undefined;
 	try {
 		const gitlab = new GitlabController();
-		const project = await resolveProjectFromRemote(gitlab, { cwd });
+		const project = await resolveProjectFromRemote(
+			gitlab,
+			...(cwd ? [{ cwd }] : []),
+		);
 		return c.json({
 			projectId: project.id,
 			projectName: project.name ?? project.pathWithNamespace,

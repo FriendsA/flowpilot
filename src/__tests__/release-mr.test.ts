@@ -263,7 +263,7 @@ describe("Release routes – POST /release/api/create-mr", () => {
 			new Request("http://localhost/api/history"),
 		);
 		const histData = await histRes.json();
-		const entry = histData.find((e: any) => e.id === "mr-save-test");
+		const entry = histData.find((e: { id: string }) => e.id === "mr-save-test");
 		expect(entry.mrUrl).toBe("https://gitlab.com/project/merge_requests/100");
 		expect(entry.mrSourceBranch).toBe("develop");
 		expect(entry.mrTargetBranch).toBe("release-1.0");
@@ -483,7 +483,9 @@ describe("Release routes – POST /release/api/history/:id/execute (with MR)", (
 			new Request("http://localhost/api/history"),
 		);
 		const beforeData = await histBefore.json();
-		const entryBefore = beforeData.find((e: any) => e.id === "no-mod-test");
+		const entryBefore = beforeData.find(
+			(e: { id: string }) => e.id === "no-mod-test",
+		);
 		const mrUrlBefore = entryBefore?.mrUrl;
 
 		const res = await app.fetch(
@@ -500,7 +502,9 @@ describe("Release routes – POST /release/api/history/:id/execute (with MR)", (
 			new Request("http://localhost/api/history"),
 		);
 		const afterData = await histAfter.json();
-		const entryAfter = afterData.find((e: any) => e.id === "no-mod-test");
+		const entryAfter = afterData.find(
+			(e: { id: string }) => e.id === "no-mod-test",
+		);
 		expect(entryAfter.mrUrl).toBe(mrUrlBefore ?? undefined);
 	});
 });

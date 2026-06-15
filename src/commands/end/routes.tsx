@@ -165,7 +165,10 @@ router.post("/api/create-mr", async (c) => {
 	try {
 		const gitlab = new GitlabController();
 		const jira = new JiraController();
-		const project = await resolveProjectFromRemote(gitlab, { cwd: workDir });
+		const project = await resolveProjectFromRemote(
+			gitlab,
+			...(workDir ? [{ cwd: workDir }] : []),
+		);
 		const description = await generateMrDescription(jira, ticketKeys, []);
 
 		const result = await createMrWithFallback(gitlab, {

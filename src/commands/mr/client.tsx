@@ -602,12 +602,17 @@ const MrClient: FC = () => {
 			.then((r) => r.json())
 			.then((data) => {
 				if (Array.isArray(data)) {
-					const projects = data.map((p: unknown) => ({
-						id: (p as ProjectInfo).id ?? 0,
-						name: (p as ProjectInfo).name ?? "",
-						pathWithNamespace: (p as ProjectInfo).pathWithNamespace ?? "",
-						defaultBranch: (p as ProjectInfo).defaultBranch,
-					}));
+					const projects = data.map((p: unknown) => {
+						const item = p as ProjectInfo;
+						return {
+							id: item.id ?? 0,
+							name: item.name ?? "",
+							pathWithNamespace: item.pathWithNamespace ?? "",
+							...(item.defaultBranch !== undefined
+								? { defaultBranch: item.defaultBranch }
+								: {}),
+						};
+					});
 					d({ type: "SET_PROJECTS", projects });
 				} else if (data.error) {
 					d({ type: "SET_ERROR", error: data.error });

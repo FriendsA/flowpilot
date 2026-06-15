@@ -19,7 +19,7 @@
 		"flowpilot": "./dist/cli.js"
 	},
 	"scripts": {
-		"build": "rolldown -c rolldown.config.ts",
+		"build": "biome check && rolldown -c rolldown.config.ts",
 		"check": "biome check --write",
 		"dev": "rolldown -c rolldown.config.ts --watch",
 		"format": "biome format --write",
@@ -30,7 +30,8 @@
 		"release:major": "vitest run && pnpm build && npm version major && git push && git push --tags",
 		"preinstall": "node -e \"const{execSync}=require('child_process');try{execSync('node ./dist/cli.js stop',{stdio:'ignore'})}catch(e){}\"",
 		"postinstall": "node dist/cli.js serve",
-		"prepublishOnly": "pnpm build"
+		"prepublishOnly": "pnpm build",
+		"prepare": "husky"
 	},
 	"files": [
 		"dist",
@@ -72,6 +73,7 @@
 		"@types/node": "^25.6.2",
 		"@types/prompts": "^2.4.9",
 		"@typescript/native-preview": "7.0.0-dev.20260421.2",
+		"husky": "^9.1.7",
 		"rolldown": "^1.0.1",
 		"typescript": "^6.0.3",
 		"vitest": "^4.1.6"

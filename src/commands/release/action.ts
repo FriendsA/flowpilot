@@ -214,7 +214,10 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 				term ?? "",
 			);
 			return matched.map((m) => {
-				const branch = branches.find((b) => b.name === m.name)!;
+				const branch = branches.find((b) => b.name === m.name);
+				if (!branch) {
+					return { value: m.name, name: m.name };
+				}
 				return {
 					value: branch.name,
 					name:
@@ -307,9 +310,9 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 				term ?? "",
 			);
 			return matched.map((m) => ({
-				value: (m as any).key,
-				name: `${(m as any).key}  ${pc.dim((m as any).projectName ?? "")}`,
-				description: (m as any).projectName,
+				value: m.key,
+				name: `${m.key}  ${pc.dim(m.projectName ?? "")}`,
+				...(m.projectName !== undefined ? { description: m.projectName } : {}),
 			}));
 		});
 
@@ -480,7 +483,10 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 						term ?? "",
 					);
 					return matched.map((m) => {
-						const branch = mrBranchChoices.find((b) => b.name === m.name)!;
+						const branch = mrBranchChoices.find((b) => b.name === m.name);
+						if (!branch) {
+							return { value: m.name, name: m.name };
+						}
 						return {
 							value: branch.name,
 							name:

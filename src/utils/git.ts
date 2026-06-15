@@ -63,10 +63,10 @@ export function extractProjectPath(remoteUrl: string): string {
 	const cleaned = remoteUrl.replace(/\.git$/, "").replace(/\/+$/, "");
 
 	const sshMatch = cleaned.match(/^git@[^:]+:(.+)$/);
-	if (sshMatch) return sshMatch[1]!;
+	if (sshMatch?.[1]) return sshMatch[1];
 
 	const httpsMatch = cleaned.match(/^https?:\/\/[^/]+\/(.+)$/);
-	if (httpsMatch) return httpsMatch[1]!;
+	if (httpsMatch?.[1]) return httpsMatch[1];
 
 	throw new Error(`Cannot extract project path from remote URL: ${remoteUrl}`);
 }

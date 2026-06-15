@@ -1310,46 +1310,50 @@ const EndClient: FC = () => {
 								) : s.jiraStatus[key] === "loading" ? (
 									<span class="spinner" />
 								) : (
-									s.jiraTransitions[key]?.length > 0 && (
-										<div class="ticket-transitions">
-											{s.jiraTransitions[key]
-												.filter(
-													(tr) =>
-														tr.name === "完成" ||
-														tr.name === "Done" ||
-														tr.name.toLowerCase().includes("done"),
-												)
-												.slice(0, 1)
-												.map((tr) => (
-													<button
-														class="trans-btn primary"
-														type="button"
-														onClick={() => doTransition(key, tr.id)}
-														disabled={s.jiraStatus[key] === "loading"}
-													>
-														{tr.name}
-													</button>
-												))}
-											{s.jiraTransitions[key]
-												.filter(
-													(tr) =>
-														tr.name !== "完成" &&
-														tr.name !== "Done" &&
-														!tr.name.toLowerCase().includes("done"),
-												)
-												.slice(0, 3)
-												.map((tr) => (
-													<button
-														class="trans-btn"
-														type="button"
-														onClick={() => doTransition(key, tr.id)}
-														disabled={s.jiraStatus[key] === "loading"}
-													>
-														{tr.name}
-													</button>
-												))}
-										</div>
-									)
+									(() => {
+										const transitions = s.jiraTransitions[key];
+										if (!transitions || transitions.length === 0) return null;
+										return (
+											<div class="ticket-transitions">
+												{transitions
+													.filter(
+														(tr) =>
+															tr.name === "完成" ||
+															tr.name === "Done" ||
+															tr.name.toLowerCase().includes("done"),
+													)
+													.slice(0, 1)
+													.map((tr) => (
+														<button
+															class="trans-btn primary"
+															type="button"
+															onClick={() => doTransition(key, tr.id)}
+															disabled={s.jiraStatus[key] === "loading"}
+														>
+															{tr.name}
+														</button>
+													))}
+												{transitions
+													.filter(
+														(tr) =>
+															tr.name !== "完成" &&
+															tr.name !== "Done" &&
+															!tr.name.toLowerCase().includes("done"),
+													)
+													.slice(0, 3)
+													.map((tr) => (
+														<button
+															class="trans-btn"
+															type="button"
+															onClick={() => doTransition(key, tr.id)}
+															disabled={s.jiraStatus[key] === "loading"}
+														>
+															{tr.name}
+														</button>
+													))}
+											</div>
+										);
+									})()
 								)}
 							</div>
 						))}

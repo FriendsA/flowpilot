@@ -83,7 +83,7 @@ export const Layout: FC<LayoutProps> = ({
 					{t("web.skipToContent") ?? "Skip to content"}
 				</a>
 
-				<aside class="sidebar" role="navigation" aria-label="Main navigation">
+				<nav class="sidebar" aria-label="Main navigation">
 					<div class="sidebar-header">
 						<div class="sidebar-brand">
 							<div
@@ -103,14 +103,16 @@ export const Layout: FC<LayoutProps> = ({
 						/>
 					</div>
 
-					<nav class="sidebar-nav">
+					<div class="sidebar-nav">
 						{menus.map((m) => {
 							const isCurrent = m.href === activeHref;
 							return (
 								<a
 									href={m.href}
 									class={`nav-item${isCurrent ? " active" : ""}`}
-									{...(isCurrent ? { "aria-current": "page" as any } : {})}
+									{...(isCurrent
+										? ({ "aria-current": "page" } as Record<string, string>)
+										: {})}
 								>
 									<span
 										class="nav-item-icon"
@@ -120,7 +122,7 @@ export const Layout: FC<LayoutProps> = ({
 								</a>
 							);
 						})}
-					</nav>
+					</div>
 
 					<div class="sidebar-footer">
 						<a
@@ -137,11 +139,11 @@ export const Layout: FC<LayoutProps> = ({
 							</span>
 						</a>
 					</div>
-				</aside>
+				</nav>
 
 				<div class="main-wrapper">
 					<main class="main" id="main-content">
-						<div class="content" tabindex="-1">
+						<div class="content" tabindex={-1}>
 							{children}
 						</div>
 					</main>

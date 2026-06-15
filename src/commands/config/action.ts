@@ -3,6 +3,7 @@ import pc from "picocolors";
 import { ConfigJson } from "../../config";
 import { t } from "../../i18n/cli";
 import { openPage } from "../../server";
+import type { Config } from "../../types";
 
 interface ConfigActionProps {
 	open?: boolean;
@@ -90,6 +91,6 @@ export const configAction = async (options: ConfigActionProps) => {
 
 	if (clack.isCancel(group)) return;
 
-	configJson.setConfig(group);
+	configJson.setConfig(group as Config);
 	clack.outro(`${pc.green("✔")} ${t("config.saved")}`);
 };

@@ -7,7 +7,15 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"includes": ["src/**", "*.json", "*.js", "*.ts", "*.tsx", "*.css"]
+		"includes": [
+			"src/**",
+			"*.json",
+			"*.js",
+			"*.ts",
+			"*.tsx",
+			"*.css",
+			"!!**/.claude"
+		]
 	},
 	"formatter": {
 		"enabled": true,
@@ -18,7 +26,17 @@
 		"rules": {
 			"recommended": true,
 			"style": {
-				"useShorthandFunctionType": "off"
+				"useShorthandFunctionType": "off",
+				"noNonNullAssertion": "warn"
+			},
+			"a11y": {
+				"useSemanticElements": "warn",
+				"useKeyWithClickEvents": "off",
+				"noStaticElementInteractions": "off",
+				"noSvgWithoutTitle": "warn"
+			},
+			"suspicious": {
+				"noExplicitAny": "warn"
 			}
 		}
 	},

@@ -23,7 +23,7 @@ export function useChainPolling(options: {
 	onError: (error: string) => void;
 	delay?: number;
 	url?: string;
-	restartToken?: number;
+	restartToken?: number | undefined;
 }): void {
 	const {
 		active,
@@ -49,26 +49,25 @@ export function useChainPolling(options: {
 			url ?? `/watch/api/jenkins/build?job=${encodeURIComponent(jobName)}`;
 
 		const fetchOnce = async () => {
+			const cb = callbacksRef.current;
+			if (!cb) return;
 			try {
 				const res = await fetch(targetUrl, { signal: ctrl.signal });
 				const data = (await res.json()) as { error?: string } | unknown;
 				if (cancelled) return;
 				const err = (data as { error?: string })?.error;
 				if (err) {
-					callbacksRef.current.onError(err);
+					cb.onError(err);
 				} else {
-					callbacksRef.current.onResult(data);
+					cb.onResult(data);
 				}
 			} catch (e) {
 				if (cancelled) return;
 				if ((e as Error).name === "AbortError") return;
-				callbacksRef.current.onError(
-					e instanceof Error ? e.message : String(e),
-				);
-				// On error, still schedule next attempt (retry later)
+				cb.onError(e instanceof Error ? e.message : String(e));
 			}
 			if (cancelled) return;
-			window.setTimeout(fetchOnce, callbacksRef.current.delay);
+			window.setTimeout(fetchOnce, cb.delay);
 		};
 
 		fetchOnce();

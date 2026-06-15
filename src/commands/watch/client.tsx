@@ -1228,6 +1228,7 @@ const HistoryBuildItem: FC<{
 		buildInfo: null,
 		buildError: "",
 		polling: false,
+		startedAt: undefined,
 	};
 
 	useChainPolling({
@@ -1309,6 +1310,7 @@ const HistoryBuildItem: FC<{
 								fill="currentColor"
 								stroke="none"
 							>
+								<title>Stop</title>
 								<rect x="4" y="4" width="16" height="16" rx="2" />
 							</svg>
 							{t("web.watchStopPolling")}
@@ -1418,6 +1420,7 @@ const HistoryBuildItem: FC<{
 											stroke-linecap="round"
 											stroke-linejoin="round"
 										>
+											<title>Artifact</title>
 											<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
 											<polyline points="3.27 6.96 12 12.01 20.73 6.96" />
 											<line x1="12" y1="22.08" x2="12" y2="12" />
@@ -1485,6 +1488,7 @@ const HistoryBuildItem: FC<{
 										stroke-linecap="round"
 										stroke-linejoin="round"
 									>
+										<title>Retry</title>
 										<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
 										<path d="M3 3v5h5" />
 									</svg>
@@ -1516,6 +1520,7 @@ const HistoryBuildItem: FC<{
 							stroke-linecap="round"
 							stroke-linejoin="round"
 						>
+							<title>Delete</title>
 							<line x1="18" y1="6" x2="6" y2="18" />
 							<line x1="6" y1="6" x2="18" y2="18" />
 						</svg>
@@ -1684,6 +1689,7 @@ const BuildPanel: FC<{
 								fill="currentColor"
 								stroke="none"
 							>
+								<title>Stop</title>
 								<rect x="4" y="4" width="16" height="16" rx="2" />
 							</svg>
 							{t("web.watchStopPolling")}
@@ -1751,6 +1757,7 @@ const BuildPanel: FC<{
 											stroke-linecap="round"
 											stroke-linejoin="round"
 										>
+											<title>Artifact</title>
 											<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
 											<polyline points="3.27 6.96 12 12.01 20.73 6.96" />
 											<line x1="12" y1="22.08" x2="12" y2="12" />
@@ -2058,7 +2065,6 @@ const WatchFlow: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 	useEffect(() => {
 		if (s.projectOpen) setTimeout(() => projectSearchRef.current?.focus(), 50);
 		if (s.branchOpen) setTimeout(() => branchSearchRef.current?.focus(), 50);
-		if (s.jenkinsJobOpen) setTimeout(() => jobSearchRef.current?.focus(), 50);
 	}, [s.projectOpen, s.branchOpen, s.jenkinsJobOpen]);
 
 	useEffect(() => {

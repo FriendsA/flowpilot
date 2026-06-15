@@ -5,7 +5,7 @@ export default defineConfig({
 		alias: {
 			"react/jsx-dev-runtime": "hono/jsx/jsx-dev-runtime",
 			"react/jsx-runtime": "hono/jsx/jsx-runtime",
-			"react": "hono/jsx",
+			react: "hono/jsx",
 		},
 	},
 	test: {
