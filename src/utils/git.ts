@@ -90,7 +90,8 @@ export function getReflogSourceBranch(
 			maxBuffer: 10 * 1024 * 1024,
 			cwd: resolveCwd(opts),
 		});
-		const pattern = `checkout: moving from (.*) to ${currentBranch}`;
+		const escaped = currentBranch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		const pattern = `checkout: moving from (.*) to ${escaped}`;
 		const lines = reflog.split("\n");
 		let result: RegExpExecArray | null = null;
 		for (const line of lines) {

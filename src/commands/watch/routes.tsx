@@ -55,7 +55,9 @@ router.get("/api/projects", async (c) => {
 
 router.get("/api/projects/:id/branches", async (c) => {
 	try {
-		const projectId = c.req.param("id");
+		const projectId = Number(c.req.param("id"));
+		if (Number.isNaN(projectId))
+			return c.json({ error: "Invalid project ID" }, 400);
 		const git = new GitlabController();
 		const branches = await git.listBranches(projectId);
 		return c.json(branches);
@@ -66,13 +68,15 @@ router.get("/api/projects/:id/branches", async (c) => {
 
 router.get("/api/projects/:id/pom-info", async (c) => {
 	try {
-		const projectId = c.req.param("id");
+		const projectId = Number(c.req.param("id"));
+		if (Number.isNaN(projectId))
+			return c.json({ error: "Invalid project ID" }, 400);
 		const ref = c.req.query("ref") || "master";
 		const git = new GitlabController();
 
 		const file = await git.getFile(projectId, "pom.xml", ref);
 		const raw = Buffer.from(
-			(file.content as string).replace(/\n/g, ""),
+			(typeof file.content === "string" ? file.content : "").replace(/\n/g, ""),
 			"base64",
 		).toString("utf-8");
 		const pomInfo = parsePomXml(raw);
@@ -117,7 +121,7 @@ router.get("/api/jenkins/build", async (c) => {
 		const buildStr = c.req.query("build") || "";
 		const buildNumber = Number(buildStr);
 		const jenkins = new JenkinsController();
-		if (!buildNumber || Number.isNaN(buildNumber)) {
+		if (buildStr === "" || Number.isNaN(buildNumber)) {
 			const last = await jenkins.getLastBuild(job);
 			if (!last) return c.json({ error: t("error.noBuild") }, 404);
 			return c.json(last);

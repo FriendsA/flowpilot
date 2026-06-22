@@ -31,7 +31,7 @@ export class JenkinsController {
 			throw new Error(t("error.jenkinsCredentialsMissing"));
 		}
 
-		this.host = host;
+		this.host = /^https?:\/\//.test(host) ? host : `https://${host}`;
 		this.auth = Buffer.from(`${user}:${password}`).toString("base64");
 	}
 

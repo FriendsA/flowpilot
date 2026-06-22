@@ -233,6 +233,8 @@ router.get("/api/project", async (c) => {
 
 router.get("/api/project/:id/branches", async (c) => {
 	const projectId = Number(c.req.param("id"));
+	if (Number.isNaN(projectId))
+		return c.json({ error: "Invalid project ID" }, 400);
 	try {
 		const gitlab = new GitlabController();
 		const branches = await gitlab.listBranches(projectId);
@@ -246,6 +248,8 @@ router.get("/api/project/:id/branches", async (c) => {
 
 router.get("/api/project/:id/members", async (c) => {
 	const projectId = Number(c.req.param("id"));
+	if (Number.isNaN(projectId))
+		return c.json({ error: "Invalid project ID" }, 400);
 	try {
 		const gitlab = new GitlabController();
 		const members = await gitlab.listProjectMembers(projectId);
@@ -267,8 +271,9 @@ router.post("/api/create-mr", async (c) => {
 		assigneeId?: number;
 		draft?: boolean;
 		cwd?: string;
+		projectName?: string;
+		projectPath?: string;
 	}>();
-	const _workDir = body.cwd || sessionCwd || undefined;
 
 	try {
 		const gitlab = new GitlabController();
@@ -287,9 +292,9 @@ router.post("/api/create-mr", async (c) => {
 		const entry: MrHistoryEntry = {
 			id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
 			createdAt: new Date().toISOString().slice(0, 10),
-			projectPath: "",
+			projectPath: body.projectPath ?? "",
 			projectId: body.projectId,
-			projectName: "",
+			projectName: body.projectName ?? "",
 			sourceBranch: currentBranch,
 			targetBranch: body.targetBranch,
 			title: body.title,
@@ -322,10 +327,11 @@ router.post("/api/create-mr", async (c) => {
 // ── Jira comment ──
 
 router.post("/api/jira/comment", async (c) => {
-	const { key, body } = await c.req.json<{ key: string; body: string }>();
+	const { key, comment } = await c.req.json<{ key: string; comment: string }>();
+	if (!key) return c.json({ error: "key is required" }, 400);
 	try {
 		const jira = new JiraController();
-		await jira.addComment(key, body);
+		await jira.addComment(key, comment);
 		return c.json({ success: true });
 	} catch (e: unknown) {
 		return c.json({ error: translateApiError(e, "jiraProject") }, 500);
@@ -355,6 +361,8 @@ router.post("/api/jira/transition", async (c) => {
 		key: string;
 		transitionId: string;
 	}>();
+	if (!key || !transitionId)
+		return c.json({ error: "key and transitionId are required" }, 400);
 	try {
 		const jira = new JiraController();
 		await jira.transitionIssue(key, transitionId);
@@ -450,5 +458,4 @@ const _handlers = [
 	dedupKey,
 ];
 
-export { _handlers };
 export const mrRoutes = router;

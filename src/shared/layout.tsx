@@ -21,6 +21,7 @@ type LayoutProps = {
 
 export const Layout: FC<LayoutProps> = ({
 	activeHref,
+	pageTitle,
 	locale,
 	localeResources,
 	children,
@@ -33,7 +34,7 @@ export const Layout: FC<LayoutProps> = ({
 			var toggle = document.querySelector('.sidebar-toggle');
 			if (!sidebar || !toggle) return;
 
-			var saved = localStorage.getItem('flowpilot-sidebar_collapsed');
+			var saved = localStorage.getItem('flowpilot_sidebar_collapsed');
 			if (saved === 'true') {
 				sidebar.classList.add('collapsed');
 			}
@@ -50,7 +51,7 @@ export const Layout: FC<LayoutProps> = ({
 			<head>
 				<meta charset="utf-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
-				<title>FlowPilot</title>
+				<title>{pageTitle ?? "FlowPilot"}</title>
 				<link rel="icon" type="image/x-icon" href="/public/favicon.ico" />
 				<link
 					rel="icon"
@@ -108,6 +109,7 @@ export const Layout: FC<LayoutProps> = ({
 							const isCurrent = m.href === activeHref;
 							return (
 								<a
+									key={m.href}
 									href={m.href}
 									class={`nav-item${isCurrent ? " active" : ""}`}
 									{...(isCurrent

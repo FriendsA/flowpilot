@@ -50,7 +50,7 @@ export async function createMrWithFallback(
 				...(options.draft !== undefined ? { draft: options.draft } : {}),
 			},
 		);
-		const mrUrl = (mr.webUrl ?? mr.web_url) as string;
+		const mrUrl = mr.webUrl ?? mr.web_url ?? "";
 		return {
 			mrUrl,
 			mrIid: mr.iid as number | undefined,

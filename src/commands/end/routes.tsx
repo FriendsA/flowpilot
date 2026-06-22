@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { Hono } from "hono";
 import { ConfigJson } from "../../config";
 import { GitlabController } from "../../gitlab-controller";
@@ -11,22 +12,13 @@ import {
 	getCurrentBranch,
 	getLocalBranches,
 	getReflogSourceBranch,
-	gitFetch,
-	gitPush,
-	gitRebase,
 	isGitRepo,
 } from "../../utils/git";
-import {
-	createMrWithFallback,
-	generateMrDescription,
-	resolveProjectFromRemote,
-} from "../../utils/mr";
+import { createMrWithFallback, resolveProjectFromRemote } from "../../utils/mr";
 
-// ── Session cwd ──
-// Stores the working directory for git operations.
-// Set by CLI via /api/set-cwd or by web page via query param.
+const router = new Hono();
 
-let sessionCwd: string | null = null;
+let sessionCwd = "";
 
 const REQUIRED_KEYS: (keyof Config)[] = [
 	"jiraHost",
@@ -36,7 +28,7 @@ const REQUIRED_KEYS: (keyof Config)[] = [
 	"gitlabKey",
 ];
 
-const router = new Hono();
+// ── Page ──
 
 router.get("/", async (c) => {
 	const config = new ConfigJson().getConfig();
@@ -51,6 +43,21 @@ router.get("/", async (c) => {
 	}
 	return c.render(<div id="app">{t("web.loading")}</div>, {
 		title: t("web.endTitle"),
+	});
+});
+
+// ── Config ──
+
+router.get("/api/config", async (c) => {
+	const config = new ConfigJson().getConfig();
+	const jiraHost = config.jiraHost ?? "";
+	return c.json({
+		jiraHost:
+			jiraHost && /^https?:\/\//.test(jiraHost)
+				? jiraHost
+				: jiraHost
+					? `https://${jiraHost}`
+					: "",
 	});
 });
 
@@ -78,114 +85,94 @@ router.get("/api/cwd", (c) => {
 // ── Git status ──
 
 router.get("/api/git/status", (c) => {
-	const cwd = c.req.query("cwd") || sessionCwd || undefined;
-	if (!isGitRepo({ cwd })) {
-		return c.json({ error: t("end.notGitRepo") }, 400);
-	}
+	if (!sessionCwd) return c.json({ error: "No cwd set" }, 400);
 	try {
-		const currentBranch = getCurrentBranch({ cwd });
-		const localBranches = getLocalBranches({ cwd });
-		const detectedSource = getReflogSourceBranch(currentBranch, { cwd });
-		return c.json({ currentBranch, localBranches, detectedSource, cwd });
-	} catch (e: unknown) {
-		return c.json({ error: translateApiError(e) }, 500);
+		const currentBranch = getCurrentBranch({ cwd: sessionCwd });
+		const localBranches = getLocalBranches({ cwd: sessionCwd });
+		const detectedSource = getReflogSourceBranch(currentBranch, {
+			cwd: sessionCwd,
+		});
+		return c.json({ currentBranch, localBranches, detectedSource });
+	} catch (e) {
+		return c.json({ error: translateApiError(e) });
 	}
 });
 
 // ── Rebase ──
 
 router.post("/api/rebase", async (c) => {
-	const { targetBranch, cwd } = await c.req.json<{
+	const { targetBranch } = await c.req.json<{
 		targetBranch: string;
-		cwd?: string;
 	}>();
-	const workDir = cwd || sessionCwd || undefined;
-	if (!targetBranch) {
-		return c.json({ error: "targetBranch is required" }, 400);
-	}
+	if (!sessionCwd) return c.json({ error: "No cwd set" }, 400);
 	try {
-		gitFetch("origin", targetBranch, { cwd: workDir });
-		const ok = gitRebase(`origin/${targetBranch}`, { cwd: workDir });
-		if (!ok) {
-			return c.json({ success: false, conflict: true });
-		}
+		execFileSync("git", ["rebase", targetBranch], {
+			cwd: sessionCwd,
+			encoding: "utf-8",
+		});
 		return c.json({ success: true });
 	} catch (e: unknown) {
-		return c.json({ error: translateApiError(e) }, 500);
+		const stderr = (e as { stderr?: string }).stderr;
+		if (typeof stderr === "string" && stderr.includes("Merge conflict")) {
+			return c.json({ conflict: true });
+		}
+		return c.json({ error: translateApiError(e) });
 	}
 });
 
 // ── Push ──
 
 router.post("/api/push", async (c) => {
-	const { branch, cwd } = await c.req.json<{
-		branch: string;
-		cwd?: string;
-	}>();
-	const workDir = cwd || sessionCwd || undefined;
-	if (!branch) {
-		return c.json({ error: "branch is required" }, 400);
-	}
+	const { branch } = await c.req.json<{ branch: string }>();
+	if (!sessionCwd) return c.json({ error: "No cwd set" }, 400);
 	try {
-		gitPush("origin", branch, { cwd: workDir });
+		execFileSync("git", ["push", "origin", branch], {
+			cwd: sessionCwd,
+			encoding: "utf-8",
+		});
 		return c.json({ success: true });
-	} catch (e: unknown) {
-		return c.json({ error: translateApiError(e) }, 500);
+	} catch (e) {
+		return c.json({ error: translateApiError(e) });
 	}
 });
 
-// ── Commits / ticket keys ──
+// ── Commits & tickets ──
 
 router.get("/api/commits", (c) => {
-	const baseRef = c.req.query("base");
-	const cwd = c.req.query("cwd") || sessionCwd || undefined;
-	if (!baseRef) {
-		return c.json({ error: "base query param is required" }, 400);
-	}
+	if (!sessionCwd) return c.json({ error: "No cwd set" }, 400);
 	try {
-		const messages = getCommitMessagesSince(`origin/${baseRef}`, { cwd });
+		const base = c.req.query("base") || "";
+		const messages = getCommitMessagesSince(base, { cwd: sessionCwd });
 		const ticketKeys = extractTicketKeys(messages);
 		return c.json({ messages, ticketKeys });
-	} catch (e: unknown) {
-		return c.json({ error: translateApiError(e) }, 500);
+	} catch (e) {
+		return c.json({ error: translateApiError(e) });
 	}
 });
 
 // ── Create MR ──
 
 router.post("/api/create-mr", async (c) => {
-	const { currentBranch, targetBranch, ticketKeys, cwd } = await c.req.json<{
-		currentBranch: string;
+	if (!sessionCwd) return c.json({ error: "No cwd set" }, 400);
+	const body = await c.req.json<{
+		sourceBranch: string;
 		targetBranch: string;
-		ticketKeys: string[];
-		cwd?: string;
+		title: string;
 	}>();
-	const workDir = cwd || sessionCwd || undefined;
-
 	try {
 		const gitlab = new GitlabController();
-		const jira = new JiraController();
-		const project = await resolveProjectFromRemote(
-			gitlab,
-			...(workDir ? [{ cwd: workDir }] : []),
-		);
-		const description = await generateMrDescription(jira, ticketKeys, []);
-
+		const project = await resolveProjectFromRemote(gitlab, {
+			cwd: sessionCwd,
+		});
 		const result = await createMrWithFallback(gitlab, {
-			projectId: project.id as number,
-			sourceBranch: currentBranch,
-			targetBranch,
-			title: `${currentBranch} → ${targetBranch}`,
-			description,
+			projectId: Number(project.id),
+			sourceBranch: body.sourceBranch,
+			targetBranch: body.targetBranch,
+			title: body.title,
 		});
-		return c.json({
-			success: true,
-			mrUrl: result.mrUrl,
-			mrIid: result.mrIid,
-			existing: result.existing,
-		});
-	} catch (e: unknown) {
-		return c.json({ error: translateApiError(e, "gitlabProject") }, 500);
+		return c.json({ url: result.mrUrl });
+	} catch (e) {
+		return c.json({ error: translateApiError(e) });
 	}
 });
 
@@ -193,65 +180,47 @@ router.post("/api/create-mr", async (c) => {
 
 router.get("/api/jira/transitions", async (c) => {
 	const key = c.req.query("key");
-	if (!key) {
-		return c.json({ error: "key is required" }, 400);
-	}
+	if (!key) return c.json({ error: "key is required" }, 400);
 	try {
 		const jira = new JiraController();
 		const data = await jira.getTransitions(key);
 		return c.json(data);
-	} catch (e: unknown) {
-		return c.json({ error: translateApiError(e, "jiraProject") }, 500);
+	} catch (e) {
+		return c.json({ error: translateApiError(e) });
 	}
 });
-
-// ── Jira transition ──
 
 router.post("/api/jira/transition", async (c) => {
 	const { key, transitionId } = await c.req.json<{
 		key: string;
 		transitionId: string;
 	}>();
+	if (!key || !transitionId)
+		return c.json({ error: "key and transitionId are required" }, 400);
 	try {
 		const jira = new JiraController();
 		await jira.transitionIssue(key, transitionId);
 		return c.json({ success: true });
-	} catch (e: unknown) {
-		return c.json({ error: translateApiError(e, "jiraProject") }, 500);
+	} catch (e) {
+		return c.json({ error: translateApiError(e) });
 	}
 });
 
 // ── Jira comment ──
 
 router.post("/api/jira/comment", async (c) => {
-	const { key, body } = await c.req.json<{ key: string; body: string }>();
+	const { key, comment } = await c.req.json<{
+		key: string;
+		comment: string;
+	}>();
+	if (!key) return c.json({ error: "key is required" }, 400);
 	try {
 		const jira = new JiraController();
-		await jira.addComment(key, body);
+		await jira.addComment(key, comment);
 		return c.json({ success: true });
-	} catch (e: unknown) {
-		return c.json({ error: translateApiError(e, "jiraProject") }, 500);
+	} catch (e) {
+		return c.json({ error: translateApiError(e) });
 	}
 });
 
-// Module-level side-effect registration to prevent rolldown tree-shaking.
-const _handlers = [
-	isGitRepo,
-	getCurrentBranch,
-	getLocalBranches,
-	getReflogSourceBranch,
-	gitFetch,
-	gitRebase,
-	gitPush,
-	getCommitMessagesSince,
-	extractTicketKeys,
-	GitlabController,
-	JiraController,
-	translateApiError,
-	createMrWithFallback,
-	generateMrDescription,
-	resolveProjectFromRemote,
-];
-
-export { _handlers };
 export const endRoutes = router;

@@ -1,4 +1,8 @@
-// Shared searchable select/dropdown CSS + helpers + component for release/end/mr Web UI
+// Shared searchable select/dropdown CSS + helpers + component for release/end/mr/watch Web UI
+import { type RefObject, useEffect, useRef, useState } from "hono/jsx";
+import { filterByRelevance } from "../../utils/search";
+
+// ── Keyboard helper ──
 
 export const selKeyDown = (
 	e: KeyboardEvent,
@@ -26,6 +30,8 @@ export const selKeyDown = (
 	}
 	return undefined;
 };
+
+// ── CSS ──
 
 export const selectCss = `
 /* ── Generic select ── */
@@ -126,6 +132,7 @@ export const selectCss = `
   cursor: pointer;
   transition: background 0.1s;
   border-left: 3px solid transparent;
+  color: var(--text-1);
 }
 .sel-item:first-child { border-radius: 7px 7px 0 0; }
 .sel-item:last-child { border-radius: 0 0 7px 7px; }
@@ -140,3 +147,196 @@ export const selectCss = `
 .sel-item-sub { font-size: 11px; color: var(--text-3); font-family: var(--mono); margin-top: 2px; }
 .sel-empty { padding: 12px; text-align: center; color: var(--text-3); font-size: 12px; }
 `;
+
+// ── Dropdown State Hook ──
+
+export type DropdownState = {
+	open: boolean;
+	search: string;
+	index: number;
+	searchRef: RefObject<HTMLInputElement>;
+	setOpen: (open: boolean) => void;
+	setSearch: (search: string) => void;
+	setIndex: (index: number) => void;
+	close: () => void;
+};
+
+export function useDropdown(): DropdownState {
+	const [open, setOpenRaw] = useState(false);
+	const [search, setSearch] = useState("");
+	const [index, setIndex] = useState(-1);
+	const searchRef = useRef<HTMLInputElement>(null);
+
+	const setOpen = (v: boolean) => {
+		setOpenRaw(v);
+		if (!v) {
+			setSearch("");
+			setIndex(-1);
+		}
+	};
+
+	const close = () => setOpen(false);
+
+	// Auto-focus search input when dropdown opens
+	useEffect(() => {
+		if (!open) return;
+		const id = setTimeout(() => searchRef.current?.focus(), 50);
+		return () => clearTimeout(id);
+	}, [open]);
+
+	return {
+		open,
+		search,
+		index,
+		searchRef,
+		setOpen,
+		setSearch,
+		setIndex,
+		close,
+	};
+}
+
+// ── Click Outside Hook ──
+
+export function useClickOutside(dropdowns: DropdownState[], ids: string[]) {
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const target = e.target as HTMLElement;
+			const inside = ids.some((id) => target.closest(`[data-sel="${id}"]`));
+			if (!inside) for (const d of dropdowns) d.close();
+		};
+		document.addEventListener("click", handler);
+		return () => document.removeEventListener("click", handler);
+	}, [dropdowns, ids]);
+}
+
+// ── Select Component ──
+
+type SelectItem = { name: string; [key: string]: unknown };
+
+type SelectProps<T extends SelectItem> = {
+	id: string;
+	label: string;
+	placeholder: string;
+	items: T[];
+	value: T | null | undefined;
+	isEqual?: ((a: T, b: T) => boolean) | undefined;
+	dropdown: DropdownState;
+	onSelect: (item: T) => void;
+	onOpen?: (() => void) | undefined;
+	renderItem?: ((item: T, isActive: boolean) => unknown) | undefined;
+	renderValue?: ((item: T) => string) | undefined;
+	zIndex?: number | undefined;
+	searchPlaceholder?: string | undefined;
+	emptyText?: string | undefined;
+	className?: string;
+};
+
+export function Select<T extends SelectItem>(props: SelectProps<T>) {
+	const {
+		id,
+		label,
+		placeholder,
+		items,
+		value,
+		isEqual,
+		dropdown,
+		onSelect,
+		onOpen,
+		renderItem,
+		renderValue,
+		zIndex,
+		searchPlaceholder,
+		emptyText,
+		className,
+	} = props;
+
+	const filtered = filterByRelevance(items, dropdown.search);
+	const eq = (a: T, b: T | null | undefined): boolean => {
+		if (!b) return false;
+		return isEqual ? isEqual(a, b) : a.name === b.name;
+	};
+
+	const handleOpen = () => {
+		dropdown.setOpen(!dropdown.open);
+		if (!dropdown.open && onOpen) onOpen();
+	};
+
+	return (
+		<div
+			class={`sel${className ? ` ${className}` : ""}`}
+			data-sel={id}
+			style={`z-index:${dropdown.open ? (zIndex ?? 100) : 1}`}
+		>
+			<button
+				class={`sel-trigger${dropdown.open ? " open" : ""}`}
+				type="button"
+				role="combobox"
+				aria-expanded={dropdown.open}
+				onClick={handleOpen}
+			>
+				<span class="sel-trigger-label">{label}</span>
+				<span class={`sel-trigger-value${value ? "" : " empty"}`}>
+					{value
+						? renderValue
+							? renderValue(value)
+							: value.name
+						: placeholder}
+				</span>
+				<span class="sel-trigger-arrow">▼</span>
+			</button>
+			{dropdown.open && (
+				<div
+					class="sel-dropdown"
+					role="listbox"
+					aria-label={searchPlaceholder ?? label}
+				>
+					<div class="sel-search">
+						<input
+							ref={dropdown.searchRef}
+							class="sel-search-input"
+							type="text"
+							placeholder={searchPlaceholder ?? label}
+							value={dropdown.search}
+							onInput={(e: Event) =>
+								dropdown.setSearch((e.target as HTMLInputElement).value)
+							}
+							onKeyDown={(e: KeyboardEvent) => {
+								const n = selKeyDown(
+									e,
+									true,
+									filtered.length,
+									dropdown.index,
+									(i: number) => {
+										const item = filtered[i];
+										if (item) onSelect(item);
+									},
+									dropdown.close,
+								);
+								if (n !== undefined) dropdown.setIndex(n);
+							}}
+						/>
+					</div>
+					{filtered.length > 0 ? (
+						filtered.map((item, i) => (
+							<div
+								key={i}
+								class={`sel-item${eq(item, value) ? " active" : ""}${i === dropdown.index ? " highlighted" : ""}`}
+								onMouseEnter={() => dropdown.setIndex(i)}
+								onClick={() => onSelect(item)}
+							>
+								{renderItem ? (
+									renderItem(item, eq(item, value))
+								) : (
+									<span class="sel-item-name">{item.name}</span>
+								)}
+							</div>
+						))
+					) : (
+						<div class="sel-empty">{emptyText ?? placeholder}</div>
+					)}
+				</div>
+			)}
+		</div>
+	);
+}

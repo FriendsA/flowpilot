@@ -85,9 +85,21 @@ router.get("/", async (c) => {
 
 router.get("/api/config", async (c) => {
 	const config = new ConfigJson().getConfig();
+	const jiraHost = config.jiraHost ?? "";
+	const gitlabHost = config.gitlabHost ?? "";
 	return c.json({
-		jiraHost: config.jiraHost ?? "",
-		gitlabHost: config.gitlabHost ?? "",
+		jiraHost:
+			jiraHost && /^https?:\/\//.test(jiraHost)
+				? jiraHost
+				: jiraHost
+					? `https://${jiraHost}`
+					: "",
+		gitlabHost:
+			gitlabHost && /^https?:\/\//.test(gitlabHost)
+				? gitlabHost
+				: gitlabHost
+					? `https://${gitlabHost}`
+					: "",
 	});
 });
 
@@ -146,7 +158,7 @@ router.post("/api/history/:id/execute", async (c) => {
 	try {
 		const file = await git.getFile(entry.projectId, "pom.xml", entry.branch);
 		const raw = Buffer.from(
-			(file.content as string).replace(/\n/g, ""),
+			(typeof file.content === "string" ? file.content : "").replace(/\n/g, ""),
 			"base64",
 		).toString("utf-8");
 		pomInfo = parsePomXml(raw);
@@ -158,17 +170,19 @@ router.post("/api/history/:id/execute", async (c) => {
 	const flowPilotName = pomInfo.flowPilotName ?? entry.projectName;
 	const versionName = `${flowPilotName}-${displayVersion}`;
 	const summary = `${flowPilotName}-${displayVersion} release request`;
+	const safeSummary = summary.replace(/"/g, '\\"');
 
 	// Check existing issue
 	try {
 		const searchResult = await jira.search(
-			`summary ~ "${summary}" AND project = ${entry.jiraProjectKey}`,
+			`summary ~ "${safeSummary}" AND project = ${entry.jiraProjectKey}`,
 			1,
 		);
 		if (searchResult.total > 0 && searchResult.issues?.[0]) {
 			const existingKey = searchResult.issues[0].key;
-			const jiraUrl = config.jiraHost
-				? `${config.jiraHost}/browse/${existingKey}`
+			const rawJiraHost = config.jiraHost ?? "";
+			const jiraUrl = rawJiraHost
+				? `${/^https?:\/\//.test(rawJiraHost) ? rawJiraHost : `https://${rawJiraHost}`}/browse/${existingKey}`
 				: "";
 			return c.json({
 				issueKey: existingKey,
@@ -215,8 +229,9 @@ router.post("/api/history/:id/execute", async (c) => {
 			customfield_13410: [{ id: versionId }],
 			customfield_13341: [{ name: "licheng.li" }],
 		});
-		const jiraUrl = config.jiraHost
-			? `${config.jiraHost}/browse/${issue.key}`
+		const rawJiraHost = config.jiraHost ?? "";
+		const jiraUrl = rawJiraHost
+			? `${/^https?:\/\//.test(rawJiraHost) ? rawJiraHost : `https://${rawJiraHost}`}/browse/${issue.key}`
 			: "";
 
 		return c.json({
@@ -224,6 +239,7 @@ router.post("/api/history/:id/execute", async (c) => {
 			issueUrl: jiraUrl,
 			version: displayVersion,
 			versionCreated,
+			issueCreated: true,
 			mrUrl: mrResult?.mrUrl,
 			mrSourceBranch: mrResult?.sourceBranch,
 			mrTargetBranch: mrResult?.targetBranch,
@@ -245,7 +261,9 @@ router.get("/api/projects", async (c) => {
 
 router.get("/api/projects/:id/branches", async (c) => {
 	try {
-		const projectId = c.req.param("id");
+		const projectId = Number(c.req.param("id"));
+		if (Number.isNaN(projectId))
+			return c.json({ error: "Invalid project ID" }, 400);
 		const git = new GitlabController();
 		const branches = await git.listBranches(projectId);
 		return c.json(branches);
@@ -262,6 +280,9 @@ router.post("/api/create-mr", async (c) => {
 	try {
 		const body = await c.req.json<Record<string, string>>();
 		projectId = Number(body.projectId);
+		if (Number.isNaN(projectId) || !body.sourceBranch || !body.targetBranch) {
+			return c.json({ error: "Missing required fields" }, 400);
+		}
 		targetBranch = body.targetBranch ?? "";
 		sourceBranch = body.sourceBranch ?? "";
 		const jiraUrl = body.jiraUrl ?? "";
@@ -310,14 +331,16 @@ router.post("/api/create-mr", async (c) => {
 
 router.get("/api/projects/:id/pom-version", async (c) => {
 	try {
-		const projectId = c.req.param("id");
+		const projectId = Number(c.req.param("id"));
+		if (Number.isNaN(projectId))
+			return c.json({ error: "Invalid project ID" }, 400);
 		const ref = c.req.query("ref") || "master";
 		const git = new GitlabController();
 
 		const file = await git.getFile(projectId, "pom.xml", ref);
 
 		const raw = Buffer.from(
-			(file.content as string).replace(/\n/g, ""),
+			(typeof file.content === "string" ? file.content : "").replace(/\n/g, ""),
 			"base64",
 		).toString("utf-8");
 

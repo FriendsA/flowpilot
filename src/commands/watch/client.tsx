@@ -957,7 +957,7 @@ const reducer = (state: State, action: Action): State => {
 						: info.result === "ABORTED"
 							? "aborted"
 							: "error";
-			return { ...state, buildStatus: status, buildInfo: info };
+			return { ...state, buildStatus: status, buildInfo: info, polling: false };
 		}
 		case "BUILD_ERROR":
 			return {
@@ -1032,11 +1032,12 @@ const reducer = (state: State, action: Action): State => {
 							buildStatus: "idle",
 							buildInfo: null,
 							buildError: "",
-							polling: true,
+							polling: false,
 						}),
 						buildStatus: status,
 						buildInfo: info,
 						buildError: "",
+						polling: false,
 					},
 				},
 			};
@@ -1179,6 +1180,7 @@ const reducer = (state: State, action: Action): State => {
 				...state,
 				quickBuildStatus: status,
 				quickBuildInfo: info,
+				quickPolling: false,
 			};
 		}
 		case "QUICK_BUILD_ERROR":
@@ -1249,10 +1251,10 @@ const HistoryBuildItem: FC<{
 	};
 
 	const handleDelete = async () => {
-		await fetch(`/watch/api/history/${encodeURIComponent(id)}`, {
+		const res = await fetch(`/watch/api/history/${encodeURIComponent(id)}`, {
 			method: "DELETE",
 		});
-		d({ type: "REMOVE_HISTORY_ENTRY", id });
+		if (res.ok) d({ type: "REMOVE_HISTORY_ENTRY", id });
 	};
 
 	const handleRetry = async () => {
@@ -1621,7 +1623,7 @@ const BuildPanel: FC<{
 	if (buildStatus === "error") {
 		return (
 			<div class="build-section result-error">
-				<div class="build-header">
+				<div class="build-top">
 					<span class="build-status failure">{t("web.watchBuildError")}</span>
 				</div>
 				<div style="color:var(--error);font-size:13px">{buildError}</div>
@@ -2080,7 +2082,7 @@ const WatchFlow: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 				else d({ type: "POM_LOADED", info: data as PomInfo });
 			})
 			.catch(() => d({ type: "POM_ERROR", error: "Failed to fetch pom.xml" }));
-	}, [s.selected, s.selectedBranch, s.pomInfo, s.pomLoading]);
+	}, [s.selected?.id, s.selectedBranch, s.pomInfo, s.pomLoading]);
 
 	const fp = filterByRelevance(
 		s.projects.map((p) => ({
@@ -2397,8 +2399,9 @@ const WatchClient: FC = () => {
 							}
 						});
 				}
-			});
-	}, [s.jenkinsJobName, s.selectedBranch, s.selected]);
+			})
+			.catch(() => {});
+	}, [s.jenkinsJobName, s.selectedBranch, s.selected?.id]);
 
 	return (
 		<div>

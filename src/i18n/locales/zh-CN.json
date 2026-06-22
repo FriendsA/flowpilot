@@ -299,7 +299,10 @@
 		"watchEmptyHint": "上方新建监控以开始",
 		"watchSaveHistory": "保存到历史记录",
 		"watchDeleteHistory": "删除此条历史记录",
-		"watchRetry": "重试"
+		"watchRetry": "重试",
+		"copied": "已复制!",
+		"skipToContent": "跳转到内容",
+		"watchBuildAborted": "已中止"
 	},
 	"mr": {
 		"notGitRepo": "当前不在 git 仓库中。请在 git 项目内运行。",
@@ -418,7 +421,8 @@
 		"projectResolved": "项目已解析",
 		"resolveFailed": "无法解析项目",
 		"fetchingMembers": "正在获取项目成员...",
-		"membersLoaded": "成员已加载"
+		"membersLoaded": "成员已加载",
+		"projectNotFound": "未找到此仓库路径对应的 GitLab 项目"
 	},
 	"error": {
 		"gitlabHostMissing": "GitLab 地址未配置。请先运行 `flowpilot config`。",

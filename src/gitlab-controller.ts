@@ -150,7 +150,7 @@ export class GitlabController {
 
 	/** Get a single issue by project-scoped IID. */
 	getIssue(projectId: string | number, issueIid: number) {
-		return this.api.Issues.show(issueIid, { projectId });
+		return this.api.Issues.show(issueIid, { projectId: Number(projectId) });
 	}
 
 	// ── Project Members ────────────────────────────────────────

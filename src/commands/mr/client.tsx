@@ -1,33 +1,25 @@
-import { type FC, useEffect, useReducer, useRef } from "hono/jsx";
+import { type FC, useEffect, useReducer } from "hono/jsx";
 import { render } from "hono/jsx/dom";
-import i18next from "i18next";
-import { commonCss } from "../../shared/components/common";
+import {
+	CopyButton,
+	commonCss,
+	LoadingRow,
+	PageHeader,
+	pageHeaderCss,
+	ResultCard,
+	ResultText,
+} from "../../shared/components/common";
+import { Modal, modalCss } from "../../shared/components/modal";
 import { Pipeline, pipelineCss } from "../../shared/components/pipeline";
-import { selectCss, selKeyDown } from "../../shared/components/select";
-import { filterByRelevance } from "../../utils/search";
+import {
+	Select,
+	selectCss,
+	useClickOutside,
+	useDropdown,
+} from "../../shared/components/select";
+import { initPromise, t } from "../../shared/i18n";
 
-const initPromise =
-	typeof window !== "undefined" &&
-	window.__I18N_LOCALE__ &&
-	window.__I18N_RESOURCES__
-		? i18next.init({
-				lng: window.__I18N_LOCALE__,
-				fallbackLng: "zh-CN",
-				resources: window.__I18N_RESOURCES__,
-				interpolation: { escapeValue: false },
-			})
-		: Promise.resolve();
-const t = i18next.t;
-
-declare global {
-	interface Window {
-		__I18N_LOCALE__: string;
-		__I18N_RESOURCES__: Record<
-			string,
-			{ translation: Record<string, unknown> }
-		>;
-	}
-}
+// ── Types ──
 
 type MrHistoryEntry = {
 	id: string;
@@ -61,10 +53,8 @@ const mrStyle = `
   ${pipelineCss}
   ${selectCss}
   ${commonCss}
-
-  .page-header { margin-bottom: 28px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both; }
-  .page-header h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 6px; }
-  .page-header p { font-size: 13px; color: var(--text-2); font-weight: 300; line-height: 1.5; }
+  ${pageHeaderCss}
+  ${modalCss}
 
   .cwd-section { margin-bottom: 20px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
   .cwd-row { display: flex; gap: 8px; align-items: stretch; }
@@ -108,13 +98,7 @@ const mrStyle = `
   .new-mr-btn { padding: 10px 16px; font-size: 13px; font-family: var(--sans); font-weight: 500; color: var(--neon); background: transparent; border: 1px solid var(--neon); border-radius: 8px; cursor: pointer; margin-bottom: 16px; }
   .new-mr-btn:hover { background: var(--neon-soft); }
 
-  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); overflow-y: auto; padding: 40px 0; z-index: 999; animation: fade-in 0.15s ease both; }
-  .modal-box { background: var(--bg-card, #111820); border: 1px solid var(--border); border-radius: 12px; width: 90%; max-width: 540px; margin: auto; padding: 24px; box-shadow: 0 16px 48px rgba(0,0,0,0.6); animation: slide-up 0.2s cubic-bezier(0.16, 1, 0.3, 1) both; }
-  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-  .modal-header h3 { font-size: 16px; font-weight: 600; }
-  .modal-close { padding: 4px 8px; font-size: 14px; color: var(--text-3); background: transparent; border: none; cursor: pointer; }
-  .modal-close:hover { color: var(--text-1); }
-
+  .cwd-error { color: var(--error); font-size: 12px; margin-top: 4px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
   .no-history { padding: 20px; text-align: center; color: var(--text-3); font-size: 13px; }
   @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 `;
@@ -141,18 +125,9 @@ type State = {
 	// Remote-mode: projects
 	projects: ProjectInfo[];
 	projectsLoading: boolean;
-	projectOpen: boolean;
-	projectSearch: string;
-	projectIndex: number;
 	// Remote-mode: source branch
 	sourceBranch: string;
-	sourceBranchOpen: boolean;
-	sourceBranchSearch: string;
-	sourceBranchIndex: number;
 	// Branch (target)
-	branchOpen: boolean;
-	branchSearch: string;
-	branchIndex: number;
 	targetBranch: string;
 	remoteBranches: BranchInfo[];
 	remoteBranchesLoading: boolean;
@@ -165,9 +140,6 @@ type State = {
 	// Push (local mode only)
 	pushStatus: "idle" | "running" | "success" | "error";
 	// Reviewer
-	memberOpen: boolean;
-	memberSearch: string;
-	memberIndex: number;
 	members: MemberInfo[];
 	membersLoading: boolean;
 	reviewerId: number;
@@ -178,7 +150,6 @@ type State = {
 	mrUrl: string;
 	mrIid: number;
 	mrError: string;
-	copied: boolean;
 	// Quick execute
 	quickExecuting: boolean;
 	// Jira
@@ -207,16 +178,7 @@ const initial: State = {
 	step: 0,
 	projects: [],
 	projectsLoading: false,
-	projectOpen: false,
-	projectSearch: "",
-	projectIndex: -1,
 	sourceBranch: "",
-	sourceBranchOpen: false,
-	sourceBranchSearch: "",
-	sourceBranchIndex: -1,
-	branchOpen: false,
-	branchSearch: "",
-	branchIndex: -1,
 	targetBranch: "",
 	remoteBranches: [],
 	remoteBranchesLoading: false,
@@ -225,9 +187,6 @@ const initial: State = {
 	mrTitle: "",
 	mrDescription: "",
 	pushStatus: "idle",
-	memberOpen: false,
-	memberSearch: "",
-	memberIndex: -1,
 	members: [],
 	membersLoading: false,
 	reviewerId: 0,
@@ -237,7 +196,6 @@ const initial: State = {
 	mrUrl: "",
 	mrIid: 0,
 	mrError: "",
-	copied: false,
 	quickExecuting: false,
 	ticketKeys: [],
 	jiraStatus: {},
@@ -277,31 +235,19 @@ type Action =
 	| { type: "SET_STEP"; step: number }
 	| { type: "SET_PROJECTS"; projects: ProjectInfo[] }
 	| { type: "SET_PROJECTS_LOADING"; loading: boolean }
-	| { type: "SET_PROJECT_OPEN"; open: boolean }
-	| { type: "SET_PROJECT_SEARCH"; search: string }
-	| { type: "SET_PROJECT_INDEX"; index: number }
 	| {
 			type: "SELECT_REMOTE_PROJECT";
 			projectId: number;
 			projectName: string;
 			projectPath: string;
 	  }
-	| { type: "SET_SOURCE_BRANCH_OPEN"; open: boolean }
-	| { type: "SET_SOURCE_BRANCH_SEARCH"; search: string }
-	| { type: "SET_SOURCE_BRANCH_INDEX"; index: number }
 	| { type: "SELECT_SOURCE_BRANCH"; branch: string }
-	| { type: "SET_BRANCH_OPEN"; open: boolean }
-	| { type: "SET_BRANCH_SEARCH"; search: string }
-	| { type: "SET_BRANCH_INDEX"; index: number }
 	| { type: "SELECT_TARGET_BRANCH"; branch: string }
 	| { type: "SET_REMOTE_BRANCHES"; branches: BranchInfo[]; loading: boolean }
 	| { type: "SET_PROJECT"; projectId: number; projectName: string }
 	| { type: "SET_MR_TITLE"; title: string }
 	| { type: "SET_MR_DESC"; description: string }
 	| { type: "SET_PUSH_STATUS"; status: string }
-	| { type: "SET_MEMBER_OPEN"; open: boolean }
-	| { type: "SET_MEMBER_SEARCH"; search: string }
-	| { type: "SET_MEMBER_INDEX"; index: number }
 	| { type: "SET_MEMBERS"; members: MemberInfo[]; loading: boolean }
 	| { type: "SELECT_REVIEWER"; id: number; name: string }
 	| { type: "SET_DRAFT"; draft: boolean }
@@ -313,7 +259,6 @@ type Action =
 			error?: string;
 			existing?: boolean;
 	  }
-	| { type: "SET_COPIED"; copied: boolean }
 	| { type: "SET_TICKETS"; keys: string[] }
 	| { type: "SET_JIRA_STATUS"; key: string; status: string }
 	| { type: "SET_JIRA_TRANSITIONS"; key: string; transitions: Transition[] }
@@ -370,24 +315,12 @@ const reducer = (state: State, action: Action): State => {
 			return { ...state, projects: action.projects, projectsLoading: false };
 		case "SET_PROJECTS_LOADING":
 			return { ...state, projectsLoading: action.loading };
-		case "SET_PROJECT_OPEN":
-			return {
-				...state,
-				projectOpen: action.open,
-				projectSearch: "",
-				projectIndex: -1,
-			};
-		case "SET_PROJECT_SEARCH":
-			return { ...state, projectSearch: action.search, projectIndex: -1 };
-		case "SET_PROJECT_INDEX":
-			return { ...state, projectIndex: action.index };
 		case "SELECT_REMOTE_PROJECT":
 			return {
 				...state,
 				projectId: action.projectId,
 				projectName: action.projectName,
 				projectPath: action.projectPath,
-				projectOpen: false,
 				sourceBranch: "",
 				targetBranch: "",
 				remoteBranches: [],
@@ -398,43 +331,20 @@ const reducer = (state: State, action: Action): State => {
 				mrError: "",
 				step: 1,
 			};
-		case "SET_SOURCE_BRANCH_OPEN":
-			return {
-				...state,
-				sourceBranchOpen: action.open,
-				sourceBranchSearch: "",
-				sourceBranchIndex: -1,
-			};
-		case "SET_SOURCE_BRANCH_SEARCH":
-			return {
-				...state,
-				sourceBranchSearch: action.search,
-				sourceBranchIndex: -1,
-			};
-		case "SET_SOURCE_BRANCH_INDEX":
-			return { ...state, sourceBranchIndex: action.index };
 		case "SELECT_SOURCE_BRANCH":
 			return {
 				...state,
 				sourceBranch: action.branch,
-				sourceBranchOpen: false,
 				step: state.step < 2 && state.targetBranch ? 2 : state.step,
 			};
-		case "SET_BRANCH_OPEN":
-			return { ...state, branchOpen: action.open };
-		case "SET_BRANCH_SEARCH":
-			return { ...state, branchSearch: action.search };
-		case "SET_BRANCH_INDEX":
-			return { ...state, branchIndex: action.index };
 		case "SELECT_TARGET_BRANCH": {
 			const branchStep =
 				state.mode === "local"
-					? Math.max(state.step, 1) // local: advance to title after selecting target
-					: Math.max(state.step, state.sourceBranch ? 2 : state.step); // remote: need both source+target
+					? Math.max(state.step, 1)
+					: Math.max(state.step, state.sourceBranch ? 2 : state.step);
 			return {
 				...state,
 				targetBranch: action.branch,
-				branchOpen: false,
 				step: branchStep,
 			};
 		}
@@ -464,12 +374,6 @@ const reducer = (state: State, action: Action): State => {
 				step: pushStep,
 			};
 		}
-		case "SET_MEMBER_OPEN":
-			return { ...state, memberOpen: action.open };
-		case "SET_MEMBER_SEARCH":
-			return { ...state, memberSearch: action.search };
-		case "SET_MEMBER_INDEX":
-			return { ...state, memberIndex: action.index };
 		case "SET_MEMBERS":
 			return {
 				...state,
@@ -481,7 +385,6 @@ const reducer = (state: State, action: Action): State => {
 				...state,
 				reviewerId: action.id,
 				reviewerName: action.name,
-				memberOpen: false,
 			};
 		case "SET_DRAFT":
 			return { ...state, draft: action.draft };
@@ -493,8 +396,6 @@ const reducer = (state: State, action: Action): State => {
 				mrIid: action.iid ?? state.mrIid,
 				mrError: action.error ?? state.mrError,
 			};
-		case "SET_COPIED":
-			return { ...state, copied: action.copied };
 		case "SET_TICKETS":
 			return { ...state, ticketKeys: action.keys };
 		case "SET_JIRA_STATUS":
@@ -538,7 +439,6 @@ const reducer = (state: State, action: Action): State => {
 							jiraStatus: {},
 							jiraTransitions: {},
 							jiraResults: {},
-							copied: false,
 						}
 					: {}),
 			};
@@ -554,14 +454,38 @@ const reducer = (state: State, action: Action): State => {
 const api = (path: string, cwd: string) =>
 	`/mr/api/${path}${cwd ? `?cwd=${encodeURIComponent(cwd)}` : ""}`;
 
+// ── Select items builders ──
+
+const branchItems = (branches: BranchInfo[]) =>
+	branches.map((b) => ({ name: b.name, default: b.default ?? false }));
+
+const projectItems = (projects: ProjectInfo[]) =>
+	projects.map((p) => ({
+		name: p.name,
+		id: p.id,
+		pathWithNamespace: p.pathWithNamespace,
+	}));
+
+const reviewerItems = (
+	members: MemberInfo[],
+	sentinelName: string,
+): (MemberInfo & { name: string })[] => [
+	{ name: sentinelName, id: 0, username: "" },
+	...members.map((m) => ({ ...m, name: `${m.name} (@${m.username})` })),
+];
+
 // ── Component ──
 
 const MrClient: FC = () => {
 	const [s, d] = useReducer(reducer, initial);
-	const branchSearchRef = useRef<HTMLInputElement>(null);
-	const memberSearchRef = useRef<HTMLInputElement>(null);
-	const projectSearchRef = useRef<HTMLInputElement>(null);
-	const sourceBranchSearchRef = useRef<HTMLInputElement>(null);
+	const projectDd = useDropdown();
+	const sourceBranchDd = useDropdown();
+	const branchDd = useDropdown();
+	const memberDd = useDropdown();
+	useClickOutside(
+		[projectDd, sourceBranchDd, branchDd, memberDd],
+		["project", "source-branch", "branch", "member"],
+	);
 
 	// ── Init on mount ──
 	useEffect(() => {
@@ -619,65 +543,14 @@ const MrClient: FC = () => {
 				}
 			})
 			.catch((e) => d({ type: "SET_ERROR", error: String(e) }));
-	}, [s.mode]);
-
-	// ── Click-outside handler for all dropdowns ──
-	useEffect(() => {
-		if (!s.projectOpen && !s.sourceBranchOpen && !s.branchOpen && !s.memberOpen)
-			return;
-		const handler = (e: Event) => {
-			const target = e.target as HTMLElement;
-			if (!target.closest(".sel")) {
-				d({ type: "SET_PROJECT_OPEN", open: false });
-				d({ type: "SET_SOURCE_BRANCH_OPEN", open: false });
-				d({ type: "SET_BRANCH_OPEN", open: false });
-				d({ type: "SET_MEMBER_OPEN", open: false });
-			}
-		};
-		document.addEventListener("click", handler);
-		return () => document.removeEventListener("click", handler);
-	}, [s.projectOpen, s.sourceBranchOpen, s.branchOpen, s.memberOpen]);
-
-	// ── Close all other dropdowns when one opens ──
-	const openProject = (open: boolean) => {
-		d({ type: "SET_PROJECT_OPEN", open });
-		if (open) {
-			d({ type: "SET_SOURCE_BRANCH_OPEN", open: false });
-			d({ type: "SET_BRANCH_OPEN", open: false });
-			d({ type: "SET_MEMBER_OPEN", open: false });
-		}
-	};
-	const openSourceBranch = (open: boolean) => {
-		d({ type: "SET_SOURCE_BRANCH_OPEN", open });
-		if (open) {
-			d({ type: "SET_PROJECT_OPEN", open: false });
-			d({ type: "SET_BRANCH_OPEN", open: false });
-			d({ type: "SET_MEMBER_OPEN", open: false });
-		}
-	};
-	const openBranch = (open: boolean) => {
-		d({ type: "SET_BRANCH_OPEN", open });
-		if (open) {
-			d({ type: "SET_PROJECT_OPEN", open: false });
-			d({ type: "SET_SOURCE_BRANCH_OPEN", open: false });
-			d({ type: "SET_MEMBER_OPEN", open: false });
-		}
-	};
-	const openMember = (open: boolean) => {
-		d({ type: "SET_MEMBER_OPEN", open });
-		if (open) {
-			d({ type: "SET_PROJECT_OPEN", open: false });
-			d({ type: "SET_SOURCE_BRANCH_OPEN", open: false });
-			d({ type: "SET_BRANCH_OPEN", open: false });
-		}
-	};
+	}, [s.mode, s.projects.length, s.projectsLoading]);
 
 	// ── API functions ──
 
-	const loadGitStatus = async () => {
+	const loadGitStatus = async (overrideCwd?: string) => {
 		d({ type: "SET_LOADING", loading: true });
 		try {
-			const res = await fetch(api("git/status", s.cwd));
+			const res = await fetch(api("git/status", overrideCwd ?? s.cwd));
 			const data = await res.json();
 			if (data.error) {
 				d({ type: "SET_ERROR", error: data.error });
@@ -722,7 +595,7 @@ const MrClient: FC = () => {
 			d({ type: "SET_CWD", cwd: s.cwdInput, cwdError: "" });
 			if (data.isGitRepo) {
 				d({ type: "SET_MODE", mode: "local" });
-				await loadGitStatus();
+				await loadGitStatus(s.cwdInput);
 			} else {
 				d({ type: "SET_MODE", mode: "remote" });
 			}
@@ -751,11 +624,12 @@ const MrClient: FC = () => {
 		}
 	};
 
-	const loadMembers = async () => {
-		if (!s.projectId) return;
+	const loadMembers = async (projectId?: number) => {
+		const pid = projectId ?? s.projectId;
+		if (!pid) return;
 		d({ type: "SET_MEMBERS", members: [], loading: true });
 		try {
-			const res = await fetch(`/mr/api/project/${s.projectId}/members`);
+			const res = await fetch(`/mr/api/project/${pid}/members`);
 			const data = await res.json();
 			const members = Array.isArray(data)
 				? data.map((m: unknown) => ({
@@ -837,6 +711,8 @@ const MrClient: FC = () => {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					projectId: s.projectId,
+					projectName: s.projectName,
+					projectPath: s.projectPath,
 					sourceBranch,
 					targetBranch: s.targetBranch,
 					title: s.mrTitle,
@@ -899,10 +775,10 @@ const MrClient: FC = () => {
 
 	const clearHistory = async () => {
 		try {
-			await fetch("/mr/api/history", { method: "DELETE" });
-			d({ type: "CLEAR_HISTORY_DONE" });
+			const res = await fetch("/mr/api/history", { method: "DELETE" });
+			if (res.ok) d({ type: "CLEAR_HISTORY_DONE" });
 		} catch {
-			/* ignore */
+			/* delete failed, keep local state */
 		}
 	};
 
@@ -913,6 +789,10 @@ const MrClient: FC = () => {
 				`/mr/api/jira/transitions?key=${encodeURIComponent(key)}`,
 			);
 			const data = await res.json();
+			if (data.error) {
+				d({ type: "SET_JIRA_STATUS", key, status: "error" });
+				return;
+			}
 			const transitions = data.transitions ?? [];
 			d({ type: "SET_JIRA_TRANSITIONS", key, transitions });
 			d({ type: "SET_JIRA_STATUS", key, status: "loaded" });
@@ -951,48 +831,6 @@ const MrClient: FC = () => {
 			/* non-critical */
 		}
 	};
-
-	const copyMrUrl = async () => {
-		try {
-			await navigator.clipboard.writeText(s.mrUrl);
-			d({ type: "SET_COPIED", copied: true });
-			setTimeout(() => d({ type: "SET_COPIED", copied: false }), 2000);
-		} catch {
-			/* clipboard API not available */
-		}
-	};
-
-	// ── Filtered branches (target) ──
-	const fb = filterByRelevance(
-		s.remoteBranches.map((b) => ({ ...b, name: b.name })),
-		s.branchSearch,
-	);
-
-	// ── Filtered members ──
-	const fm = filterByRelevance(
-		s.members.map((m) => ({
-			...m,
-			name: `${m.name} (@${m.username})`,
-			path: m.username,
-		})),
-		s.memberSearch,
-	);
-
-	// ── Filtered projects ──
-	const fp = filterByRelevance(
-		s.projects.map((p) => ({
-			...p,
-			name: p.name,
-			path: p.pathWithNamespace,
-		})),
-		s.projectSearch,
-	);
-
-	// ── Filtered source branches ──
-	const fsb = filterByRelevance(
-		s.remoteBranches.map((b) => ({ ...b, name: b.name })),
-		s.sourceBranchSearch,
-	);
 
 	// ── Pipeline steps ──
 	const pipelineSteps =
@@ -1052,6 +890,231 @@ const MrClient: FC = () => {
 					},
 				];
 
+	// ── Reusable branch renderItem ──
+	const branchRenderItem = (
+		item: { name: string; default?: boolean },
+		_isActive: boolean,
+	) => (
+		<span>
+			<span class={`sel-item-name`}>{item.name}</span>
+			{item.default && (
+				<span class="result-badge">{t("web.defaultBranch")}</span>
+			)}
+		</span>
+	);
+
+	// ── Reusable reviewer renderItem ──
+	const memberRenderItem = (
+		item: { name: string; id: number; username?: string },
+		_isActive: boolean,
+	) => {
+		if (item.id === 0) {
+			return <span class={`sel-item-name`}>{t("web.mrSkipReviewer")}</span>;
+		}
+		return (
+			<span>
+				<div class={`sel-item-name`}>{item.name}</div>
+				{item.username && <div class="sel-item-sub">@{item.username}</div>}
+			</span>
+		);
+	};
+
+	// ── Reusable project renderItem ──
+	const projectRenderItem = (
+		item: { name: string; pathWithNamespace?: string },
+		_isActive: boolean,
+	) => (
+		<span>
+			<div class={`sel-item-name`}>{item.name}</div>
+			{item.pathWithNamespace && (
+				<div class="sel-item-sub">{item.pathWithNamespace}</div>
+			)}
+		</span>
+	);
+
+	// ── MR success card ──
+	const mrSuccessCard = () => (
+		<ResultCard variant={s.mrStatus === "existing" ? "default" : "success"}>
+			<div class="result-label">
+				{s.mrStatus === "existing"
+					? t("web.mrExistingNote")
+					: t("web.mrResultUrl")}
+			</div>
+			<div class="mr-url-row">
+				<a class="mr-url-link" href={s.mrUrl} target="_blank" rel="noopener">
+					{s.mrUrl}
+				</a>
+				<CopyButton text={t("web.mrCopy")} copyText={s.mrUrl} />
+			</div>
+		</ResultCard>
+	);
+
+	// ── Jira section ──
+	const jiraSection = () => (
+		<div>
+			{s.ticketKeys.map((key) => (
+				<ResultCard key={key}>
+					<div class="result-label">
+						{t("web.mrStepJira")}: {key}
+					</div>
+					<button
+						class="action-btn secondary"
+						type="button"
+						onClick={() =>
+							addJiraComment(
+								key,
+								t("web.mrJiraCommentTemplate", {
+									key,
+									mrUrl: s.mrUrl,
+								}),
+							)
+						}
+					>
+						{t("web.mrJiraCommentBtn")}
+					</button>
+					<button
+						class="action-btn secondary"
+						type="button"
+						onClick={() => loadJiraTransitions(key)}
+					>
+						{t("web.mrJiraTransitionBtn")}
+					</button>
+					{s.jiraTransitions[key] && (
+						<div style="margin-top: 8px;">
+							{s.jiraTransitions[key].map((tr) => (
+								<button
+									key={tr.id}
+									class="action-btn secondary"
+									type="button"
+									onClick={() => transitionJira(key, tr.id)}
+									style="margin-bottom: 4px"
+								>
+									{tr.name}
+								</button>
+							))}
+						</div>
+					)}
+					{s.jiraResults[key] === "success" && (
+						<span class="result-badge">{t("web.executeSuccess")}</span>
+					)}
+					{s.jiraResults[key] === "error" && (
+						<span style="color: var(--error); font-size: 12px">
+							{t("web.executeFailed")}
+						</span>
+					)}
+				</ResultCard>
+			))}
+		</div>
+	);
+
+	// ── History section ──
+	const historySection = () => (
+		<div class="history-section">
+			<div class="history-header">
+				<h3>{t("web.mrHistoryTitle")}</h3>
+				{s.clearConfirm ? (
+					<div style="display:flex;align-items:center;gap:8px">
+						<span style="font-size:12px;color:var(--text-3)">
+							{t("web.clearConfirm")}
+						</span>
+						<button
+							class="history-clear"
+							type="button"
+							style="border-color:var(--error);color:var(--error)"
+							onClick={clearHistory}
+						>
+							{t("web.clearHistory")}
+						</button>
+						<button
+							class="history-clear"
+							type="button"
+							onClick={() => d({ type: "CLEAR_CONFIRM_TOGGLE" })}
+						>
+							{t("web.cancel")}
+						</button>
+					</div>
+				) : (
+					<button
+						class="history-clear"
+						type="button"
+						onClick={() => d({ type: "CLEAR_CONFIRM_TOGGLE" })}
+					>
+						{t("web.clearHistory")}
+					</button>
+				)}
+			</div>
+			{s.history.map((entry: MrHistoryEntry) => (
+				<div class="history-item" key={entry.id}>
+					<div class="history-info">
+						<div class="history-title">
+							{entry.title || `${entry.sourceBranch} → ${entry.targetBranch}`}
+						</div>
+						<div class="history-branches">
+							{entry.sourceBranch} → {entry.targetBranch}
+						</div>
+						<div class="history-sub">
+							{entry.projectName} · {entry.createdAt}
+						</div>
+					</div>
+					<div class="history-actions">
+						<button
+							class="history-exec-btn"
+							type="button"
+							onClick={() => executeHistory(entry)}
+						>
+							{t("web.quickExecute")}
+						</button>
+					</div>
+				</div>
+			))}
+		</div>
+	);
+
+	// ── Draft toggle ──
+	const draftToggle = () => (
+		<div
+			class="draft-toggle"
+			onClick={() => d({ type: "SET_DRAFT", draft: !s.draft })}
+		>
+			<div class={`draft-toggle-check${s.draft ? " active" : ""}`}>
+				{s.draft && "✓"}
+			</div>
+			<span class="draft-toggle-label">{t("web.mrDraftToggle")}</span>
+		</div>
+	);
+
+	// ── Title + description inputs ──
+	const titleDescInputs = () => (
+		<div>
+			<div class="input-label">{t("web.mrTitleLabel")}</div>
+			<input
+				class="title-input"
+				type="text"
+				placeholder={t("web.mrEnterTitle")}
+				value={s.mrTitle}
+				onInput={(e: Event) =>
+					d({
+						type: "SET_MR_TITLE",
+						title: (e.target as HTMLInputElement).value,
+					})
+				}
+			/>
+			<div class="input-label">{t("web.mrDescriptionLabel")}</div>
+			<textarea
+				class="desc-input"
+				placeholder={t("web.mrEnterDescription")}
+				value={s.mrDescription}
+				rows={4}
+				onInput={(e: Event) =>
+					d({
+						type: "SET_MR_DESC",
+						description: (e.target as HTMLInputElement).value,
+					})
+				}
+			/>
+		</div>
+	);
+
 	// ── Render ──
 
 	return (
@@ -1059,16 +1122,16 @@ const MrClient: FC = () => {
 			<style>{mrStyle}</style>
 
 			{/* ── Header ── */}
-			<div class="page-header">
-				<h2>{t("web.mrTitle")}</h2>
-				<p>{t("web.mrDesc")}</p>
-			</div>
+			<PageHeader title={t("web.mrTitle")} description={t("web.mrDesc")} />
 
-			{s.mode === "undetermined" && (
-				<div class="loading-row">
-					<span class="spinner" /> {t("web.loading")}
-				</div>
-			)}
+			{s.mode === "undetermined" &&
+				(s.error ? (
+					<ResultCard variant="error">
+						<ResultText variant="error">{s.error}</ResultText>
+					</ResultCard>
+				) : (
+					<LoadingRow text={t("web.loading")} />
+				))}
 
 			{/* ── Local mode ── */}
 			{s.mode === "local" && (
@@ -1106,112 +1169,23 @@ const MrClient: FC = () => {
 						</div>
 					)}
 
-					{s.loading && (
-						<div class="loading-row">
-							<span class="spinner" /> {t("web.loading")}
-						</div>
+					{s.loading && <LoadingRow text={t("web.loading")} />}
+					{s.error && (
+						<ResultCard variant="error">
+							<ResultText variant="error">{s.error}</ResultText>
+						</ResultCard>
 					)}
-					{s.error && <div class="result-card result-error">{s.error}</div>}
 
 					{s.currentBranch && (
 						<>
 							{/* ── History exists: show history + new button (modal for creation) ── */}
-							{s.history.length > 0 && !s.modalOpen && (
-								<div class="history-section">
-									<div class="history-header">
-										<h3>{t("web.mrHistoryTitle")}</h3>
-										{s.clearConfirm ? (
-											<div style="display:flex;align-items:center;gap:8px">
-												<span style="font-size:12px;color:var(--text-3)">
-													{t("web.clearConfirm")}
-												</span>
-												<button
-													class="history-clear"
-													type="button"
-													style="border-color:var(--error);color:var(--error)"
-													onClick={clearHistory}
-												>
-													{t("web.clearHistory")}
-												</button>
-												<button
-													class="history-clear"
-													type="button"
-													onClick={() => d({ type: "CLEAR_CONFIRM_TOGGLE" })}
-												>
-													{t("web.cancel")}
-												</button>
-											</div>
-										) : (
-											<button
-												class="history-clear"
-												type="button"
-												onClick={() => d({ type: "CLEAR_CONFIRM_TOGGLE" })}
-											>
-												{t("web.clearHistory")}
-											</button>
-										)}
-									</div>
-									{s.history.map((entry: MrHistoryEntry) => (
-										<div class="history-item">
-											<div class="history-info">
-												<div class="history-title">
-													{entry.title ||
-														`${entry.sourceBranch} → ${entry.targetBranch}`}
-												</div>
-												<div class="history-branches">
-													{entry.sourceBranch} → {entry.targetBranch}
-												</div>
-												<div class="history-sub">
-													{entry.projectName} · {entry.createdAt}
-												</div>
-											</div>
-											<div class="history-actions">
-												<button
-													class="history-exec-btn"
-													type="button"
-													onClick={() => executeHistory(entry)}
-												>
-													{t("web.quickExecute")}
-												</button>
-											</div>
-										</div>
-									))}
-								</div>
-							)}
+							{s.history.length > 0 && !s.modalOpen && historySection()}
 
-							{s.quickExecuting && (
-								<div class="loading-row">
-									<span class="spinner" /> {t("web.mrCreatingMR")}
-								</div>
-							)}
+							{s.quickExecuting && <LoadingRow text={t("web.mrCreatingMR")} />}
 
 							{(s.mrStatus === "success" || s.mrStatus === "existing") &&
-								!s.modalOpen && (
-									<div class="result-card result-success">
-										<div class="result-label">
-											{s.mrStatus === "existing"
-												? t("web.mrExistingNote")
-												: t("web.mrResultUrl")}
-										</div>
-										<div class="mr-url-row">
-											<a
-												class="mr-url-link"
-												href={s.mrUrl}
-												target="_blank"
-												rel="noopener"
-											>
-												{s.mrUrl}
-											</a>
-											<button
-												class={`copy-btn${s.copied ? " copied" : ""}`}
-												type="button"
-												onClick={copyMrUrl}
-											>
-												{s.copied ? t("web.mrCopied") : t("web.mrCopy")}
-											</button>
-										</div>
-									</div>
-								)}
+								!s.modalOpen &&
+								mrSuccessCard()}
 
 							{s.history.length > 0 && !s.modalOpen && !s.quickExecuting && (
 								<button
@@ -1230,117 +1204,50 @@ const MrClient: FC = () => {
 
 									{/* ── Step 1: Branch ── */}
 									<div>
-										<div class="result-card">
+										<ResultCard>
 											<div class="result-label">{t("web.mrFromBranch")}</div>
-											<div class="result-text success">{s.currentBranch}</div>
+											<ResultText variant="success">
+												{s.currentBranch}
+											</ResultText>
 											{s.detectedSource && (
 												<span class="result-badge">
 													{t("web.mrDetectSource")}: {s.detectedSource}
 												</span>
 											)}
-										</div>
+										</ResultCard>
 
 										{/* Target branch selector */}
-										<div
-											class="sel"
-											style={`z-index:${s.branchOpen ? 100 : 1}`}
-										>
-											<button
-												class={`sel-trigger${s.branchOpen ? " open" : ""}`}
-												type="button"
-												role="combobox"
-												aria-expanded={s.branchOpen}
-												onClick={() => {
-													openBranch(!s.branchOpen);
-													if (!s.remoteBranches.length && s.projectId)
-														loadRemoteBranches();
-												}}
-											>
-												<span class="sel-trigger-label">
-													{t("web.mrIntoBranch")}
-												</span>
-												<span
-													class={`sel-trigger-value${s.targetBranch ? "" : " empty"}`}
-												>
-													{s.targetBranch || t("web.mrSelectInto")}
-												</span>
-												<span class="sel-trigger-arrow">▼</span>
-											</button>
-											{s.branchOpen && (
-												<div class="sel-dropdown" role="listbox">
-													<div class="sel-search">
-														<input
-															ref={branchSearchRef}
-															class="sel-search-input"
-															type="text"
-															placeholder={t("web.mrFilterInto")}
-															value={s.branchSearch}
-															onInput={(e: Event) =>
-																d({
-																	type: "SET_BRANCH_SEARCH",
-																	search: (e.target as HTMLInputElement).value,
-																})
-															}
-															onKeyDown={(e: KeyboardEvent) => {
-																const n = selKeyDown(
-																	e,
-																	s.branchOpen,
-																	fb.length,
-																	s.branchIndex,
-																	(i) => {
-																		const b = fb[i];
-																		if (b)
-																			d({
-																				type: "SELECT_TARGET_BRANCH",
-																				branch: b.name,
-																			});
-																	},
-																	() => openBranch(false),
-																);
-																if (n !== undefined)
-																	d({ type: "SET_BRANCH_INDEX", index: n });
-															}}
-														/>
-													</div>
-													{s.remoteBranchesLoading ? (
-														<div class="sel-empty">
-															<span class="spinner" />{" "}
-															{t("web.mrLoadingTarget")}
-														</div>
-													) : fb.length > 0 ? (
-														fb.map((b, i) => (
-															<div
-																class={`sel-item${b.name === s.targetBranch ? " active" : ""}${i === s.branchIndex ? " highlighted" : ""}`}
-																onMouseEnter={() =>
-																	d({ type: "SET_BRANCH_INDEX", index: i })
-																}
-																onClick={() =>
-																	d({
-																		type: "SELECT_TARGET_BRANCH",
-																		branch: b.name,
-																	})
-																}
-															>
-																<span class="sel-item-name">{b.name}</span>
-																{b.default && (
-																	<span class="result-badge">
-																		{t("web.defaultBranch")}
-																	</span>
-																)}
-															</div>
-														))
-													) : (
-														<div class="sel-empty">{t("web.mrNoTarget")}</div>
-													)}
-												</div>
-											)}
-										</div>
+										<Select
+											id="branch"
+											label={t("web.mrIntoBranch")}
+											placeholder={t("web.mrSelectInto")}
+											items={branchItems(s.remoteBranches)}
+											value={s.targetBranch ? { name: s.targetBranch } : null}
+											isEqual={(a, b) => a.name === b.name}
+											dropdown={branchDd}
+											onSelect={(item) =>
+												d({ type: "SELECT_TARGET_BRANCH", branch: item.name })
+											}
+											onOpen={() => {
+												if (!s.remoteBranches.length && s.projectId)
+													loadRemoteBranches();
+											}}
+											renderItem={branchRenderItem}
+											searchPlaceholder={t("web.mrFilterInto")}
+											emptyText={
+												s.remoteBranchesLoading
+													? undefined
+													: t("web.mrNoTarget")
+											}
+										/>
 
 										{s.projectId ? (
-											<div class="result-card">
+											<ResultCard>
 												<div class="result-label">{t("web.projectLabel")}</div>
-												<div class="result-text success">{s.projectName}</div>
-											</div>
+												<ResultText variant="success">
+													{s.projectName}
+												</ResultText>
+											</ResultCard>
 										) : (
 											<button
 												class="action-btn secondary"
@@ -1355,159 +1262,53 @@ const MrClient: FC = () => {
 									{/* ── Step 2: Title & Description ── */}
 									{s.targetBranch && (
 										<div>
-											<div class="input-label">{t("web.mrTitleLabel")}</div>
-											<input
-												class="title-input"
-												type="text"
-												placeholder={t("web.mrEnterTitle")}
-												value={s.mrTitle}
-												onInput={(e: Event) =>
-													d({
-														type: "SET_MR_TITLE",
-														title: (e.target as HTMLInputElement).value,
-													})
-												}
-											/>
-											<div class="input-label">
-												{t("web.mrDescriptionLabel")}
-											</div>
-											<textarea
-												class="desc-input"
-												placeholder={t("web.mrEnterDescription")}
-												value={s.mrDescription}
-												rows={4}
-												onInput={(e: Event) =>
-													d({
-														type: "SET_MR_DESC",
-														description: (e.target as HTMLInputElement).value,
-													})
-												}
-											/>
+											{titleDescInputs()}
 
 											{/* Reviewer selector */}
-											<div
-												class="sel"
-												style={`z-index:${s.memberOpen ? 100 : 1}`}
-											>
-												<button
-													class={`sel-trigger${s.memberOpen ? " open" : ""}`}
-													type="button"
-													role="combobox"
-													aria-expanded={s.memberOpen}
-													onClick={() => {
-														openMember(!s.memberOpen);
-														if (!s.members.length && s.projectId) loadMembers();
-													}}
-												>
-													<span class="sel-trigger-label">
-														{t("web.mrReviewerLabel")}
-													</span>
-													<span
-														class={`sel-trigger-value${s.reviewerId ? "" : " empty"}`}
-													>
-														{s.reviewerId
-															? s.reviewerName
-															: t("web.mrSkipReviewer")}
-													</span>
-													<span class="sel-trigger-arrow">▼</span>
-												</button>
-												{s.memberOpen && (
-													<div class="sel-dropdown" role="listbox">
-														<div class="sel-search">
-															<input
-																ref={memberSearchRef}
-																class="sel-search-input"
-																type="text"
-																placeholder={t("web.mrFilterReviewer")}
-																value={s.memberSearch}
-																onInput={(e: Event) =>
-																	d({
-																		type: "SET_MEMBER_SEARCH",
-																		search: (e.target as HTMLInputElement)
-																			.value,
-																	})
-																}
-																onKeyDown={(e: KeyboardEvent) => {
-																	const n = selKeyDown(
-																		e,
-																		s.memberOpen,
-																		fm.length,
-																		s.memberIndex,
-																		(i) => {
-																			const m = fm[i];
-																			if (m)
-																				d({
-																					type: "SELECT_REVIEWER",
-																					id: m.id,
-																					name: `${m.name} (@${m.username})`,
-																				});
-																		},
-																		() => openMember(false),
-																	);
-																	if (n !== undefined)
-																		d({ type: "SET_MEMBER_INDEX", index: n });
-																}}
-															/>
-														</div>
-														<div
-															class={`sel-item${!s.reviewerId ? " active" : ""}`}
-															onClick={() =>
-																d({ type: "SELECT_REVIEWER", id: 0, name: "" })
-															}
-														>
-															<span class="sel-item-name">
-																{t("web.mrSkipReviewer")}
-															</span>
-														</div>
-														{s.membersLoading ? (
-															<div class="sel-empty">
-																<span class="spinner" />{" "}
-																{t("web.mrLoadingReviewer")}
-															</div>
-														) : fm.length > 0 ? (
-															fm.map((m, i) => (
-																<div
-																	class={`sel-item${m.id === s.reviewerId ? " active" : ""}${i === s.memberIndex ? " highlighted" : ""}`}
-																	onMouseEnter={() =>
-																		d({ type: "SET_MEMBER_INDEX", index: i })
-																	}
-																	onClick={() =>
-																		d({
-																			type: "SELECT_REVIEWER",
-																			id: m.id,
-																			name: `${m.name} (@${m.username})`,
-																		})
-																	}
-																>
-																	<div class="sel-item-name">{m.name}</div>
-																	<div class="sel-item-sub">@{m.username}</div>
-																</div>
-															))
-														) : (
-															<div class="sel-empty">
-																{t("web.mrNoReviewer")}
-															</div>
-														)}
-													</div>
+											<Select
+												id="member"
+												label={t("web.mrReviewerLabel")}
+												placeholder={t("web.mrSkipReviewer")}
+												items={reviewerItems(
+													s.members,
+													t("web.mrSkipReviewer"),
 												)}
-											</div>
-
-											{/* Draft toggle */}
-											<div
-												class="draft-toggle"
-												onClick={() =>
-													d({ type: "SET_DRAFT", draft: !s.draft })
+												value={
+													s.reviewerId
+														? {
+																name: s.reviewerName,
+																id: s.reviewerId,
+																username: "",
+															}
+														: {
+																name: t("web.mrSkipReviewer"),
+																id: 0,
+																username: "",
+															}
 												}
-											>
-												<div
-													class={`draft-toggle-check${s.draft ? " active" : ""}`}
-												>
-													{s.draft && "✓"}
-												</div>
-												<span class="draft-toggle-label">
-													{t("web.mrDraftToggle")}
-												</span>
-											</div>
+												isEqual={(a, b) => a.id === b.id}
+												dropdown={memberDd}
+												onSelect={(item) =>
+													d({
+														type: "SELECT_REVIEWER",
+														id: item.id,
+														name: item.id === 0 ? "" : item.name,
+													})
+												}
+												onOpen={() => {
+													if (!s.members.length && s.projectId) loadMembers();
+												}}
+												renderItem={memberRenderItem}
+												renderValue={(item) =>
+													item.id === 0 ? t("web.mrSkipReviewer") : item.name
+												}
+												searchPlaceholder={t("web.mrFilterReviewer")}
+												emptyText={
+													s.membersLoading ? undefined : t("web.mrNoReviewer")
+												}
+											/>
+
+											{draftToggle()}
 										</div>
 									)}
 
@@ -1524,24 +1325,22 @@ const MrClient: FC = () => {
 												</button>
 											)}
 											{s.pushStatus === "running" && (
-												<div class="loading-row">
-													<span class="spinner" /> {t("web.mrPushing")}
-												</div>
+												<LoadingRow text={t("web.mrPushing")} />
 											)}
 											{s.pushStatus === "success" && (
-												<div class="result-card result-success">
+												<ResultCard variant="success">
 													<div class="result-label">{t("web.mrPushBtn")}</div>
-													<div class="result-text success">
+													<ResultText variant="success">
 														{t("web.mrPushSuccess")}
-													</div>
-												</div>
+													</ResultText>
+												</ResultCard>
 											)}
 											{s.pushStatus === "error" && (
-												<div class="result-card result-error">
-													<div class="result-text error">
+												<ResultCard variant="error">
+													<ResultText variant="error">
 														{t("web.mrPushFailed")}
-													</div>
-												</div>
+													</ResultText>
+												</ResultCard>
 											)}
 											{s.pushStatus !== "success" &&
 												s.pushStatus !== "running" && (
@@ -1572,104 +1371,22 @@ const MrClient: FC = () => {
 										</div>
 									)}
 									{s.mrStatus === "running" && (
-										<div class="loading-row">
-											<span class="spinner" /> {t("web.mrCreatingMR")}
-										</div>
+										<LoadingRow text={t("web.mrCreatingMR")} />
 									)}
-									{(s.mrStatus === "success" || s.mrStatus === "existing") && (
-										<div class="result-card result-success">
-											<div class="result-label">
-												{s.mrStatus === "existing"
-													? t("web.mrExistingNote")
-													: t("web.mrResultUrl")}
-											</div>
-											<div class="mr-url-row">
-												<a
-													class="mr-url-link"
-													href={s.mrUrl}
-													target="_blank"
-													rel="noopener"
-												>
-													{s.mrUrl}
-												</a>
-												<button
-													class={`copy-btn${s.copied ? " copied" : ""}`}
-													type="button"
-													onClick={copyMrUrl}
-												>
-													{s.copied ? t("web.mrCopied") : t("web.mrCopy")}
-												</button>
-											</div>
-										</div>
-									)}
+									{(s.mrStatus === "success" || s.mrStatus === "existing") &&
+										mrSuccessCard()}
 									{s.mrStatus === "error" && (
-										<div class="result-card result-error">
-											<div class="result-text error">{s.mrError}</div>
-										</div>
+										<ResultCard variant="error">
+											<ResultText variant="error">{s.mrError}</ResultText>
+										</ResultCard>
 									)}
 
 									{/* ── Step 5: Jira ── */}
-									{s.mrUrl && s.ticketKeys.length > 0 && (
-										<div>
-											{s.ticketKeys.map((key) => (
-												<div class="result-card">
-													<div class="result-label">
-														{t("web.mrStepJira")}: {key}
-													</div>
-													<button
-														class="action-btn secondary"
-														type="button"
-														onClick={() =>
-															addJiraComment(
-																key,
-																t("web.mrJiraCommentTemplate", {
-																	key,
-																	mrUrl: s.mrUrl,
-																}),
-															)
-														}
-													>
-														{t("web.mrJiraCommentBtn")}
-													</button>
-													<button
-														class="action-btn secondary"
-														type="button"
-														onClick={() => loadJiraTransitions(key)}
-													>
-														{t("web.mrJiraTransitionBtn")}
-													</button>
-													{s.jiraTransitions[key] && (
-														<div style="margin-top: 8px;">
-															{s.jiraTransitions[key].map((tr) => (
-																<button
-																	class="action-btn secondary"
-																	type="button"
-																	onClick={() => transitionJira(key, tr.id)}
-																	style="margin-bottom: 4px"
-																>
-																	{tr.name}
-																</button>
-															))}
-														</div>
-													)}
-													{s.jiraResults[key] === "success" && (
-														<span class="result-badge">
-															{t("web.executeSuccess")}
-														</span>
-													)}
-													{s.jiraResults[key] === "error" && (
-														<span style="color: var(--error); font-size: 12px">
-															{t("web.executeFailed")}
-														</span>
-													)}
-												</div>
-											))}
-										</div>
-									)}
+									{s.mrUrl && s.ticketKeys.length > 0 && jiraSection()}
 									{s.mrUrl && s.ticketKeys.length === 0 && (
-										<div class="result-card">
-											<div class="result-text">{t("web.mrNoTickets")}</div>
-										</div>
+										<ResultCard>
+											<ResultText>{t("web.mrNoTickets")}</ResultText>
+										</ResultCard>
 									)}
 								</>
 							)}
@@ -1683,105 +1400,20 @@ const MrClient: FC = () => {
 				<>
 					<div class="remote-hint">{t("web.mrRemoteModeHint")}</div>
 
-					{s.error && <div class="result-card result-error">{s.error}</div>}
+					{s.error && (
+						<ResultCard variant="error">
+							<ResultText variant="error">{s.error}</ResultText>
+						</ResultCard>
+					)}
 
 					{/* ── History exists: show history + new button (modal for creation) ── */}
-					{s.history.length > 0 && !s.modalOpen && (
-						<div class="history-section">
-							<div class="history-header">
-								<h3>{t("web.mrHistoryTitle")}</h3>
-								{s.clearConfirm ? (
-									<div style="display:flex;align-items:center;gap:8px">
-										<span style="font-size:12px;color:var(--text-3)">
-											{t("web.clearConfirm")}
-										</span>
-										<button
-											class="history-clear"
-											type="button"
-											style="border-color:var(--error);color:var(--error)"
-											onClick={clearHistory}
-										>
-											{t("web.clearHistory")}
-										</button>
-										<button
-											class="history-clear"
-											type="button"
-											onClick={() => d({ type: "CLEAR_CONFIRM_TOGGLE" })}
-										>
-											{t("web.cancel")}
-										</button>
-									</div>
-								) : (
-									<button
-										class="history-clear"
-										type="button"
-										onClick={() => d({ type: "CLEAR_CONFIRM_TOGGLE" })}
-									>
-										{t("web.clearHistory")}
-									</button>
-								)}
-							</div>
-							{s.history.map((entry: MrHistoryEntry) => (
-								<div class="history-item">
-									<div class="history-info">
-										<div class="history-title">
-											{entry.title ||
-												`${entry.sourceBranch} → ${entry.targetBranch}`}
-										</div>
-										<div class="history-branches">
-											{entry.sourceBranch} → {entry.targetBranch}
-										</div>
-										<div class="history-sub">
-											{entry.projectName} · {entry.createdAt}
-										</div>
-									</div>
-									<div class="history-actions">
-										<button
-											class="history-exec-btn"
-											type="button"
-											onClick={() => executeHistory(entry)}
-										>
-											{t("web.quickExecute")}
-										</button>
-									</div>
-								</div>
-							))}
-						</div>
-					)}
+					{s.history.length > 0 && !s.modalOpen && historySection()}
 
-					{s.quickExecuting && (
-						<div class="loading-row">
-							<span class="spinner" /> {t("web.mrCreatingMR")}
-						</div>
-					)}
+					{s.quickExecuting && <LoadingRow text={t("web.mrCreatingMR")} />}
 
 					{(s.mrStatus === "success" || s.mrStatus === "existing") &&
-						!s.modalOpen && (
-							<div class="result-card result-success">
-								<div class="result-label">
-									{s.mrStatus === "existing"
-										? t("web.mrExistingNote")
-										: t("web.mrResultUrl")}
-								</div>
-								<div class="mr-url-row">
-									<a
-										class="mr-url-link"
-										href={s.mrUrl}
-										target="_blank"
-										rel="noopener"
-									>
-										{s.mrUrl}
-									</a>
-									<button
-										class={`copy-btn${s.copied ? " copied" : ""}`}
-										type="button"
-										onClick={copyMrUrl}
-									>
-										{s.copied ? t("web.mrCopied") : t("web.mrCopy")}
-									</button>
-								</div>
-							</div>
-						)}
+						!s.modalOpen &&
+						mrSuccessCard()}
 
 					{s.history.length > 0 && !s.modalOpen && !s.quickExecuting && (
 						<button
@@ -1799,435 +1431,132 @@ const MrClient: FC = () => {
 							<Pipeline steps={pipelineSteps} />
 
 							{/* ── Step 0: Project Selection ── */}
-							<div class="sel" style={`z-index:${s.projectOpen ? 100 : 1}`}>
-								<button
-									class={`sel-trigger${s.projectOpen ? " open" : ""}`}
-									type="button"
-									role="combobox"
-									aria-expanded={s.projectOpen}
-									onClick={() => openProject(!s.projectOpen)}
-								>
-									<span class="sel-trigger-label">{t("web.projectLabel")}</span>
-									<span
-										class={`sel-trigger-value${s.projectId ? "" : " empty"}`}
-									>
-										{s.projectId ? s.projectName : t("web.mrSelectProject")}
-									</span>
-									<span class="sel-trigger-arrow">▼</span>
-								</button>
-								{s.projectOpen && (
-									<div class="sel-dropdown" role="listbox">
-										<div class="sel-search">
-											<input
-												ref={projectSearchRef}
-												class="sel-search-input"
-												type="text"
-												placeholder={t("web.mrSearchProject")}
-												value={s.projectSearch}
-												onInput={(e: Event) =>
-													d({
-														type: "SET_PROJECT_SEARCH",
-														search: (e.target as HTMLInputElement).value,
-													})
-												}
-												onKeyDown={(e: KeyboardEvent) => {
-													const n = selKeyDown(
-														e,
-														s.projectOpen,
-														fp.length,
-														s.projectIndex,
-														(i) => {
-															const p = fp[i];
-															if (p) {
-																d({
-																	type: "SELECT_REMOTE_PROJECT",
-																	projectId: p.id,
-																	projectName: p.name,
-																	projectPath: p.pathWithNamespace,
-																});
-																loadRemoteBranches(p.id);
-																loadMembers();
-															}
-														},
-														() => openProject(false),
-													);
-													if (n !== undefined)
-														d({ type: "SET_PROJECT_INDEX", index: n });
-												}}
-											/>
-										</div>
-										{s.projectsLoading ? (
-											<div class="sel-empty">
-												<span class="spinner" /> {t("web.mrLoadingProjects")}
-											</div>
-										) : fp.length > 0 ? (
-											fp.map((p, i) => (
-												<div
-													class={`sel-item${p.id === s.projectId ? " active" : ""}${i === s.projectIndex ? " highlighted" : ""}`}
-													onMouseEnter={() =>
-														d({ type: "SET_PROJECT_INDEX", index: i })
-													}
-													onClick={() => {
-														d({
-															type: "SELECT_REMOTE_PROJECT",
-															projectId: p.id,
-															projectName: p.name,
-															projectPath: p.pathWithNamespace,
-														});
-														loadRemoteBranches(p.id);
-														loadMembers();
-													}}
-												>
-													<div class="sel-item-name">{p.name}</div>
-													<div class="sel-item-sub">{p.pathWithNamespace}</div>
-												</div>
-											))
-										) : (
-											<div class="sel-empty">{t("web.mrNoProjects")}</div>
-										)}
-									</div>
-								)}
-							</div>
+							<Select
+								id="project"
+								label={t("web.projectLabel")}
+								placeholder={t("web.mrSelectProject")}
+								items={projectItems(s.projects)}
+								value={
+									s.projectId
+										? {
+												name: s.projectName,
+												id: s.projectId,
+												pathWithNamespace: s.projectPath,
+											}
+										: null
+								}
+								isEqual={(a, b) => Number(a.id) === Number(b.id)}
+								dropdown={projectDd}
+								onSelect={(item) => {
+									d({
+										type: "SELECT_REMOTE_PROJECT",
+										projectId: item.id,
+										projectName: item.name,
+										projectPath: item.pathWithNamespace ?? "",
+									});
+									loadRemoteBranches(item.id);
+									loadMembers(item.id);
+								}}
+								renderItem={projectRenderItem}
+								searchPlaceholder={t("web.mrSearchProject")}
+								emptyText={
+									s.projectsLoading ? undefined : t("web.mrNoProjects")
+								}
+							/>
 
 							{/* ── Step 1: Branches ── */}
 							{s.projectId > 0 && (
 								<div>
 									{/* Source branch selector */}
-									<div
-										class="sel"
-										style={`z-index:${s.sourceBranchOpen ? 200 : 1}`}
-									>
-										<button
-											class={`sel-trigger${s.sourceBranchOpen ? " open" : ""}`}
-											type="button"
-											role="combobox"
-											aria-expanded={s.sourceBranchOpen}
-											onClick={() => {
-												openSourceBranch(!s.sourceBranchOpen);
-												if (!s.remoteBranches.length) loadRemoteBranches();
-											}}
-										>
-											<span class="sel-trigger-label">
-												{t("web.mrFromBranch")}
-											</span>
-											<span
-												class={`sel-trigger-value${s.sourceBranch ? "" : " empty"}`}
-											>
-												{s.sourceBranch || t("web.mrSelectFrom")}
-											</span>
-											<span class="sel-trigger-arrow">▼</span>
-										</button>
-										{s.sourceBranchOpen && (
-											<div class="sel-dropdown" role="listbox">
-												<div class="sel-search">
-													<input
-														ref={sourceBranchSearchRef}
-														class="sel-search-input"
-														type="text"
-														placeholder={t("web.mrFilterFrom")}
-														value={s.sourceBranchSearch}
-														onInput={(e: Event) =>
-															d({
-																type: "SET_SOURCE_BRANCH_SEARCH",
-																search: (e.target as HTMLInputElement).value,
-															})
-														}
-														onKeyDown={(e: KeyboardEvent) => {
-															const n = selKeyDown(
-																e,
-																s.sourceBranchOpen,
-																fsb.length,
-																s.sourceBranchIndex,
-																(i) => {
-																	const b = fsb[i];
-																	if (b)
-																		d({
-																			type: "SELECT_SOURCE_BRANCH",
-																			branch: b.name,
-																		});
-																},
-																() => openSourceBranch(false),
-															);
-															if (n !== undefined)
-																d({
-																	type: "SET_SOURCE_BRANCH_INDEX",
-																	index: n,
-																});
-														}}
-													/>
-												</div>
-												{s.remoteBranchesLoading ? (
-													<div class="sel-empty">
-														<span class="spinner" /> {t("web.mrLoadingTarget")}
-													</div>
-												) : fsb.length > 0 ? (
-													fsb.map((b, i) => (
-														<div
-															class={`sel-item${b.name === s.sourceBranch ? " active" : ""}${i === s.sourceBranchIndex ? " highlighted" : ""}`}
-															onMouseEnter={() =>
-																d({ type: "SET_SOURCE_BRANCH_INDEX", index: i })
-															}
-															onClick={() =>
-																d({
-																	type: "SELECT_SOURCE_BRANCH",
-																	branch: b.name,
-																})
-															}
-														>
-															<span class="sel-item-name">{b.name}</span>
-															{b.default && (
-																<span class="result-badge">
-																	{t("web.defaultBranch")}
-																</span>
-															)}
-														</div>
-													))
-												) : (
-													<div class="sel-empty">{t("web.mrNoTarget")}</div>
-												)}
-											</div>
-										)}
-									</div>
+									<Select
+										id="source-branch"
+										label={t("web.mrFromBranch")}
+										placeholder={t("web.mrSelectFrom")}
+										items={branchItems(s.remoteBranches)}
+										value={s.sourceBranch ? { name: s.sourceBranch } : null}
+										isEqual={(a, b) => a.name === b.name}
+										dropdown={sourceBranchDd}
+										onSelect={(item) =>
+											d({ type: "SELECT_SOURCE_BRANCH", branch: item.name })
+										}
+										onOpen={() => {
+											if (!s.remoteBranches.length) loadRemoteBranches();
+										}}
+										renderItem={branchRenderItem}
+										searchPlaceholder={t("web.mrFilterFrom")}
+										emptyText={
+											s.remoteBranchesLoading ? undefined : t("web.mrNoTarget")
+										}
+										zIndex={200}
+									/>
 
 									{/* Target branch selector */}
-									<div class="sel" style={`z-index:${s.branchOpen ? 100 : 1}`}>
-										<button
-											class={`sel-trigger${s.branchOpen ? " open" : ""}`}
-											type="button"
-											role="combobox"
-											aria-expanded={s.branchOpen}
-											onClick={() => {
-												openBranch(!s.branchOpen);
-												if (!s.remoteBranches.length) loadRemoteBranches();
-											}}
-										>
-											<span class="sel-trigger-label">
-												{t("web.mrIntoBranch")}
-											</span>
-											<span
-												class={`sel-trigger-value${s.targetBranch ? "" : " empty"}`}
-											>
-												{s.targetBranch || t("web.mrSelectInto")}
-											</span>
-											<span class="sel-trigger-arrow">▼</span>
-										</button>
-										{s.branchOpen && (
-											<div class="sel-dropdown" role="listbox">
-												<div class="sel-search">
-													<input
-														ref={branchSearchRef}
-														class="sel-search-input"
-														type="text"
-														placeholder={t("web.mrFilterInto")}
-														value={s.branchSearch}
-														onInput={(e: Event) =>
-															d({
-																type: "SET_BRANCH_SEARCH",
-																search: (e.target as HTMLInputElement).value,
-															})
-														}
-														onKeyDown={(e: KeyboardEvent) => {
-															const n = selKeyDown(
-																e,
-																s.branchOpen,
-																fb.length,
-																s.branchIndex,
-																(i) => {
-																	const b = fb[i];
-																	if (b)
-																		d({
-																			type: "SELECT_TARGET_BRANCH",
-																			branch: b.name,
-																		});
-																},
-																() => openBranch(false),
-															);
-															if (n !== undefined)
-																d({ type: "SET_BRANCH_INDEX", index: n });
-														}}
-													/>
-												</div>
-												{s.remoteBranchesLoading ? (
-													<div class="sel-empty">
-														<span class="spinner" /> {t("web.mrLoadingTarget")}
-													</div>
-												) : fb.length > 0 ? (
-													fb.map((b, i) => (
-														<div
-															class={`sel-item${b.name === s.targetBranch ? " active" : ""}${i === s.branchIndex ? " highlighted" : ""}`}
-															onMouseEnter={() =>
-																d({ type: "SET_BRANCH_INDEX", index: i })
-															}
-															onClick={() =>
-																d({
-																	type: "SELECT_TARGET_BRANCH",
-																	branch: b.name,
-																})
-															}
-														>
-															<span class="sel-item-name">{b.name}</span>
-															{b.default && (
-																<span class="result-badge">
-																	{t("web.defaultBranch")}
-																</span>
-															)}
-														</div>
-													))
-												) : (
-													<div class="sel-empty">{t("web.mrNoTarget")}</div>
-												)}
-											</div>
-										)}
-									</div>
+									<Select
+										id="branch"
+										label={t("web.mrIntoBranch")}
+										placeholder={t("web.mrSelectInto")}
+										items={branchItems(s.remoteBranches)}
+										value={s.targetBranch ? { name: s.targetBranch } : null}
+										isEqual={(a, b) => a.name === b.name}
+										dropdown={branchDd}
+										onSelect={(item) =>
+											d({ type: "SELECT_TARGET_BRANCH", branch: item.name })
+										}
+										onOpen={() => {
+											if (!s.remoteBranches.length) loadRemoteBranches();
+										}}
+										renderItem={branchRenderItem}
+										searchPlaceholder={t("web.mrFilterInto")}
+										emptyText={
+											s.remoteBranchesLoading ? undefined : t("web.mrNoTarget")
+										}
+									/>
 								</div>
 							)}
 
 							{/* ── Step 2: Title & Description ── */}
 							{s.sourceBranch && s.targetBranch && (
 								<div>
-									<div class="input-label">{t("web.mrTitleLabel")}</div>
-									<input
-										class="title-input"
-										type="text"
-										placeholder={t("web.mrEnterTitle")}
-										value={s.mrTitle}
-										onInput={(e: Event) =>
-											d({
-												type: "SET_MR_TITLE",
-												title: (e.target as HTMLInputElement).value,
-											})
-										}
-									/>
-									<div class="input-label">{t("web.mrDescriptionLabel")}</div>
-									<textarea
-										class="desc-input"
-										placeholder={t("web.mrEnterDescription")}
-										value={s.mrDescription}
-										rows={4}
-										onInput={(e: Event) =>
-											d({
-												type: "SET_MR_DESC",
-												description: (e.target as HTMLInputElement).value,
-											})
-										}
-									/>
+									{titleDescInputs()}
 
 									{/* Reviewer selector */}
-									<div class="sel" style={`z-index:${s.memberOpen ? 100 : 1}`}>
-										<button
-											class={`sel-trigger${s.memberOpen ? " open" : ""}`}
-											type="button"
-											role="combobox"
-											aria-expanded={s.memberOpen}
-											onClick={() => {
-												openMember(!s.memberOpen);
-												if (!s.members.length && s.projectId) loadMembers();
-											}}
-										>
-											<span class="sel-trigger-label">
-												{t("web.mrReviewerLabel")}
-											</span>
-											<span
-												class={`sel-trigger-value${s.reviewerId ? "" : " empty"}`}
-											>
-												{s.reviewerId
-													? s.reviewerName
-													: t("web.mrSkipReviewer")}
-											</span>
-											<span class="sel-trigger-arrow">▼</span>
-										</button>
-										{s.memberOpen && (
-											<div class="sel-dropdown" role="listbox">
-												<div class="sel-search">
-													<input
-														ref={memberSearchRef}
-														class="sel-search-input"
-														type="text"
-														placeholder={t("web.mrFilterReviewer")}
-														value={s.memberSearch}
-														onInput={(e: Event) =>
-															d({
-																type: "SET_MEMBER_SEARCH",
-																search: (e.target as HTMLInputElement).value,
-															})
-														}
-														onKeyDown={(e: KeyboardEvent) => {
-															const n = selKeyDown(
-																e,
-																s.memberOpen,
-																fm.length,
-																s.memberIndex,
-																(i) => {
-																	const m = fm[i];
-																	if (m)
-																		d({
-																			type: "SELECT_REVIEWER",
-																			id: m.id,
-																			name: `${m.name} (@${m.username})`,
-																		});
-																},
-																() => openMember(false),
-															);
-															if (n !== undefined)
-																d({ type: "SET_MEMBER_INDEX", index: n });
-														}}
-													/>
-												</div>
-												<div
-													class={`sel-item${!s.reviewerId ? " active" : ""}`}
-													onClick={() =>
-														d({ type: "SELECT_REVIEWER", id: 0, name: "" })
+									<Select
+										id="member"
+										label={t("web.mrReviewerLabel")}
+										placeholder={t("web.mrSkipReviewer")}
+										items={reviewerItems(s.members, t("web.mrSkipReviewer"))}
+										value={
+											s.reviewerId
+												? {
+														name: s.reviewerName,
+														id: s.reviewerId,
+														username: "",
 													}
-												>
-													<span class="sel-item-name">
-														{t("web.mrSkipReviewer")}
-													</span>
-												</div>
-												{s.membersLoading ? (
-													<div class="sel-empty">
-														<span class="spinner" />{" "}
-														{t("web.mrLoadingReviewer")}
-													</div>
-												) : fm.length > 0 ? (
-													fm.map((m, i) => (
-														<div
-															class={`sel-item${m.id === s.reviewerId ? " active" : ""}${i === s.memberIndex ? " highlighted" : ""}`}
-															onMouseEnter={() =>
-																d({ type: "SET_MEMBER_INDEX", index: i })
-															}
-															onClick={() =>
-																d({
-																	type: "SELECT_REVIEWER",
-																	id: m.id,
-																	name: `${m.name} (@${m.username})`,
-																})
-															}
-														>
-															<div class="sel-item-name">{m.name}</div>
-															<div class="sel-item-sub">@{m.username}</div>
-														</div>
-													))
-												) : (
-													<div class="sel-empty">{t("web.mrNoReviewer")}</div>
-												)}
-											</div>
-										)}
-									</div>
+												: { name: t("web.mrSkipReviewer"), id: 0, username: "" }
+										}
+										isEqual={(a, b) => a.id === b.id}
+										dropdown={memberDd}
+										onSelect={(item) =>
+											d({
+												type: "SELECT_REVIEWER",
+												id: item.id,
+												name: item.id === 0 ? "" : item.name,
+											})
+										}
+										onOpen={() => {
+											if (!s.members.length && s.projectId) loadMembers();
+										}}
+										renderItem={memberRenderItem}
+										renderValue={(item) =>
+											item.id === 0 ? t("web.mrSkipReviewer") : item.name
+										}
+										searchPlaceholder={t("web.mrFilterReviewer")}
+										emptyText={
+											s.membersLoading ? undefined : t("web.mrNoReviewer")
+										}
+									/>
 
-									{/* Draft toggle */}
-									<div
-										class="draft-toggle"
-										onClick={() => d({ type: "SET_DRAFT", draft: !s.draft })}
-									>
-										<div
-											class={`draft-toggle-check${s.draft ? " active" : ""}`}
-										>
-											{s.draft && "✓"}
-										</div>
-										<span class="draft-toggle-label">
-											{t("web.mrDraftToggle")}
-										</span>
-									</div>
+									{draftToggle()}
 								</div>
 							)}
 
@@ -2245,1010 +1574,342 @@ const MrClient: FC = () => {
 								</div>
 							)}
 							{s.mrStatus === "running" && (
-								<div class="loading-row">
-									<span class="spinner" /> {t("web.mrCreatingMR")}
-								</div>
+								<LoadingRow text={t("web.mrCreatingMR")} />
 							)}
-							{(s.mrStatus === "success" || s.mrStatus === "existing") && (
-								<div class="result-card result-success">
-									<div class="result-label">
-										{s.mrStatus === "existing"
-											? t("web.mrExistingNote")
-											: t("web.mrResultUrl")}
-									</div>
-									<div class="mr-url-row">
-										<a
-											class="mr-url-link"
-											href={s.mrUrl}
-											target="_blank"
-											rel="noopener"
-										>
-											{s.mrUrl}
-										</a>
-										<button
-											class={`copy-btn${s.copied ? " copied" : ""}`}
-											type="button"
-											onClick={copyMrUrl}
-										>
-											{s.copied ? t("web.mrCopied") : t("web.mrCopy")}
-										</button>
-									</div>
-								</div>
-							)}
+							{(s.mrStatus === "success" || s.mrStatus === "existing") &&
+								mrSuccessCard()}
 							{s.mrStatus === "error" && (
-								<div class="result-card result-error">
-									<div class="result-text error">{s.mrError}</div>
-								</div>
+								<ResultCard variant="error">
+									<ResultText variant="error">{s.mrError}</ResultText>
+								</ResultCard>
 							)}
 
 							{/* ── Step 4: Jira ── */}
-							{s.mrUrl && s.ticketKeys.length > 0 && (
-								<div>
-									{s.ticketKeys.map((key) => (
-										<div class="result-card">
-											<div class="result-label">
-												{t("web.mrStepJira")}: {key}
-											</div>
-											<button
-												class="action-btn secondary"
-												type="button"
-												onClick={() =>
-													addJiraComment(
-														key,
-														t("web.mrJiraCommentTemplate", {
-															key,
-															mrUrl: s.mrUrl,
-														}),
-													)
-												}
-											>
-												{t("web.mrJiraCommentBtn")}
-											</button>
-											<button
-												class="action-btn secondary"
-												type="button"
-												onClick={() => loadJiraTransitions(key)}
-											>
-												{t("web.mrJiraTransitionBtn")}
-											</button>
-											{s.jiraTransitions[key] && (
-												<div style="margin-top: 8px;">
-													{s.jiraTransitions[key].map((tr) => (
-														<button
-															class="action-btn secondary"
-															type="button"
-															onClick={() => transitionJira(key, tr.id)}
-															style="margin-bottom: 4px"
-														>
-															{tr.name}
-														</button>
-													))}
-												</div>
-											)}
-											{s.jiraResults[key] === "success" && (
-												<span class="result-badge">
-													{t("web.executeSuccess")}
-												</span>
-											)}
-											{s.jiraResults[key] === "error" && (
-												<span style="color: var(--error); font-size: 12px">
-													{t("web.executeFailed")}
-												</span>
-											)}
-										</div>
-									))}
-								</div>
-							)}
+							{s.mrUrl && s.ticketKeys.length > 0 && jiraSection()}
 						</>
 					)}
 				</>
 			)}
 
 			{/* ── Modal: New MR creation ── */}
-			{s.modalOpen && (
-				<div
-					class="modal-overlay"
-					onClick={(e: Event) => {
-						if ((e.target as HTMLElement).classList.contains("modal-overlay"))
-							d({ type: "TOGGLE_MODAL", open: false });
-					}}
-				>
-					<div class="modal-box">
-						<div class="modal-header">
-							<h3>{t("web.mrNewModalTitle")}</h3>
-							<button
-								class="modal-close"
-								type="button"
-								onClick={() => d({ type: "TOGGLE_MODAL", open: false })}
-							>
-								×
-							</button>
-						</div>
+			<Modal
+				open={s.modalOpen}
+				onClose={() => d({ type: "TOGGLE_MODAL", open: false })}
+				title={t("web.mrNewModalTitle")}
+				variant="wide"
+			>
+				{/* ── Modal create flow for local mode ── */}
+				{s.mode === "local" && s.currentBranch && (
+					<>
+						<Pipeline steps={pipelineSteps} />
 
-						{/* ── Modal create flow for local mode ── */}
-						{s.mode === "local" && s.currentBranch && (
-							<>
-								<Pipeline steps={pipelineSteps} />
+						<ResultCard>
+							<div class="result-label">{t("web.mrFromBranch")}</div>
+							<ResultText variant="success">{s.currentBranch}</ResultText>
+							{s.detectedSource && (
+								<span class="result-badge">
+									{t("web.mrDetectSource")}: {s.detectedSource}
+								</span>
+							)}
+						</ResultCard>
 
-								<div>
-									<div class="result-card">
-										<div class="result-label">{t("web.mrFromBranch")}</div>
-										<div class="result-text success">{s.currentBranch}</div>
-										{s.detectedSource && (
-											<span class="result-badge">
-												{t("web.mrDetectSource")}: {s.detectedSource}
-											</span>
-										)}
-									</div>
+						{/* Target branch selector */}
+						<Select
+							id="branch"
+							label={t("web.mrIntoBranch")}
+							placeholder={t("web.mrSelectInto")}
+							items={branchItems(s.remoteBranches)}
+							value={s.targetBranch ? { name: s.targetBranch } : null}
+							isEqual={(a, b) => a.name === b.name}
+							dropdown={branchDd}
+							onSelect={(item) =>
+								d({ type: "SELECT_TARGET_BRANCH", branch: item.name })
+							}
+							onOpen={() => {
+								if (!s.remoteBranches.length && s.projectId)
+									loadRemoteBranches();
+							}}
+							renderItem={branchRenderItem}
+							searchPlaceholder={t("web.mrFilterInto")}
+							emptyText={
+								s.remoteBranchesLoading ? undefined : t("web.mrNoTarget")
+							}
+						/>
 
-									{/* Target branch selector */}
-									<div class="sel" style={`z-index:${s.branchOpen ? 100 : 1}`}>
-										<button
-											class={`sel-trigger${s.branchOpen ? " open" : ""}`}
-											type="button"
-											role="combobox"
-											aria-expanded={s.branchOpen}
-											onClick={() => {
-												openBranch(!s.branchOpen);
-												if (!s.remoteBranches.length && s.projectId)
-													loadRemoteBranches();
-											}}
-										>
-											<span class="sel-trigger-label">
-												{t("web.mrIntoBranch")}
-											</span>
-											<span
-												class={`sel-trigger-value${s.targetBranch ? "" : " empty"}`}
-											>
-												{s.targetBranch || t("web.mrSelectInto")}
-											</span>
-											<span class="sel-trigger-arrow">▼</span>
-										</button>
-										{s.branchOpen && (
-											<div class="sel-dropdown" role="listbox">
-												<div class="sel-search">
-													<input
-														ref={branchSearchRef}
-														class="sel-search-input"
-														type="text"
-														placeholder={t("web.mrFilterInto")}
-														value={s.branchSearch}
-														onInput={(e: Event) =>
-															d({
-																type: "SET_BRANCH_SEARCH",
-																search: (e.target as HTMLInputElement).value,
-															})
-														}
-														onKeyDown={(e: KeyboardEvent) => {
-															const n = selKeyDown(
-																e,
-																s.branchOpen,
-																fb.length,
-																s.branchIndex,
-																(i) => {
-																	const b = fb[i];
-																	if (b)
-																		d({
-																			type: "SELECT_TARGET_BRANCH",
-																			branch: b.name,
-																		});
-																},
-																() => openBranch(false),
-															);
-															if (n !== undefined)
-																d({ type: "SET_BRANCH_INDEX", index: n });
-														}}
-													/>
-												</div>
-												{s.remoteBranchesLoading ? (
-													<div class="sel-empty">
-														<span class="spinner" /> {t("web.mrLoadingTarget")}
-													</div>
-												) : fb.length > 0 ? (
-													fb.map((b, i) => (
-														<div
-															class={`sel-item${b.name === s.targetBranch ? " active" : ""}${i === s.branchIndex ? " highlighted" : ""}`}
-															onMouseEnter={() =>
-																d({ type: "SET_BRANCH_INDEX", index: i })
-															}
-															onClick={() =>
-																d({
-																	type: "SELECT_TARGET_BRANCH",
-																	branch: b.name,
-																})
-															}
-														>
-															<span class="sel-item-name">{b.name}</span>
-															{b.default && (
-																<span class="result-badge">
-																	{t("web.defaultBranch")}
-																</span>
-															)}
-														</div>
-													))
-												) : (
-													<div class="sel-empty">{t("web.mrNoTarget")}</div>
-												)}
-											</div>
-										)}
-									</div>
-								</div>
+						{s.targetBranch && (
+							<div>
+								{titleDescInputs()}
 
-								{s.targetBranch && (
-									<div>
-										<div class="input-label">{t("web.mrTitleLabel")}</div>
-										<input
-											class="title-input"
-											type="text"
-											placeholder={t("web.mrEnterTitle")}
-											value={s.mrTitle}
-											onInput={(e: Event) =>
-												d({
-													type: "SET_MR_TITLE",
-													title: (e.target as HTMLInputElement).value,
-												})
-											}
-										/>
-										<div class="input-label">{t("web.mrDescriptionLabel")}</div>
-										<textarea
-											class="desc-input"
-											placeholder={t("web.mrEnterDescription")}
-											value={s.mrDescription}
-											rows={4}
-											onInput={(e: Event) =>
-												d({
-													type: "SET_MR_DESC",
-													description: (e.target as HTMLInputElement).value,
-												})
-											}
-										/>
+								{/* Reviewer selector */}
+								<Select
+									id="member"
+									label={t("web.mrReviewerLabel")}
+									placeholder={t("web.mrSkipReviewer")}
+									items={reviewerItems(s.members, t("web.mrSkipReviewer"))}
+									value={
+										s.reviewerId
+											? { name: s.reviewerName, id: s.reviewerId, username: "" }
+											: { name: t("web.mrSkipReviewer"), id: 0, username: "" }
+									}
+									isEqual={(a, b) => a.id === b.id}
+									dropdown={memberDd}
+									onSelect={(item) =>
+										d({
+											type: "SELECT_REVIEWER",
+											id: item.id,
+											name: item.id === 0 ? "" : item.name,
+										})
+									}
+									onOpen={() => {
+										if (!s.members.length && s.projectId) loadMembers();
+									}}
+									renderItem={memberRenderItem}
+									renderValue={(item) =>
+										item.id === 0 ? t("web.mrSkipReviewer") : item.name
+									}
+									searchPlaceholder={t("web.mrFilterReviewer")}
+									emptyText={
+										s.membersLoading ? undefined : t("web.mrNoReviewer")
+									}
+								/>
 
-										{/* Reviewer selector */}
-										<div
-											class="sel"
-											style={`z-index:${s.memberOpen ? 100 : 1}`}
-										>
-											<button
-												class={`sel-trigger${s.memberOpen ? " open" : ""}`}
-												type="button"
-												role="combobox"
-												aria-expanded={s.memberOpen}
-												onClick={() => {
-													openMember(!s.memberOpen);
-													if (!s.members.length && s.projectId) loadMembers();
-												}}
-											>
-												<span class="sel-trigger-label">
-													{t("web.mrReviewerLabel")}
-												</span>
-												<span
-													class={`sel-trigger-value${s.reviewerId ? "" : " empty"}`}
-												>
-													{s.reviewerId
-														? s.reviewerName
-														: t("web.mrSkipReviewer")}
-												</span>
-												<span class="sel-trigger-arrow">▼</span>
-											</button>
-											{s.memberOpen && (
-												<div class="sel-dropdown" role="listbox">
-													<div class="sel-search">
-														<input
-															ref={memberSearchRef}
-															class="sel-search-input"
-															type="text"
-															placeholder={t("web.mrFilterReviewer")}
-															value={s.memberSearch}
-															onInput={(e: Event) =>
-																d({
-																	type: "SET_MEMBER_SEARCH",
-																	search: (e.target as HTMLInputElement).value,
-																})
-															}
-															onKeyDown={(e: KeyboardEvent) => {
-																const n = selKeyDown(
-																	e,
-																	s.memberOpen,
-																	fm.length,
-																	s.memberIndex,
-																	(i) => {
-																		const m = fm[i];
-																		if (m)
-																			d({
-																				type: "SELECT_REVIEWER",
-																				id: m.id,
-																				name: `${m.name} (@${m.username})`,
-																			});
-																	},
-																	() => openMember(false),
-																);
-																if (n !== undefined)
-																	d({ type: "SET_MEMBER_INDEX", index: n });
-															}}
-														/>
-													</div>
-													<div
-														class={`sel-item${!s.reviewerId ? " active" : ""}`}
-														onClick={() =>
-															d({ type: "SELECT_REVIEWER", id: 0, name: "" })
-														}
-													>
-														<span class="sel-item-name">
-															{t("web.mrSkipReviewer")}
-														</span>
-													</div>
-													{s.membersLoading ? (
-														<div class="sel-empty">
-															<span class="spinner" />{" "}
-															{t("web.mrLoadingReviewer")}
-														</div>
-													) : fm.length > 0 ? (
-														fm.map((m, i) => (
-															<div
-																class={`sel-item${m.id === s.reviewerId ? " active" : ""}${i === s.memberIndex ? " highlighted" : ""}`}
-																onMouseEnter={() =>
-																	d({ type: "SET_MEMBER_INDEX", index: i })
-																}
-																onClick={() =>
-																	d({
-																		type: "SELECT_REVIEWER",
-																		id: m.id,
-																		name: `${m.name} (@${m.username})`,
-																	})
-																}
-															>
-																<div class="sel-item-name">{m.name}</div>
-																<div class="sel-item-sub">@{m.username}</div>
-															</div>
-														))
-													) : (
-														<div class="sel-empty">{t("web.mrNoReviewer")}</div>
-													)}
-												</div>
-											)}
-										</div>
-
-										{/* Draft toggle */}
-										<div
-											class="draft-toggle"
-											onClick={() => d({ type: "SET_DRAFT", draft: !s.draft })}
-										>
-											<div
-												class={`draft-toggle-check${s.draft ? " active" : ""}`}
-											>
-												{s.draft && "✓"}
-											</div>
-											<span class="draft-toggle-label">
-												{t("web.mrDraftToggle")}
-											</span>
-										</div>
-									</div>
-								)}
-
-								{/* Push */}
-								{s.targetBranch && (
-									<div>
-										{s.pushStatus === "idle" && (
-											<button
-												class="action-btn"
-												type="button"
-												onClick={pushBranch}
-											>
-												{t("web.mrPushBtn")}
-											</button>
-										)}
-										{s.pushStatus === "running" && (
-											<div class="loading-row">
-												<span class="spinner" /> {t("web.mrPushing")}
-											</div>
-										)}
-										{s.pushStatus === "success" && (
-											<div class="result-card result-success">
-												<div class="result-label">{t("web.mrPushBtn")}</div>
-												<div class="result-text success">
-													{t("web.mrPushSuccess")}
-												</div>
-											</div>
-										)}
-										{s.pushStatus === "error" && (
-											<div class="result-card result-error">
-												<div class="result-text error">
-													{t("web.mrPushFailed")}
-												</div>
-											</div>
-										)}
-										{s.pushStatus !== "success" &&
-											s.pushStatus !== "running" && (
-												<button
-													class="action-btn secondary"
-													type="button"
-													onClick={() => d({ type: "SET_STEP", step: 3 })}
-												>
-													{t("web.mrSkipPush")}
-												</button>
-											)}
-									</div>
-								)}
-
-								{/* Create MR */}
-								{s.mrStatus === "idle" && (
-									<div>
-										<button
-											class="action-btn"
-											type="button"
-											onClick={createMR}
-											disabled={!s.targetBranch || !s.mrTitle}
-										>
-											{s.draft
-												? t("web.mrCreateDraftBtn")
-												: t("web.mrCreateBtn")}
-										</button>
-									</div>
-								)}
-								{s.mrStatus === "running" && (
-									<div class="loading-row">
-										<span class="spinner" /> {t("web.mrCreatingMR")}
-									</div>
-								)}
-								{(s.mrStatus === "success" || s.mrStatus === "existing") && (
-									<div class="result-card result-success">
-										<div class="result-label">
-											{s.mrStatus === "existing"
-												? t("web.mrExistingNote")
-												: t("web.mrResultUrl")}
-										</div>
-										<div class="mr-url-row">
-											<a
-												class="mr-url-link"
-												href={s.mrUrl}
-												target="_blank"
-												rel="noopener"
-											>
-												{s.mrUrl}
-											</a>
-											<button
-												class={`copy-btn${s.copied ? " copied" : ""}`}
-												type="button"
-												onClick={copyMrUrl}
-											>
-												{s.copied ? t("web.mrCopied") : t("web.mrCopy")}
-											</button>
-										</div>
-									</div>
-								)}
-								{s.mrStatus === "error" && (
-									<div class="result-card result-error">
-										<div class="result-text error">{s.mrError}</div>
-									</div>
-								)}
-							</>
+								{draftToggle()}
+							</div>
 						)}
 
-						{/* ── Modal create flow for remote mode ── */}
-						{s.mode === "remote" && (
-							<>
-								<Pipeline steps={pipelineSteps} />
-
-								{/* Project selector */}
-								<div class="sel" style={`z-index:${s.projectOpen ? 100 : 1}`}>
-									<button
-										class={`sel-trigger${s.projectOpen ? " open" : ""}`}
-										type="button"
-										role="combobox"
-										aria-expanded={s.projectOpen}
-										onClick={() => openProject(!s.projectOpen)}
-									>
-										<span class="sel-trigger-label">
-											{t("web.projectLabel")}
-										</span>
-										<span
-											class={`sel-trigger-value${s.projectId ? "" : " empty"}`}
-										>
-											{s.projectId ? s.projectName : t("web.mrSelectProject")}
-										</span>
-										<span class="sel-trigger-arrow">▼</span>
+						{/* Push */}
+						{s.targetBranch && (
+							<div>
+								{s.pushStatus === "idle" && (
+									<button class="action-btn" type="button" onClick={pushBranch}>
+										{t("web.mrPushBtn")}
 									</button>
-									{s.projectOpen && (
-										<div class="sel-dropdown" role="listbox">
-											<div class="sel-search">
-												<input
-													ref={projectSearchRef}
-													class="sel-search-input"
-													type="text"
-													placeholder={t("web.mrSearchProject")}
-													value={s.projectSearch}
-													onInput={(e: Event) =>
-														d({
-															type: "SET_PROJECT_SEARCH",
-															search: (e.target as HTMLInputElement).value,
-														})
-													}
-													onKeyDown={(e: KeyboardEvent) => {
-														const n = selKeyDown(
-															e,
-															s.projectOpen,
-															fp.length,
-															s.projectIndex,
-															(i) => {
-																const p = fp[i];
-																if (p) {
-																	d({
-																		type: "SELECT_REMOTE_PROJECT",
-																		projectId: p.id,
-																		projectName: p.name,
-																		projectPath: p.pathWithNamespace,
-																	});
-																	loadRemoteBranches(p.id);
-																	loadMembers();
-																}
-															},
-															() => openProject(false),
-														);
-														if (n !== undefined)
-															d({ type: "SET_PROJECT_INDEX", index: n });
-													}}
-												/>
-											</div>
-											{s.projectsLoading ? (
-												<div class="sel-empty">
-													<span class="spinner" /> {t("web.mrLoadingProjects")}
-												</div>
-											) : fp.length > 0 ? (
-												fp.map((p, i) => (
-													<div
-														class={`sel-item${p.id === s.projectId ? " active" : ""}${i === s.projectIndex ? " highlighted" : ""}`}
-														onMouseEnter={() =>
-															d({ type: "SET_PROJECT_INDEX", index: i })
-														}
-														onClick={() => {
-															d({
-																type: "SELECT_REMOTE_PROJECT",
-																projectId: p.id,
-																projectName: p.name,
-																projectPath: p.pathWithNamespace,
-															});
-															loadRemoteBranches(p.id);
-															loadMembers();
-														}}
-													>
-														<div class="sel-item-name">{p.name}</div>
-														<div class="sel-item-sub">
-															{p.pathWithNamespace}
-														</div>
-													</div>
-												))
-											) : (
-												<div class="sel-empty">{t("web.mrNoProjects")}</div>
-											)}
-										</div>
-									)}
-								</div>
-
-								{/* Branches */}
-								{s.projectId > 0 && (
-									<div>
-										{/* Source branch */}
-										<div
-											class="sel"
-											style={`z-index:${s.sourceBranchOpen ? 200 : 1}`}
-										>
-											<button
-												class={`sel-trigger${s.sourceBranchOpen ? " open" : ""}`}
-												type="button"
-												role="combobox"
-												aria-expanded={s.sourceBranchOpen}
-												onClick={() => {
-													openSourceBranch(!s.sourceBranchOpen);
-													if (!s.remoteBranches.length) loadRemoteBranches();
-												}}
-											>
-												<span class="sel-trigger-label">
-													{t("web.mrFromBranch")}
-												</span>
-												<span
-													class={`sel-trigger-value${s.sourceBranch ? "" : " empty"}`}
-												>
-													{s.sourceBranch || t("web.mrSelectFrom")}
-												</span>
-												<span class="sel-trigger-arrow">▼</span>
-											</button>
-											{s.sourceBranchOpen && (
-												<div class="sel-dropdown" role="listbox">
-													<div class="sel-search">
-														<input
-															ref={sourceBranchSearchRef}
-															class="sel-search-input"
-															type="text"
-															placeholder={t("web.mrFilterFrom")}
-															value={s.sourceBranchSearch}
-															onInput={(e: Event) =>
-																d({
-																	type: "SET_SOURCE_BRANCH_SEARCH",
-																	search: (e.target as HTMLInputElement).value,
-																})
-															}
-															onKeyDown={(e: KeyboardEvent) => {
-																const n = selKeyDown(
-																	e,
-																	s.sourceBranchOpen,
-																	fsb.length,
-																	s.sourceBranchIndex,
-																	(i) => {
-																		const b = fsb[i];
-																		if (b)
-																			d({
-																				type: "SELECT_SOURCE_BRANCH",
-																				branch: b.name,
-																			});
-																	},
-																	() => openSourceBranch(false),
-																);
-																if (n !== undefined)
-																	d({
-																		type: "SET_SOURCE_BRANCH_INDEX",
-																		index: n,
-																	});
-															}}
-														/>
-													</div>
-													{s.remoteBranchesLoading ? (
-														<div class="sel-empty">
-															<span class="spinner" />{" "}
-															{t("web.mrLoadingTarget")}
-														</div>
-													) : fsb.length > 0 ? (
-														fsb.map((b, i) => (
-															<div
-																class={`sel-item${b.name === s.sourceBranch ? " active" : ""}${i === s.sourceBranchIndex ? " highlighted" : ""}`}
-																onMouseEnter={() =>
-																	d({
-																		type: "SET_SOURCE_BRANCH_INDEX",
-																		index: i,
-																	})
-																}
-																onClick={() =>
-																	d({
-																		type: "SELECT_SOURCE_BRANCH",
-																		branch: b.name,
-																	})
-																}
-															>
-																<span class="sel-item-name">{b.name}</span>
-																{b.default && (
-																	<span class="result-badge">
-																		{t("web.defaultBranch")}
-																	</span>
-																)}
-															</div>
-														))
-													) : (
-														<div class="sel-empty">{t("web.mrNoTarget")}</div>
-													)}
-												</div>
-											)}
-										</div>
-
-										{/* Target branch */}
-										<div
-											class="sel"
-											style={`z-index:${s.branchOpen ? 100 : 1}`}
-										>
-											<button
-												class={`sel-trigger${s.branchOpen ? " open" : ""}`}
-												type="button"
-												role="combobox"
-												aria-expanded={s.branchOpen}
-												onClick={() => {
-													openBranch(!s.branchOpen);
-													if (!s.remoteBranches.length) loadRemoteBranches();
-												}}
-											>
-												<span class="sel-trigger-label">
-													{t("web.mrIntoBranch")}
-												</span>
-												<span
-													class={`sel-trigger-value${s.targetBranch ? "" : " empty"}`}
-												>
-													{s.targetBranch || t("web.mrSelectInto")}
-												</span>
-												<span class="sel-trigger-arrow">▼</span>
-											</button>
-											{s.branchOpen && (
-												<div class="sel-dropdown" role="listbox">
-													<div class="sel-search">
-														<input
-															ref={branchSearchRef}
-															class="sel-search-input"
-															type="text"
-															placeholder={t("web.mrFilterInto")}
-															value={s.branchSearch}
-															onInput={(e: Event) =>
-																d({
-																	type: "SET_BRANCH_SEARCH",
-																	search: (e.target as HTMLInputElement).value,
-																})
-															}
-															onKeyDown={(e: KeyboardEvent) => {
-																const n = selKeyDown(
-																	e,
-																	s.branchOpen,
-																	fb.length,
-																	s.branchIndex,
-																	(i) => {
-																		const b = fb[i];
-																		if (b)
-																			d({
-																				type: "SELECT_TARGET_BRANCH",
-																				branch: b.name,
-																			});
-																	},
-																	() => openBranch(false),
-																);
-																if (n !== undefined)
-																	d({ type: "SET_BRANCH_INDEX", index: n });
-															}}
-														/>
-													</div>
-													{s.remoteBranchesLoading ? (
-														<div class="sel-empty">
-															<span class="spinner" />{" "}
-															{t("web.mrLoadingTarget")}
-														</div>
-													) : fb.length > 0 ? (
-														fb.map((b, i) => (
-															<div
-																class={`sel-item${b.name === s.targetBranch ? " active" : ""}${i === s.branchIndex ? " highlighted" : ""}`}
-																onMouseEnter={() =>
-																	d({ type: "SET_BRANCH_INDEX", index: i })
-																}
-																onClick={() =>
-																	d({
-																		type: "SELECT_TARGET_BRANCH",
-																		branch: b.name,
-																	})
-																}
-															>
-																<span class="sel-item-name">{b.name}</span>
-																{b.default && (
-																	<span class="result-badge">
-																		{t("web.defaultBranch")}
-																	</span>
-																)}
-															</div>
-														))
-													) : (
-														<div class="sel-empty">{t("web.mrNoTarget")}</div>
-													)}
-												</div>
-											)}
-										</div>
-									</div>
 								)}
-
-								{/* Title & Description */}
-								{s.sourceBranch && s.targetBranch && (
-									<div>
-										<div class="input-label">{t("web.mrTitleLabel")}</div>
-										<input
-											class="title-input"
-											type="text"
-											placeholder={t("web.mrEnterTitle")}
-											value={s.mrTitle}
-											onInput={(e: Event) =>
-												d({
-													type: "SET_MR_TITLE",
-													title: (e.target as HTMLInputElement).value,
-												})
-											}
-										/>
-										<div class="input-label">{t("web.mrDescriptionLabel")}</div>
-										<textarea
-											class="desc-input"
-											placeholder={t("web.mrEnterDescription")}
-											value={s.mrDescription}
-											rows={4}
-											onInput={(e: Event) =>
-												d({
-													type: "SET_MR_DESC",
-													description: (e.target as HTMLInputElement).value,
-												})
-											}
-										/>
-
-										{/* Reviewer */}
-										<div
-											class="sel"
-											style={`z-index:${s.memberOpen ? 100 : 1}`}
-										>
-											<button
-												class={`sel-trigger${s.memberOpen ? " open" : ""}`}
-												type="button"
-												role="combobox"
-												aria-expanded={s.memberOpen}
-												onClick={() => {
-													openMember(!s.memberOpen);
-													if (!s.members.length && s.projectId) loadMembers();
-												}}
-											>
-												<span class="sel-trigger-label">
-													{t("web.mrReviewerLabel")}
-												</span>
-												<span
-													class={`sel-trigger-value${s.reviewerId ? "" : " empty"}`}
-												>
-													{s.reviewerId
-														? s.reviewerName
-														: t("web.mrSkipReviewer")}
-												</span>
-												<span class="sel-trigger-arrow">▼</span>
-											</button>
-											{s.memberOpen && (
-												<div class="sel-dropdown" role="listbox">
-													<div class="sel-search">
-														<input
-															ref={memberSearchRef}
-															class="sel-search-input"
-															type="text"
-															placeholder={t("web.mrFilterReviewer")}
-															value={s.memberSearch}
-															onInput={(e: Event) =>
-																d({
-																	type: "SET_MEMBER_SEARCH",
-																	search: (e.target as HTMLInputElement).value,
-																})
-															}
-															onKeyDown={(e: KeyboardEvent) => {
-																const n = selKeyDown(
-																	e,
-																	s.memberOpen,
-																	fm.length,
-																	s.memberIndex,
-																	(i) => {
-																		const m = fm[i];
-																		if (m)
-																			d({
-																				type: "SELECT_REVIEWER",
-																				id: m.id,
-																				name: `${m.name} (@${m.username})`,
-																			});
-																	},
-																	() => openMember(false),
-																);
-																if (n !== undefined)
-																	d({ type: "SET_MEMBER_INDEX", index: n });
-															}}
-														/>
-													</div>
-													<div
-														class={`sel-item${!s.reviewerId ? " active" : ""}`}
-														onClick={() =>
-															d({ type: "SELECT_REVIEWER", id: 0, name: "" })
-														}
-													>
-														<span class="sel-item-name">
-															{t("web.mrSkipReviewer")}
-														</span>
-													</div>
-													{s.membersLoading ? (
-														<div class="sel-empty">
-															<span class="spinner" />{" "}
-															{t("web.mrLoadingReviewer")}
-														</div>
-													) : fm.length > 0 ? (
-														fm.map((m, i) => (
-															<div
-																class={`sel-item${m.id === s.reviewerId ? " active" : ""}${i === s.memberIndex ? " highlighted" : ""}`}
-																onMouseEnter={() =>
-																	d({ type: "SET_MEMBER_INDEX", index: i })
-																}
-																onClick={() =>
-																	d({
-																		type: "SELECT_REVIEWER",
-																		id: m.id,
-																		name: `${m.name} (@${m.username})`,
-																	})
-																}
-															>
-																<div class="sel-item-name">{m.name}</div>
-																<div class="sel-item-sub">@{m.username}</div>
-															</div>
-														))
-													) : (
-														<div class="sel-empty">{t("web.mrNoReviewer")}</div>
-													)}
-												</div>
-											)}
-										</div>
-
-										{/* Draft toggle */}
-										<div
-											class="draft-toggle"
-											onClick={() => d({ type: "SET_DRAFT", draft: !s.draft })}
-										>
-											<div
-												class={`draft-toggle-check${s.draft ? " active" : ""}`}
-											>
-												{s.draft && "✓"}
-											</div>
-											<span class="draft-toggle-label">
-												{t("web.mrDraftToggle")}
-											</span>
-										</div>
-									</div>
+								{s.pushStatus === "running" && (
+									<LoadingRow text={t("web.mrPushing")} />
 								)}
-
-								{/* Create MR */}
-								{s.mrStatus === "idle" && (
-									<div>
-										<button
-											class="action-btn"
-											type="button"
-											onClick={createMR}
-											disabled={
-												!s.sourceBranch || !s.targetBranch || !s.mrTitle
-											}
-										>
-											{s.draft
-												? t("web.mrCreateDraftBtn")
-												: t("web.mrCreateBtn")}
-										</button>
-									</div>
+								{s.pushStatus === "success" && (
+									<ResultCard variant="success">
+										<div class="result-label">{t("web.mrPushBtn")}</div>
+										<ResultText variant="success">
+											{t("web.mrPushSuccess")}
+										</ResultText>
+									</ResultCard>
 								)}
-								{s.mrStatus === "running" && (
-									<div class="loading-row">
-										<span class="spinner" /> {t("web.mrCreatingMR")}
-									</div>
+								{s.pushStatus === "error" && (
+									<ResultCard variant="error">
+										<ResultText variant="error">
+											{t("web.mrPushFailed")}
+										</ResultText>
+									</ResultCard>
 								)}
-								{(s.mrStatus === "success" || s.mrStatus === "existing") && (
-									<div class="result-card result-success">
-										<div class="result-label">
-											{s.mrStatus === "existing"
-												? t("web.mrExistingNote")
-												: t("web.mrResultUrl")}
-										</div>
-										<div class="mr-url-row">
-											<a
-												class="mr-url-link"
-												href={s.mrUrl}
-												target="_blank"
-												rel="noopener"
-											>
-												{s.mrUrl}
-											</a>
-											<button
-												class={`copy-btn${s.copied ? " copied" : ""}`}
-												type="button"
-												onClick={copyMrUrl}
-											>
-												{s.copied ? t("web.mrCopied") : t("web.mrCopy")}
-											</button>
-										</div>
-									</div>
+								{s.pushStatus !== "success" && s.pushStatus !== "running" && (
+									<button
+										class="action-btn secondary"
+										type="button"
+										onClick={() => d({ type: "SET_STEP", step: 3 })}
+									>
+										{t("web.mrSkipPush")}
+									</button>
 								)}
-								{s.mrStatus === "error" && (
-									<div class="result-card result-error">
-										<div class="result-text error">{s.mrError}</div>
-									</div>
-								)}
-							</>
+							</div>
 						)}
 
-						{/* ── Close modal on MR success ── */}
-						{(s.mrStatus === "success" || s.mrStatus === "existing") && (
-							<button
-								class="action-btn secondary"
-								type="button"
-								onClick={() => {
-									d({ type: "TOGGLE_MODAL", open: false });
-									loadHistory();
-								}}
-							>
-								{t("web.cancel")}
-							</button>
+						{/* Create MR */}
+						{s.mrStatus === "idle" && (
+							<div>
+								<button
+									class="action-btn"
+									type="button"
+									onClick={createMR}
+									disabled={!s.targetBranch || !s.mrTitle}
+								>
+									{s.draft ? t("web.mrCreateDraftBtn") : t("web.mrCreateBtn")}
+								</button>
+							</div>
 						)}
-					</div>
-				</div>
-			)}
+						{s.mrStatus === "running" && (
+							<LoadingRow text={t("web.mrCreatingMR")} />
+						)}
+						{(s.mrStatus === "success" || s.mrStatus === "existing") &&
+							mrSuccessCard()}
+						{s.mrStatus === "error" && (
+							<ResultCard variant="error">
+								<ResultText variant="error">{s.mrError}</ResultText>
+							</ResultCard>
+						)}
+					</>
+				)}
+
+				{/* ── Modal create flow for remote mode ── */}
+				{s.mode === "remote" && (
+					<>
+						<Pipeline steps={pipelineSteps} />
+
+						{/* Project selector */}
+						<Select
+							id="project"
+							label={t("web.projectLabel")}
+							placeholder={t("web.mrSelectProject")}
+							items={projectItems(s.projects)}
+							value={
+								s.projectId
+									? {
+											name: s.projectName,
+											id: s.projectId,
+											pathWithNamespace: s.projectPath,
+										}
+									: null
+							}
+							isEqual={(a, b) => Number(a.id) === Number(b.id)}
+							dropdown={projectDd}
+							onSelect={(item) => {
+								d({
+									type: "SELECT_REMOTE_PROJECT",
+									projectId: item.id,
+									projectName: item.name,
+									projectPath: item.pathWithNamespace ?? "",
+								});
+								loadRemoteBranches(item.id);
+								loadMembers(item.id);
+							}}
+							renderItem={projectRenderItem}
+							searchPlaceholder={t("web.mrSearchProject")}
+							emptyText={s.projectsLoading ? undefined : t("web.mrNoProjects")}
+						/>
+
+						{/* Branches */}
+						{s.projectId > 0 && (
+							<div>
+								{/* Source branch */}
+								<Select
+									id="source-branch"
+									label={t("web.mrFromBranch")}
+									placeholder={t("web.mrSelectFrom")}
+									items={branchItems(s.remoteBranches)}
+									value={s.sourceBranch ? { name: s.sourceBranch } : null}
+									isEqual={(a, b) => a.name === b.name}
+									dropdown={sourceBranchDd}
+									onSelect={(item) =>
+										d({ type: "SELECT_SOURCE_BRANCH", branch: item.name })
+									}
+									onOpen={() => {
+										if (!s.remoteBranches.length) loadRemoteBranches();
+									}}
+									renderItem={branchRenderItem}
+									searchPlaceholder={t("web.mrFilterFrom")}
+									emptyText={
+										s.remoteBranchesLoading ? undefined : t("web.mrNoTarget")
+									}
+									zIndex={200}
+								/>
+
+								{/* Target branch */}
+								<Select
+									id="branch"
+									label={t("web.mrIntoBranch")}
+									placeholder={t("web.mrSelectInto")}
+									items={branchItems(s.remoteBranches)}
+									value={s.targetBranch ? { name: s.targetBranch } : null}
+									isEqual={(a, b) => a.name === b.name}
+									dropdown={branchDd}
+									onSelect={(item) =>
+										d({ type: "SELECT_TARGET_BRANCH", branch: item.name })
+									}
+									onOpen={() => {
+										if (!s.remoteBranches.length) loadRemoteBranches();
+									}}
+									renderItem={branchRenderItem}
+									searchPlaceholder={t("web.mrFilterInto")}
+									emptyText={
+										s.remoteBranchesLoading ? undefined : t("web.mrNoTarget")
+									}
+								/>
+							</div>
+						)}
+
+						{/* Title & Description */}
+						{s.sourceBranch && s.targetBranch && (
+							<div>
+								{titleDescInputs()}
+
+								{/* Reviewer */}
+								<Select
+									id="member"
+									label={t("web.mrReviewerLabel")}
+									placeholder={t("web.mrSkipReviewer")}
+									items={reviewerItems(s.members, t("web.mrSkipReviewer"))}
+									value={
+										s.reviewerId
+											? { name: s.reviewerName, id: s.reviewerId, username: "" }
+											: { name: t("web.mrSkipReviewer"), id: 0, username: "" }
+									}
+									isEqual={(a, b) => a.id === b.id}
+									dropdown={memberDd}
+									onSelect={(item) =>
+										d({
+											type: "SELECT_REVIEWER",
+											id: item.id,
+											name: item.id === 0 ? "" : item.name,
+										})
+									}
+									onOpen={() => {
+										if (!s.members.length && s.projectId) loadMembers();
+									}}
+									renderItem={memberRenderItem}
+									renderValue={(item) =>
+										item.id === 0 ? t("web.mrSkipReviewer") : item.name
+									}
+									searchPlaceholder={t("web.mrFilterReviewer")}
+									emptyText={
+										s.membersLoading ? undefined : t("web.mrNoReviewer")
+									}
+								/>
+
+								{draftToggle()}
+							</div>
+						)}
+
+						{/* Create MR */}
+						{s.mrStatus === "idle" && (
+							<div>
+								<button
+									class="action-btn"
+									type="button"
+									onClick={createMR}
+									disabled={!s.sourceBranch || !s.targetBranch || !s.mrTitle}
+								>
+									{s.draft ? t("web.mrCreateDraftBtn") : t("web.mrCreateBtn")}
+								</button>
+							</div>
+						)}
+						{s.mrStatus === "running" && (
+							<LoadingRow text={t("web.mrCreatingMR")} />
+						)}
+						{(s.mrStatus === "success" || s.mrStatus === "existing") &&
+							mrSuccessCard()}
+						{s.mrStatus === "error" && (
+							<ResultCard variant="error">
+								<ResultText variant="error">{s.mrError}</ResultText>
+							</ResultCard>
+						)}
+					</>
+				)}
+
+				{/* ── Close modal on MR success ── */}
+				{(s.mrStatus === "success" || s.mrStatus === "existing") && (
+					<button
+						class="action-btn secondary"
+						type="button"
+						onClick={() => {
+							d({ type: "TOGGLE_MODAL", open: false });
+							loadHistory();
+						}}
+					>
+						{t("web.cancel")}
+					</button>
+				)}
+			</Modal>
 		</>
 	);
 };

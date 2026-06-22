@@ -1,4 +1,4 @@
-import { exec, execSync, spawn } from "node:child_process";
+import { execFile, execSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import { createServer } from "node:net";
 import { dirname, join } from "node:path";
@@ -79,7 +79,9 @@ app.route("/watch", watchRoutes);
 const __serverDir = dirname(fileURLToPath(import.meta.url));
 
 app.get("/client/*", async (c) => {
-	const filePath = join(__serverDir, c.req.path);
+	const relative = c.req.path.replace(/^\/client\//, "");
+	const filePath = join(__serverDir, relative);
+	if (!filePath.startsWith(__serverDir)) return c.notFound();
 	try {
 		const content = fs.readFileSync(filePath);
 		return new Response(content, {
@@ -103,6 +105,7 @@ const MIME_TYPES: Record<string, string> = {
 
 app.get("/public/*", async (c) => {
 	const filePath = join(__serverDir, c.req.path);
+	if (!filePath.startsWith(__serverDir)) return c.notFound();
 	try {
 		const content = fs.readFileSync(filePath);
 		const ext = filePath.slice(filePath.lastIndexOf("."));
@@ -250,7 +253,7 @@ export const openBrowser = (url: string) => {
 			: process.platform === "win32"
 				? "start"
 				: "xdg-open";
-	exec(`${cmd} ${url}`);
+	execFile(cmd, [url]);
 };
 
 export const openPage = async (path: string) => {

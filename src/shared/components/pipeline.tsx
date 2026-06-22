@@ -1,4 +1,5 @@
 // Shared pipeline CSS + helpers + component for release/end/mr Web UI
+import { Fragment } from "hono/jsx";
 
 export const pipelineStepClass = (done: boolean, active: boolean) =>
 	done
@@ -67,13 +68,13 @@ export function Pipeline({ steps }: { steps: PipelineStep[] }) {
 	return (
 		<div class="pipeline">
 			{steps.map((step, i) => (
-				<>
+				<Fragment key={`step-${i}`}>
 					<div class={pipelineStepClass(step.done, step.active)}>
 						<span class="pipeline-node" />
 						{step.label}
 					</div>
 					{i < steps.length - 1 && <div class={pipelineLineClass(step.done)} />}
-				</>
+				</Fragment>
 			))}
 		</div>
 	);

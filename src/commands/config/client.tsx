@@ -1,51 +1,12 @@
 import { type FC, useEffect, useState } from "hono/jsx";
 import { render } from "hono/jsx/dom";
-import i18next from "i18next";
-
-const initPromise =
-	typeof window !== "undefined" &&
-	window.__I18N_LOCALE__ &&
-	window.__I18N_RESOURCES__
-		? i18next.init({
-				lng: window.__I18N_LOCALE__,
-				fallbackLng: "zh-CN",
-				resources: window.__I18N_RESOURCES__,
-				interpolation: { escapeValue: false },
-			})
-		: Promise.resolve();
-const t = i18next.t;
-
-declare global {
-	interface Window {
-		__I18N_LOCALE__: string;
-		__I18N_RESOURCES__: Record<
-			string,
-			{ translation: Record<string, unknown> }
-		>;
-	}
-}
+import { PageHeader, pageHeaderCss } from "../../shared/components/common";
+import { initPromise, t } from "../../shared/i18n";
 
 const EYE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
 const EYE_OFF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 5.06A9.68 9.68 0 0 1 12 4c7 0 11 8 11 8a18.45 18.45 0 0 1-3.06 4.94"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
 
-const configStyle = `
-  .page-header {
-    margin-bottom: 32px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
-  }
-  .page-header h2 {
-    font-size: 22px;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    margin-bottom: 6px;
-  }
-  .page-header p {
-    font-size: 13px;
-    color: var(--text-2);
-    font-weight: 300;
-    line-height: 1.5;
-  }
-
+const configStyle = `${pageHeaderCss}
   .toast {
     display: none;
     align-items: center;
@@ -269,6 +230,9 @@ const ConfigClient: FC = () => {
 			.then((data) => {
 				setConfig(data);
 				setLoading(false);
+			})
+			.catch(() => {
+				setLoading(false);
 			});
 	}, []);
 
@@ -297,7 +261,10 @@ const ConfigClient: FC = () => {
 			setToast({ show: true, type: "error" });
 		} finally {
 			setSaving(false);
-			setTimeout(() => setToast({ show: false, type: "success" }), 3000);
+			setTimeout(
+				() => setToast((prev) => ({ show: false, type: prev.type })),
+				3000,
+			);
 		}
 	};
 
@@ -314,10 +281,10 @@ const ConfigClient: FC = () => {
 		<div>
 			<style>{configStyle}</style>
 
-			<div class="page-header">
-				<h2>{t("web.settingsTitle")}</h2>
-				<p>{t("web.settingsDesc")}</p>
-			</div>
+			<PageHeader
+				title={t("web.settingsTitle")}
+				description={t("web.settingsDesc")}
+			/>
 
 			{toast.show && (
 				<div
@@ -345,6 +312,14 @@ const ConfigClient: FC = () => {
 								id="locale"
 								name="locale"
 								value={config.locale ?? "zh-CN"}
+								onChange={(e: Event) =>
+									setConfig((prev) => ({
+										...prev,
+										locale: (e.target as HTMLSelectElement).value as
+											| "zh-CN"
+											| "en",
+									}))
+								}
 							>
 								<option value="zh-CN">中文 (zh-CN)</option>
 								<option value="en">English (en)</option>
@@ -370,6 +345,12 @@ const ConfigClient: FC = () => {
 								type="text"
 								placeholder={t("web.placeholderJiraHost")}
 								value={config.jiraHost ?? ""}
+								onInput={(e: Event) =>
+									setConfig((prev) => ({
+										...prev,
+										jiraHost: (e.target as HTMLInputElement).value,
+									}))
+								}
 							/>
 						</div>
 						<div class="field">
@@ -382,6 +363,12 @@ const ConfigClient: FC = () => {
 								type="text"
 								placeholder={t("web.placeholderUsername")}
 								value={config.jiraName ?? ""}
+								onInput={(e: Event) =>
+									setConfig((prev) => ({
+										...prev,
+										jiraName: (e.target as HTMLInputElement).value,
+									}))
+								}
 							/>
 						</div>
 						<div class="field">
@@ -396,6 +383,12 @@ const ConfigClient: FC = () => {
 									class="password-input"
 									placeholder={t("web.placeholderPassword")}
 									value={config.jiraPassword ?? ""}
+									onInput={(e: Event) =>
+										setConfig((prev) => ({
+											...prev,
+											jiraPassword: (e.target as HTMLInputElement).value,
+										}))
+									}
 								/>
 								<button
 									class="password-toggle"
@@ -437,6 +430,12 @@ const ConfigClient: FC = () => {
 								type="text"
 								placeholder={t("web.placeholderGitlabHost")}
 								value={config.gitlabHost ?? ""}
+								onInput={(e: Event) =>
+									setConfig((prev) => ({
+										...prev,
+										gitlabHost: (e.target as HTMLInputElement).value,
+									}))
+								}
 							/>
 						</div>
 						<div class="field">
@@ -449,6 +448,12 @@ const ConfigClient: FC = () => {
 								type="text"
 								placeholder={t("web.placeholderToken")}
 								value={config.gitlabKey ?? ""}
+								onInput={(e: Event) =>
+									setConfig((prev) => ({
+										...prev,
+										gitlabKey: (e.target as HTMLInputElement).value,
+									}))
+								}
 							/>
 						</div>
 					</div>
@@ -471,6 +476,12 @@ const ConfigClient: FC = () => {
 								type="text"
 								placeholder={t("web.placeholderJenkinsHost")}
 								value={config.jenkinsHost ?? ""}
+								onInput={(e: Event) =>
+									setConfig((prev) => ({
+										...prev,
+										jenkinsHost: (e.target as HTMLInputElement).value,
+									}))
+								}
 							/>
 						</div>
 						<div class="field">
@@ -483,6 +494,12 @@ const ConfigClient: FC = () => {
 								type="text"
 								placeholder={t("web.placeholderJenkinsUser")}
 								value={config.jenkinsUser ?? ""}
+								onInput={(e: Event) =>
+									setConfig((prev) => ({
+										...prev,
+										jenkinsUser: (e.target as HTMLInputElement).value,
+									}))
+								}
 							/>
 						</div>
 						<div class="field">
@@ -497,6 +514,12 @@ const ConfigClient: FC = () => {
 									class="password-input"
 									placeholder={t("web.placeholderJenkinsPassword")}
 									value={config.jenkinsPassword ?? ""}
+									onInput={(e: Event) =>
+										setConfig((prev) => ({
+											...prev,
+											jenkinsPassword: (e.target as HTMLInputElement).value,
+										}))
+									}
 								/>
 								<button
 									class="password-toggle"

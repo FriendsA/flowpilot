@@ -1,58 +1,30 @@
-import { type FC, useEffect, useReducer, useRef } from "hono/jsx";
+import { type FC, useEffect, useReducer } from "hono/jsx";
 import { render } from "hono/jsx/dom";
-import i18next from "i18next";
-import { commonCss } from "../../shared/components/common";
+import {
+	CopyButton,
+	commonCss,
+	LoadingRow,
+	PageHeader,
+	pageHeaderCss,
+	ResultCard,
+	ResultText,
+} from "../../shared/components/common";
 import {
 	pipelineCss,
 	pipelineLineClass,
 	pipelineStepClass,
 } from "../../shared/components/pipeline";
-import { selectCss, selKeyDown } from "../../shared/components/select";
-import { filterByRelevance } from "../../utils/search";
-
-const initPromise =
-	typeof window !== "undefined" &&
-	window.__I18N_LOCALE__ &&
-	window.__I18N_RESOURCES__
-		? i18next.init({
-				lng: window.__I18N_LOCALE__,
-				fallbackLng: "zh-CN",
-				resources: window.__I18N_RESOURCES__,
-				interpolation: { escapeValue: false },
-			})
-		: Promise.resolve();
-const t = i18next.t;
-
-declare global {
-	interface Window {
-		__I18N_LOCALE__: string;
-		__I18N_RESOURCES__: Record<
-			string,
-			{ translation: Record<string, unknown> }
-		>;
-	}
-}
+import {
+	Select,
+	selectCss,
+	useClickOutside,
+	useDropdown,
+} from "../../shared/components/select";
+import { initPromise, t } from "../../shared/i18n";
 
 // ── Styles ──
 
-const endStyle = `${pipelineCss}${selectCss}${commonCss}
-  .page-header {
-    margin-bottom: 28px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
-  }
-  .page-header h2 {
-    font-size: 22px;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    margin-bottom: 6px;
-  }
-  .page-header p {
-    font-size: 13px;
-    color: var(--text-2);
-    font-weight: 300;
-    line-height: 1.5;
-  }
-
+const endStyle = `${pipelineCss}${selectCss}${commonCss}${pageHeaderCss}
   /* ── Cwd input ── */
   .cwd-section {
     margin-bottom: 20px;
@@ -115,121 +87,6 @@ const endStyle = `${pipelineCss}${selectCss}${commonCss}
     letter-spacing: 0.05em;
   }
 
-
-
-  /* ── Select ── */
-  .sel {
-    position: relative;
-    margin-bottom: 16px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
-    z-index: 1;
-  }
-  .sel-trigger {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 14px;
-    font-size: 13px;
-    font-family: var(--sans);
-    color: var(--text-1);
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    cursor: pointer;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    text-align: left;
-  }
-  .sel-trigger:hover { border-color: var(--border-active); }
-  .sel-trigger:focus,
-  .sel-trigger.open {
-    border-color: var(--neon);
-    box-shadow: 0 0 0 2px var(--neon-soft), 0 0 8px var(--neon-glow);
-  }
-  .sel-trigger-label {
-    font-size: 11px;
-    color: var(--text-3);
-    flex-shrink: 0;
-  }
-  .sel-trigger-value {
-    flex: 1;
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-1);
-  }
-  .sel-trigger-value.empty {
-    color: var(--text-3);
-    font-weight: 300;
-  }
-  .sel-trigger-arrow {
-    color: var(--text-3);
-    font-size: 10px;
-    transition: transform 0.2s;
-  }
-  .sel-trigger.open .sel-trigger-arrow {
-    transform: rotate(180deg);
-  }
-  .sel-dropdown {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0; right: 0;
-    max-height: 280px;
-    overflow-y: auto;
-    background: var(--bg-card);
-    border: 1px solid rgba(0,255,136,0.08);
-    border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 12px rgba(0,255,136,0.03);
-    z-index: 1000;
-    animation: dropdown-in 0.12s ease both;
-  }
-  .sel-dropdown::-webkit-scrollbar { width: 6px; }
-  .sel-dropdown::-webkit-scrollbar-track { background: transparent; }
-  .sel-dropdown::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  .sel-search {
-    padding: 8px;
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    background: var(--bg-card);
-    z-index: 1;
-  }
-  .sel-search-input {
-    width: 100%;
-    padding: 6px 10px;
-    font-size: 12px;
-    font-family: var(--mono);
-    color: var(--text-1);
-    background: var(--bg-void);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    outline: none;
-    transition: border-color 0.15s;
-  }
-  .sel-search-input::placeholder { color: var(--text-3); }
-  .sel-search-input:focus { border-color: var(--neon); }
-  .sel-item {
-    padding: 10px 14px;
-    font-size: 13px;
-    cursor: pointer;
-    transition: background 0.1s;
-    border-left: 3px solid transparent;
-  }
-  .sel-item:first-child { border-radius: 7px 7px 0 0; }
-  .sel-item:last-child { border-radius: 0 0 7px 7px; }
-  .sel-item:hover,
-  .sel-item.highlighted { background: var(--bg-hover); }
-  .sel-item.active {
-    background: var(--neon-soft);
-    border-left-color: var(--neon);
-    font-weight: 500;
-  }
-  .sel-item-name { font-weight: 500; color: var(--text-1); }
-  .sel-empty { padding: 12px; text-align: center; color: var(--text-3); font-size: 12px; }
-
-
-
   /* ── Info card ── */
   .info-card {
     display: flex;
@@ -258,87 +115,6 @@ const endStyle = `${pipelineCss}${selectCss}${commonCss}
   }
   .info-value.neon { color: var(--neon); }
 
-  /* ── Action button ── */
-  .action-btn {
-    width: 100%;
-    min-height: 44px;
-    padding: 10px 20px;
-    font-size: 13px;
-    font-family: var(--sans);
-    font-weight: 500;
-    color: var(--bg-void);
-    background: var(--neon);
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.15s, box-shadow 0.2s;
-    margin-bottom: 16px;
-    position: relative;
-    z-index: 1;
-  }
-  .action-btn:hover { background: var(--neon-hover); box-shadow: 0 0 12px var(--neon-glow), 0 2px 12px rgba(0,255,136,0.2); }
-  .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .action-btn.secondary {
-    color: var(--text-3);
-    background: transparent;
-    border: 1px solid var(--border);
-  }
-  .action-btn.secondary:hover { border-color: var(--text-2); color: var(--text-2); }
-  .action-btn.rerun {
-    color: var(--text-2);
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    margin-top: 24px;
-  }
-  .action-btn.rerun:hover { border-color: var(--neon); color: var(--neon); }
-
-  /* ── Result card ── */
-  .result-card {
-    padding: 12px 16px;
-    background: var(--bg-card);
-    border: 1px solid rgba(0,212,255,0.08);
-    border-radius: 8px;
-    margin-bottom: 16px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-  .result-success {
-    border-color: rgba(0,255,136,0.12);
-  }
-  .result-error {
-    border-color: rgba(255,68,68,0.12);
-  }
-  .result-label {
-    font-size: 11px;
-    color: var(--text-3);
-    margin-bottom: 4px;
-  }
-  .result-key {
-    font-family: var(--mono);
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--neon);
-    text-decoration: none;
-    border-bottom: 1px dashed rgba(0,255,136,0.3);
-    transition: border-color 0.2s;
-  }
-  .result-key:hover { border-bottom-color: var(--neon); }
-  .result-text {
-    font-family: var(--mono);
-    font-size: 14px;
-    font-weight: 600;
-  }
-  .result-text.success { color: var(--neon); }
-  .result-text.error { color: var(--error); }
-  .result-badge {
-    display: inline-block;
-    font-size: 10px;
-    padding: 2px 8px;
-    border-radius: 4px;
-    margin-left: 8px;
-    font-weight: 500;
-    background: var(--neon-soft);
-    color: var(--neon);
-  }
   .mr-url-row {
     display: flex;
     align-items: center;
@@ -356,20 +132,6 @@ const endStyle = `${pipelineCss}${selectCss}${commonCss}
     border-radius: 6px;
     outline: none;
   }
-  .copy-btn {
-    padding: 8px 12px;
-    font-size: 11px;
-    font-family: var(--sans);
-    font-weight: 500;
-    color: var(--bg-void);
-    background: var(--cyan);
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  .copy-btn:hover { background: #33e0ff; }
-  .copy-btn.copied { background: var(--neon); }
 
   /* ── Ticket list ── */
   .ticket-list {
@@ -458,10 +220,6 @@ type State = {
 	detectedSource: string;
 	loading: boolean;
 	error: string;
-	// Step 1: Branch
-	branchOpen: boolean;
-	branchSearch: string;
-	branchIndex: number;
 	targetBranch: string;
 	// Step 2: Rebase
 	rebaseStatus: "idle" | "running" | "success" | "conflict" | "error";
@@ -477,8 +235,8 @@ type State = {
 	mrStatus: "idle" | "running" | "success" | "error" | "skipped";
 	mrUrl: string;
 	mrError: string;
-	copied: boolean;
 	// Step 6: Jira
+	jiraHost: string;
 	jiraStatus: Record<string, "idle" | "loading" | "success" | "error">;
 	jiraTransitions: Record<string, Transition[]>;
 	jiraErrors: Record<string, string>;
@@ -492,11 +250,8 @@ const initial: State = {
 	currentBranch: "",
 	localBranches: [],
 	detectedSource: "",
-	loading: false,
+	loading: true,
 	error: "",
-	branchOpen: false,
-	branchSearch: "",
-	branchIndex: -1,
 	targetBranch: "",
 	rebaseStatus: "idle",
 	rebaseError: "",
@@ -508,7 +263,7 @@ const initial: State = {
 	mrStatus: "idle",
 	mrUrl: "",
 	mrError: "",
-	copied: false,
+	jiraHost: "",
 	jiraStatus: {},
 	jiraTransitions: {},
 	jiraErrors: {},
@@ -528,9 +283,6 @@ type Action =
 			};
 	  }
 	| { type: "LOAD_ERROR"; error: string }
-	| { type: "SET_BRANCH_OPEN"; open: boolean }
-	| { type: "SET_BRANCH_SEARCH"; search: string }
-	| { type: "SET_BRANCH_INDEX"; index: number }
 	| { type: "SELECT_TARGET_BRANCH"; branch: string }
 	| { type: "REBASE_RUNNING" }
 	| { type: "REBASE_SUCCESS" }
@@ -546,12 +298,13 @@ type Action =
 	| { type: "MR_SUCCESS"; url: string }
 	| { type: "MR_ERROR"; error: string }
 	| { type: "MR_SKIPPED" }
-	| { type: "COPIED" }
+	| { type: "SET_LOADING" }
 	| { type: "JIRA_LOADING"; key: string }
 	| { type: "JIRA_TRANSITIONS_LOADED"; key: string; transitions: Transition[] }
 	| { type: "JIRA_TRANSITION_SUCCESS"; key: string; name: string }
 	| { type: "JIRA_TRANSITION_ERROR"; key: string; error: string }
-	| { type: "RESET" };
+	| { type: "RESET" }
+	| { type: "SET_JIRA_HOST"; host: string };
 
 const reducer = (state: State, action: Action): State => {
 	switch (action.type) {
@@ -564,30 +317,16 @@ const reducer = (state: State, action: Action): State => {
 		case "LOADED":
 			return {
 				...state,
-				...action.data,
+				currentBranch: action.data.currentBranch,
+				localBranches: action.data.localBranches,
+				detectedSource: action.data.detectedSource ?? "",
 				loading: false,
 				targetBranch: action.data.detectedSource || "",
 			};
 		case "LOAD_ERROR":
 			return { ...state, loading: false, error: action.error };
-		case "SET_BRANCH_OPEN":
-			return {
-				...state,
-				branchOpen: action.open,
-				...(action.open ? {} : { branchSearch: "", branchIndex: -1 }),
-			};
-		case "SET_BRANCH_SEARCH":
-			return { ...state, branchSearch: action.search, branchIndex: -1 };
-		case "SET_BRANCH_INDEX":
-			return { ...state, branchIndex: action.index };
 		case "SELECT_TARGET_BRANCH":
-			return {
-				...state,
-				targetBranch: action.branch,
-				branchOpen: false,
-				branchSearch: "",
-				branchIndex: -1,
-			};
+			return { ...state, targetBranch: action.branch };
 		case "REBASE_RUNNING":
 			return { ...state, rebaseStatus: "running", rebaseError: "" };
 		case "REBASE_SUCCESS":
@@ -616,8 +355,8 @@ const reducer = (state: State, action: Action): State => {
 			return { ...state, mrStatus: "error", mrError: action.error };
 		case "MR_SKIPPED":
 			return { ...state, mrStatus: "skipped" };
-		case "COPIED":
-			return { ...state, copied: true };
+		case "SET_LOADING":
+			return { ...state, loading: true };
 		case "JIRA_LOADING":
 			return {
 				...state,
@@ -650,6 +389,8 @@ const reducer = (state: State, action: Action): State => {
 				cwd: state.cwd,
 				cwdInput: state.cwd,
 			};
+		case "SET_JIRA_HOST":
+			return { ...state, jiraHost: action.host };
 	}
 	return state;
 };
@@ -665,7 +406,8 @@ const cwdBody = (cwd: string) => (cwd ? { cwd } : {});
 
 const EndClient: FC = () => {
 	const [s, d] = useReducer(reducer, initial);
-	const branchSearchRef = useRef<HTMLInputElement>(null);
+	const branchDd = useDropdown();
+	useClickOutside([branchDd], ["branch"]);
 
 	// Detect cwd from URL query param (set by CLI -o)
 	useEffect(() => {
@@ -677,10 +419,20 @@ const EndClient: FC = () => {
 		}
 	}, []);
 
+	// Fetch config (jiraHost)
+	useEffect(() => {
+		fetch("/end/api/config")
+			.then((r) => r.json())
+			.then((data) => {
+				if (data.jiraHost) d({ type: "SET_JIRA_HOST", host: data.jiraHost });
+			})
+			.catch(() => {});
+	}, []);
+
 	// Load git status when cwd is set
 	useEffect(() => {
 		if (!s.cwd) return;
-		d({ type: "LOAD_ERROR", error: "" }); // reset
+		d({ type: "SET_LOADING" });
 		fetch(`/end/api/git/status?cwd=${encodeURIComponent(s.cwd)}`)
 			.then((r) => r.json())
 			.then((data) => {
@@ -694,23 +446,6 @@ const EndClient: FC = () => {
 				}),
 			);
 	}, [s.cwd]);
-
-	// Click outside to close dropdown
-	useEffect(() => {
-		if (!s.branchOpen) return;
-		const handler = (e: Event) => {
-			if (!(e.target as HTMLElement).closest(".sel")) {
-				d({ type: "SET_BRANCH_OPEN", open: false });
-			}
-		};
-		document.addEventListener("click", handler);
-		return () => document.removeEventListener("click", handler);
-	}, [s.branchOpen]);
-
-	// Auto-focus search when dropdown opens
-	useEffect(() => {
-		if (s.branchOpen) setTimeout(() => branchSearchRef.current?.focus(), 50);
-	}, [s.branchOpen]);
 
 	// ── Actions ──
 
@@ -777,7 +512,6 @@ const EndClient: FC = () => {
 				d({ type: "PUSH_ERROR", error: data.error });
 			} else {
 				d({ type: "PUSH_SUCCESS" });
-				// Auto-load tickets after push
 				d({ type: "TICKETS_LOADING" });
 				const ticketRes = await fetch(
 					`/end/api/commits?base=${encodeURIComponent(s.targetBranch)}${cwdParam(s.cwd)}`,
@@ -787,7 +521,6 @@ const EndClient: FC = () => {
 					d({ type: "TICKETS_ERROR", error: ticketData.error });
 				} else {
 					d({ type: "TICKETS_LOADED", keys: ticketData.ticketKeys || [] });
-					// Auto-load transitions for each ticket
 					for (const key of ticketData.ticketKeys || []) {
 						d({ type: "JIRA_LOADING", key });
 						try {
@@ -795,7 +528,13 @@ const EndClient: FC = () => {
 								`/end/api/jira/transitions?key=${encodeURIComponent(key)}`,
 							);
 							const transData = await transRes.json();
-							if (transData.transitions) {
+							if (transData.error) {
+								d({
+									type: "JIRA_TRANSITION_ERROR",
+									key,
+									error: transData.error,
+								});
+							} else if (transData.transitions) {
 								d({
 									type: "JIRA_TRANSITIONS_LOADED",
 									key,
@@ -823,8 +562,9 @@ const EndClient: FC = () => {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					currentBranch: s.currentBranch,
+					sourceBranch: s.currentBranch,
 					targetBranch: s.targetBranch,
+					title: `${s.currentBranch} -> ${s.targetBranch}`,
 					ticketKeys: s.ticketKeys,
 					...cwdBody(s.cwd),
 				}),
@@ -833,9 +573,8 @@ const EndClient: FC = () => {
 			if (data.error) {
 				d({ type: "MR_ERROR", error: data.error });
 			} else {
-				d({ type: "MR_SUCCESS", url: data.mrUrl });
-				// Add comment with MR link to each ticket
-				if (data.mrUrl) {
+				d({ type: "MR_SUCCESS", url: data.url });
+				if (data.url) {
 					for (const key of s.ticketKeys) {
 						try {
 							await fetch("/end/api/jira/comment", {
@@ -843,7 +582,10 @@ const EndClient: FC = () => {
 								headers: { "Content-Type": "application/json" },
 								body: JSON.stringify({
 									key,
-									body: `提交问题 ${key} [代码|${data.mrUrl}]`,
+									comment: t("web.mrJiraCommentTemplate", {
+										key,
+										mrUrl: data.url,
+									}),
 								}),
 							});
 						} catch {
@@ -890,16 +632,6 @@ const EndClient: FC = () => {
 		}
 	};
 
-	const copyMrUrl = async () => {
-		try {
-			await navigator.clipboard.writeText(s.mrUrl);
-			d({ type: "COPIED" });
-			setTimeout(() => d({ type: "COPIED" }), 2000);
-		} catch {
-			/* fallback */
-		}
-	};
-
 	// ── Pipeline step states ──
 
 	const step1Done = !!s.targetBranch;
@@ -918,12 +650,6 @@ const EndClient: FC = () => {
 	const step6Active = step5Done && !step6Done && s.ticketKeys.length > 0;
 	const allDone = s.cwd && step2Done && step3Done && step5Done;
 
-	// ── Branch filter ──
-	const fb = filterByRelevance(
-		s.localBranches.map((b) => ({ name: b })),
-		s.branchSearch,
-	);
-
 	// ── Render ──
 
 	// No cwd: show path input
@@ -931,10 +657,7 @@ const EndClient: FC = () => {
 		return (
 			<div>
 				<style>{endStyle}</style>
-				<div class="page-header">
-					<h2>{t("web.endTitle")}</h2>
-					<p>{t("web.endDesc")}</p>
-				</div>
+				<PageHeader title={t("web.endTitle")} description={t("web.endDesc")} />
 				<div class="cwd-section">
 					<div class="cwd-row">
 						<input
@@ -942,7 +665,7 @@ const EndClient: FC = () => {
 							type="text"
 							placeholder={t("end.enterPath")}
 							value={s.cwdInput}
-							onChange={(e: Event) =>
+							onInput={(e: Event) =>
 								d({
 									type: "SET_CWD_INPUT",
 									value: (e.target as HTMLInputElement).value,
@@ -975,10 +698,7 @@ const EndClient: FC = () => {
 					<span class="cwd-display-label">{t("end.projectPath")}</span>
 					<span>{s.cwd}</span>
 				</div>
-				<div class="loading-row">
-					<span class="spinner" />
-					{t("web.loading")}
-				</div>
+				<LoadingRow text={t("web.loading")} />
 			</div>
 		);
 	}
@@ -991,9 +711,9 @@ const EndClient: FC = () => {
 					<span class="cwd-display-label">{t("end.projectPath")}</span>
 					<span>{s.cwd}</span>
 				</div>
-				<div class="result-card result-error">
-					<div class="result-text error">{s.error}</div>
-				</div>
+				<ResultCard variant="error">
+					<ResultText variant="error">{s.error}</ResultText>
+				</ResultCard>
 				<button
 					class="action-btn rerun"
 					type="button"
@@ -1005,13 +725,12 @@ const EndClient: FC = () => {
 		);
 	}
 
+	const branchItems = s.localBranches.map((b) => ({ name: b }));
+
 	return (
 		<div>
 			<style>{endStyle}</style>
-			<div class="page-header">
-				<h2>{t("web.endTitle")}</h2>
-				<p>{t("web.endDesc")}</p>
-			</div>
+			<PageHeader title={t("web.endTitle")} description={t("web.endDesc")} />
 
 			{/* ── Project path ── */}
 			<div class="cwd-display">
@@ -1058,88 +777,22 @@ const EndClient: FC = () => {
 				<span class="info-value neon">{s.currentBranch}</span>
 			</div>
 
-			<div class="sel" style={`z-index:${s.branchOpen ? 100 : 1}`}>
-				<button
-					class={`sel-trigger${s.branchOpen ? " open" : ""}`}
-					type="button"
-					role="combobox"
-					aria-expanded={s.branchOpen}
-					aria-haspopup="listbox"
-					onClick={() => d({ type: "SET_BRANCH_OPEN", open: !s.branchOpen })}
-				>
-					<span class="sel-trigger-label">{t("end.targetBranch")}</span>
-					<span class={`sel-trigger-value${s.targetBranch ? "" : " empty"}`}>
-						{s.targetBranch
-							? s.detectedSource && s.targetBranch === s.detectedSource
-								? `${s.targetBranch} (${t("end.detectedSource")})`
-								: s.targetBranch
-							: t("end.selectBranch")}
-					</span>
-					<span class="sel-trigger-arrow">▼</span>
-				</button>
-				{s.branchOpen && (
-					<div
-						class="sel-dropdown"
-						role="listbox"
-						aria-label={t("end.selectBranch")}
-					>
-						<div class="sel-search">
-							<input
-								ref={branchSearchRef}
-								class="sel-search-input"
-								type="text"
-								placeholder={t("end.selectBranch")}
-								value={s.branchSearch}
-								onChange={(e: Event) =>
-									d({
-										type: "SET_BRANCH_SEARCH",
-										search: (e.target as HTMLInputElement).value,
-									})
-								}
-								onKeyDown={(e: KeyboardEvent) => {
-									const n = selKeyDown(
-										e,
-										s.branchOpen,
-										fb.length,
-										s.branchIndex,
-										(i) => {
-											const b = fb[i];
-											if (b)
-												d({
-													type: "SELECT_TARGET_BRANCH",
-													branch: (b as { name: string }).name,
-												});
-										},
-										() => d({ type: "SET_BRANCH_OPEN", open: false }),
-									);
-									if (n !== undefined)
-										d({ type: "SET_BRANCH_INDEX", index: n });
-								}}
-							/>
-						</div>
-						{fb.length > 0 ? (
-							fb.map((b, i) => (
-								<div
-									class={`sel-item${(b as { name: string }).name === s.targetBranch ? " active" : ""}${i === s.branchIndex ? " highlighted" : ""}`}
-									onMouseEnter={() => d({ type: "SET_BRANCH_INDEX", index: i })}
-									onClick={() =>
-										d({
-											type: "SELECT_TARGET_BRANCH",
-											branch: (b as { name: string }).name,
-										})
-									}
-								>
-									<span class="sel-item-name">
-										{(b as { name: string }).name}
-									</span>
-								</div>
-							))
-						) : (
-							<div class="sel-empty">{t("end.selectBranch")}</div>
-						)}
-					</div>
-				)}
-			</div>
+			<Select
+				id="branch"
+				label={t("end.targetBranch")}
+				placeholder={t("end.selectBranch")}
+				items={branchItems}
+				value={s.targetBranch ? { name: s.targetBranch } : null}
+				dropdown={branchDd}
+				onSelect={(item) =>
+					d({ type: "SELECT_TARGET_BRANCH", branch: item.name })
+				}
+				renderValue={(item) =>
+					s.detectedSource && item.name === s.detectedSource
+						? `${item.name} (${t("end.detectedSource")})`
+						: item.name
+				}
+			/>
 
 			{/* ── Step 2: Rebase ── */}
 			{s.rebaseStatus === "idle" && s.targetBranch && (
@@ -1148,25 +801,22 @@ const EndClient: FC = () => {
 				</button>
 			)}
 			{s.rebaseStatus === "running" && (
-				<div class="loading-row">
-					<span class="spinner" />
-					{t("end.rebasing")} {s.targetBranch}...
-				</div>
+				<LoadingRow text={`${t("end.rebasing")} ${s.targetBranch}...`} />
 			)}
 			{s.rebaseStatus === "success" && (
-				<div class="result-card result-success">
-					<div class="result-text success">
+				<ResultCard variant="success">
+					<ResultText variant="success">
 						{t("end.rebaseResult")}: {s.targetBranch}
-					</div>
-				</div>
+					</ResultText>
+				</ResultCard>
 			)}
 			{s.rebaseStatus === "conflict" && (
 				<div class="warning-card">{t("end.conflictWarning")}</div>
 			)}
 			{s.rebaseStatus === "error" && (
-				<div class="result-card result-error">
-					<div class="result-text error">{s.rebaseError}</div>
-				</div>
+				<ResultCard variant="error">
+					<ResultText variant="error">{s.rebaseError}</ResultText>
+				</ResultCard>
 			)}
 
 			{/* ── Step 3: Push ── */}
@@ -1176,47 +826,39 @@ const EndClient: FC = () => {
 				</button>
 			)}
 			{s.pushStatus === "running" && (
-				<div class="loading-row">
-					<span class="spinner" />
-					{t("end.pushing")}...
-				</div>
+				<LoadingRow text={`${t("end.pushing")}...`} />
 			)}
 			{s.pushStatus === "success" && (
-				<div class="result-card result-success">
-					<div class="result-text success">
+				<ResultCard variant="success">
+					<ResultText variant="success">
 						{t("end.pushResult")}: {s.currentBranch}
-					</div>
-				</div>
+					</ResultText>
+				</ResultCard>
 			)}
 			{s.pushStatus === "error" && (
-				<div class="result-card result-error">
-					<div class="result-text error">{s.pushError}</div>
-				</div>
+				<ResultCard variant="error">
+					<ResultText variant="error">{s.pushError}</ResultText>
+				</ResultCard>
 			)}
 
 			{/* ── Step 4: Ticket keys ── */}
-			{s.ticketsLoading && (
-				<div class="loading-row">
-					<span class="spinner" />
-					{t("end.analyzingCommits")}
-				</div>
-			)}
+			{s.ticketsLoading && <LoadingRow text={t("end.analyzingCommits")} />}
 			{s.pushStatus === "success" && !s.ticketsLoading && (
-				<div class="result-card">
+				<ResultCard>
 					<div class="result-label">{t("end.ticketKeys")}</div>
 					{s.ticketKeys.length > 0
 						? s.ticketKeys.map((key) => (
-								<span class="result-badge" style="margin-right:6px">
+								<span class="result-badge" style="margin-right:6px" key={key}>
 									{key}
 								</span>
 							))
 						: t("end.noTickets")}
-				</div>
+				</ResultCard>
 			)}
 			{s.ticketsError && (
-				<div class="result-card result-error">
-					<div class="result-text error">{s.ticketsError}</div>
-				</div>
+				<ResultCard variant="error">
+					<ResultText variant="error">{s.ticketsError}</ResultText>
+				</ResultCard>
 			)}
 
 			{/* ── Step 5: Create MR ── */}
@@ -1236,15 +878,10 @@ const EndClient: FC = () => {
 						</button>
 					</div>
 				)}
-			{s.mrStatus === "running" && (
-				<div class="loading-row">
-					<span class="spinner" />
-					{t("end.creatingMR")}
-				</div>
-			)}
+			{s.mrStatus === "running" && <LoadingRow text={t("end.creatingMR")} />}
 			{s.mrStatus === "success" && s.mrUrl && (
-				<div class="result-card result-success">
-					<div class="result-text success">{t("end.mrCreated")}</div>
+				<ResultCard variant="success">
+					<ResultText variant="success">{t("end.mrCreated")}</ResultText>
 					<div class="mr-url-row">
 						<input class="mr-url-input" type="text" readOnly value={s.mrUrl} />
 						<a
@@ -1256,27 +893,21 @@ const EndClient: FC = () => {
 						>
 							{t("end.mrUrl")}
 						</a>
-						<button
-							class={`copy-btn${s.copied ? " copied" : ""}`}
-							type="button"
-							onClick={copyMrUrl}
-						>
-							{s.copied ? t("end.copied") : t("end.copy")}
-						</button>
+						<CopyButton text={t("end.copy")} copyText={s.mrUrl} />
 					</div>
-				</div>
+				</ResultCard>
 			)}
 			{s.mrStatus === "error" && (
-				<div class="result-card result-error">
-					<div class="result-text error">{s.mrError}</div>
-				</div>
+				<ResultCard variant="error">
+					<ResultText variant="error">{s.mrError}</ResultText>
+				</ResultCard>
 			)}
 			{s.mrStatus === "skipped" && (
-				<div class="result-card">
+				<ResultCard>
 					<div class="result-label">
 						{t("end.manualMR")} {s.targetBranch}
 					</div>
-				</div>
+				</ResultCard>
 			)}
 
 			{/* ── Step 6: Jira transitions ── */}
@@ -1284,11 +915,11 @@ const EndClient: FC = () => {
 				s.ticketKeys.length > 0 && (
 					<div class="ticket-list">
 						{s.ticketKeys.map((key) => (
-							<div class="ticket-item">
+							<div class="ticket-item" key={key}>
 								<div style="flex:1">
 									<a
 										class="ticket-key"
-										href={`#/browse/${key}`}
+										href={`${s.jiraHost}/browse/${key}`}
 										target="_blank"
 										rel="noreferrer"
 									>
@@ -1325,6 +956,7 @@ const EndClient: FC = () => {
 													.slice(0, 1)
 													.map((tr) => (
 														<button
+															key={tr.id}
 															class="trans-btn primary"
 															type="button"
 															onClick={() => doTransition(key, tr.id)}
@@ -1343,6 +975,7 @@ const EndClient: FC = () => {
 													.slice(0, 3)
 													.map((tr) => (
 														<button
+															key={`${key}-${tr.id}`}
 															class="trans-btn"
 															type="button"
 															onClick={() => doTransition(key, tr.id)}
@@ -1362,9 +995,9 @@ const EndClient: FC = () => {
 
 			{/* ── Done + Rerun ── */}
 			{allDone && (
-				<div class="result-card result-success">
-					<div class="result-text success">{t("end.done")}</div>
-				</div>
+				<ResultCard variant="success">
+					<ResultText variant="success">{t("end.done")}</ResultText>
+				</ResultCard>
 			)}
 			{allDone && (
 				<button

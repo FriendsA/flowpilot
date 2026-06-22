@@ -216,7 +216,7 @@ describe("Release routes – GET /release/api/projects/:id/pom-version", () => {
 		const base64 = Buffer.from(pomXml).toString("base64").replace(/\n/g, "");
 		mockGitlabGetFile.mockResolvedValueOnce({ content: base64 });
 		await app.fetch(new Request("http://localhost/api/projects/5/pom-version"));
-		expect(mockGitlabGetFile).toHaveBeenCalledWith("5", "pom.xml", "master");
+		expect(mockGitlabGetFile).toHaveBeenCalledWith(5, "pom.xml", "master");
 	});
 
 	it("returns null releaseName when properties section missing", async () => {

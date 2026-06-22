@@ -37,7 +37,7 @@ export class JiraController {
 			throw new Error(t("error.jiraCredentialsMissing"));
 		}
 
-		this.host = host;
+		this.host = /^https?:\/\//.test(host) ? host : `https://${host}`;
 		this.auth = Buffer.from(`${name}:${password}`).toString("base64");
 	}
 

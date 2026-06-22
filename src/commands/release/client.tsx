@@ -1,199 +1,29 @@
-import { type FC, useEffect, useReducer, useRef } from "hono/jsx";
+import { type FC, useEffect, useReducer } from "hono/jsx";
 import { render } from "hono/jsx/dom";
-import i18next from "i18next";
-import { commonCss } from "../../shared/components/common";
+import {
+	commonCss,
+	LoadingRow,
+	PageHeader,
+	pageHeaderCss,
+} from "../../shared/components/common";
+import { Modal, modalCss } from "../../shared/components/modal";
 import {
 	pipelineCss,
 	pipelineLineClass,
 	pipelineStepClass,
 } from "../../shared/components/pipeline";
-import { selectCss, selKeyDown } from "../../shared/components/select";
-import { filterByRelevance } from "../../utils/search";
+import {
+	Select,
+	selectCss,
+	useClickOutside,
+	useDropdown,
+} from "../../shared/components/select";
+import { initPromise, t } from "../../shared/i18n";
+import { cleanVersion } from "../../utils/pom";
 
-const initPromise =
-	typeof window !== "undefined" &&
-	window.__I18N_LOCALE__ &&
-	window.__I18N_RESOURCES__
-		? i18next.init({
-				lng: window.__I18N_LOCALE__,
-				fallbackLng: "zh-CN",
-				resources: window.__I18N_RESOURCES__,
-				interpolation: { escapeValue: false },
-			})
-		: Promise.resolve();
-const t = i18next.t;
+// ── Styles ──
 
-declare global {
-	interface Window {
-		__I18N_LOCALE__: string;
-		__I18N_RESOURCES__: Record<
-			string,
-			{ translation: Record<string, unknown> }
-		>;
-	}
-}
-
-// ── History entry type ──
-
-type ReleaseHistoryEntry = {
-	id: string;
-	createdAt: string;
-	projectId: number;
-	projectName: string;
-	projectPath: string;
-	branch: string;
-	jiraProjectKey: string;
-	mrUrl?: string;
-	mrSourceBranch?: string;
-	mrTargetBranch?: string;
-};
-
-type QuickResult = {
-	issueKey: string;
-	issueUrl: string;
-	version: string;
-	versionCreated: boolean;
-	issueCreated: boolean;
-	mrUrl?: string;
-	mrSourceBranch?: string;
-	mrTargetBranch?: string;
-};
-
-const releaseStyle = `${pipelineCss}${selectCss}${commonCss}
-  .page-header {
-    margin-bottom: 28px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
-  }
-  .page-header h2 {
-    font-size: 22px;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    margin-bottom: 6px;
-  }
-  .page-header p {
-    font-size: 13px;
-    color: var(--text-2);
-    font-weight: 300;
-    line-height: 1.5;
-  }
-
-
-
-  /* ── Generic select ── */
-  .sel {
-    position: relative;
-    margin-bottom: 16px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
-    z-index: 1;
-  }
-  .sel-trigger {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 14px;
-    font-size: 13px;
-    font-family: var(--sans);
-    color: var(--text-1, #E2E8F0);
-    background: var(--bg-input, #0A0E14);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    cursor: pointer;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    text-align: left;
-  }
-  .sel-trigger:hover { border-color: var(--border-active); }
-  .sel-trigger:focus,
-  .sel-trigger.open {
-    border-color: var(--neon);
-    box-shadow: 0 0 0 2px var(--neon-soft), 0 0 8px var(--neon-glow);
-  }
-  .sel-trigger-label {
-    font-size: 11px;
-    color: var(--text-3, #64748B);
-    flex-shrink: 0;
-  }
-  .sel-trigger-value {
-    flex: 1;
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-1, #E2E8F0);
-  }
-  .sel-trigger-value.empty {
-    color: var(--text-3);
-    font-weight: 300;
-  }
-  .sel-trigger-arrow {
-    color: var(--text-3, #64748B);
-    font-size: 10px;
-    transition: transform 0.2s;
-  }
-  .sel-trigger.open .sel-trigger-arrow {
-    transform: rotate(180deg);
-  }
-  .sel-dropdown {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0; right: 0;
-    max-height: 280px;
-    overflow-y: auto;
-    background: var(--bg-card, #111820);
-    border: 1px solid rgba(0,255,136,0.08);
-    border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 12px rgba(0,255,136,0.03);
-    z-index: 1000;
-    animation: dropdown-in 0.12s ease both;
-  }
-  .sel-dropdown::-webkit-scrollbar { width: 6px; }
-  .sel-dropdown::-webkit-scrollbar-track { background: transparent; }
-  .sel-dropdown::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  .sel-search {
-    padding: 8px;
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    background: var(--bg-card, #111820);
-    z-index: 1;
-  }
-  .sel-search-input {
-    width: 100%;
-    padding: 6px 10px;
-    font-size: 12px;
-    font-family: var(--mono);
-    color: var(--text-1, #E2E8F0);
-    background: var(--bg-void, #0A0A0F);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    outline: none;
-    transition: border-color 0.15s;
-  }
-  .sel-search-input::placeholder { color: var(--text-3); }
-  .sel-search-input:focus { border-color: var(--neon); }
-  .sel-item {
-    padding: 10px 14px;
-    font-size: 13px;
-    cursor: pointer;
-    transition: background 0.1s;
-    border-left: 3px solid transparent;
-    color: var(--text-1, #E2E8F0);
-  }
-  .sel-item:first-child { border-radius: 7px 7px 0 0; }
-  .sel-item:last-child { border-radius: 0 0 7px 7px; }
-  .sel-item:hover,
-  .sel-item.highlighted { background: var(--bg-hover, rgba(0,255,136,0.04)); }
-  .sel-item.active {
-    background: var(--neon-soft, rgba(0,255,136,0.08));
-    border-left-color: var(--neon);
-    font-weight: 500;
-  }
-  .sel-item-name { font-weight: 500; color: var(--text-1, #E2E8F0); }
-  .sel-item-sub { font-size: 11px; color: var(--text-3, #64748B); font-family: var(--mono); margin-top: 2px; }
-  .sel-empty { padding: 12px; text-align: center; color: var(--text-3, #64748B); font-size: 12px; }
-
-
-
+const releaseStyle = `${pipelineCss}${selectCss}${commonCss}${pageHeaderCss}${modalCss}
   /* ── Version display ── */
   .version-display {
     display: flex;
@@ -239,16 +69,16 @@ const releaseStyle = `${pipelineCss}${selectCss}${commonCss}
     appearance: none;
     width: 16px;
     height: 16px;
-    border: 1px solid var(--border, rgba(0,255,136,0.2));
+    border: 1px solid var(--border);
     border-radius: 3px;
-    background: var(--bg-input, #0A0E14);
+    background: var(--bg-input);
     cursor: pointer;
     position: relative;
     transition: border-color 0.15s, background 0.15s;
   }
   input[type="checkbox"]:checked {
-    background: var(--neon, #00ff88);
-    border-color: var(--neon, #00ff88);
+    background: var(--neon);
+    border-color: var(--neon);
   }
   input[type="checkbox"]:checked::after {
     content: "✓";
@@ -257,10 +87,10 @@ const releaseStyle = `${pipelineCss}${selectCss}${commonCss}
     left: 2px;
     font-size: 12px;
     font-weight: 700;
-    color: var(--bg-void, #0A0A0F);
+    color: var(--bg-void);
   }
   input[type="checkbox"]:focus-visible {
-    outline: 2px solid var(--neon-soft, rgba(0,255,136,0.2));
+    outline: 2px solid var(--neon-soft);
     outline-offset: 2px;
   }
   .jira-result {
@@ -404,49 +234,33 @@ const releaseStyle = `${pipelineCss}${selectCss}${commonCss}
     color: var(--error);
     font-size: 13px;
   }
-
-  /* ── Modal ── */
-  .modal-overlay {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 2000;
-    animation: fade-in 0.2s ease both;
-  }
-  .modal-content {
-    width: 90%;
-    max-width: 560px;
-    background: var(--bg-void);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 24px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-  .modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-  }
-  .modal-title { font-size: 18px; font-weight: 600; color: var(--text-1); }
-  .modal-close {
-    width: 32px; height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    color: var(--text-3);
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: border-color 0.15s, color 0.15s;
-  }
-  .modal-close:hover { border-color: var(--text-2); color: var(--text-2); }
 `;
+
+// ── History entry type ──
+
+type ReleaseHistoryEntry = {
+	id: string;
+	createdAt: string;
+	projectId: number;
+	projectName: string;
+	projectPath: string;
+	branch: string;
+	jiraProjectKey: string;
+	mrUrl?: string;
+	mrSourceBranch?: string;
+	mrTargetBranch?: string;
+};
+
+type QuickResult = {
+	issueKey: string;
+	issueUrl: string;
+	version: string;
+	versionCreated: boolean;
+	issueCreated: boolean;
+	mrUrl?: string;
+	mrSourceBranch?: string;
+	mrTargetBranch?: string;
+};
 
 type Project = {
 	id: number;
@@ -471,24 +285,15 @@ type State = {
 	projects: Project[];
 	projectsLoading: boolean;
 	projectsError: string;
-	projectOpen: boolean;
-	projectSearch: string;
-	projectIndex: number;
 	selected: Project | null;
 	branches: Branch[];
 	branchesLoading: boolean;
-	branchOpen: boolean;
-	branchSearch: string;
-	branchIndex: number;
 	selectedBranch: string;
 	pomInfo: PomInfo | null;
 	pomLoading: boolean;
 	pomError: string;
 	jiraProjects: JiraProject[];
 	jiraProjectsLoading: boolean;
-	jiraProjectOpen: boolean;
-	jiraProjectSearch: string;
-	jiraProjectIndex: number;
 	selectedJiraProject: JiraProject | null;
 	jiraStatus: "idle" | "checking" | "creating" | "done" | "error";
 	jiraResult: { key: string; exists: boolean; versionName: string } | null;
@@ -499,9 +304,6 @@ type State = {
 	mrBranches: Branch[];
 	mrSourceBranch: string;
 	mrTargetBranch: string;
-	mrBranchOpen: boolean;
-	mrBranchSearch: string;
-	mrBranchIndex: number;
 	// History state
 	history: ReleaseHistoryEntry[];
 	historyLoading: boolean;
@@ -518,24 +320,15 @@ const initial: State = {
 	projects: [],
 	projectsLoading: true,
 	projectsError: "",
-	projectOpen: false,
-	projectSearch: "",
-	projectIndex: -1,
 	selected: null,
 	branches: [],
 	branchesLoading: false,
-	branchOpen: false,
-	branchSearch: "",
-	branchIndex: -1,
 	selectedBranch: "",
 	pomInfo: null,
 	pomLoading: false,
 	pomError: "",
 	jiraProjects: [],
 	jiraProjectsLoading: false,
-	jiraProjectOpen: false,
-	jiraProjectSearch: "",
-	jiraProjectIndex: -1,
 	selectedJiraProject: null,
 	jiraStatus: "idle",
 	jiraResult: null,
@@ -546,9 +339,6 @@ const initial: State = {
 	mrBranches: [],
 	mrSourceBranch: "",
 	mrTargetBranch: "",
-	mrBranchOpen: false,
-	mrBranchSearch: "",
-	mrBranchIndex: -1,
 	history: [],
 	historyLoading: true,
 	quickExecuting: null,
@@ -565,16 +355,10 @@ type Action =
 	| { type: "SET_JIRA_HOST"; host: string }
 	| { type: "PROJECTS_LOADED"; projects: Project[] }
 	| { type: "PROJECTS_ERROR"; error: string }
-	| { type: "SET_PROJECT_OPEN"; open: boolean }
-	| { type: "SET_PROJECT_SEARCH"; search: string }
-	| { type: "SET_PROJECT_INDEX"; index: number }
 	| { type: "SELECT_PROJECT"; project: Project }
 	| { type: "CLEAR_PROJECT" }
 	| { type: "BRANCHES_LOADING" }
 	| { type: "BRANCHES_LOADED"; branches: Branch[] }
-	| { type: "SET_BRANCH_OPEN"; open: boolean }
-	| { type: "SET_BRANCH_SEARCH"; search: string }
-	| { type: "SET_BRANCH_INDEX"; index: number }
 	| { type: "SELECT_BRANCH"; branch: string }
 	| { type: "POM_LOADING" }
 	| { type: "POM_LOADED"; info: PomInfo }
@@ -582,9 +366,6 @@ type Action =
 	| { type: "JIRA_PROJECTS_LOADING" }
 	| { type: "JIRA_PROJECTS_LOADED"; projects: JiraProject[] }
 	| { type: "JIRA_PROJECTS_ERROR"; error: string }
-	| { type: "SET_JIRA_PROJECT_OPEN"; open: boolean }
-	| { type: "SET_JIRA_PROJECT_SEARCH"; search: string }
-	| { type: "SET_JIRA_PROJECT_INDEX"; index: number }
 	| { type: "SELECT_JIRA_PROJECT"; project: JiraProject }
 	| { type: "CLEAR_JIRA_PROJECT" }
 	| { type: "JIRA_CHECKING" }
@@ -608,9 +389,6 @@ type Action =
 	| { type: "MR_LOADING" }
 	| { type: "MR_SELECTING"; branches: { name: string; default?: boolean }[] }
 	| { type: "MR_SOURCE_SELECTED"; branch: string }
-	| { type: "SET_MR_BRANCH_OPEN"; open: boolean }
-	| { type: "SET_MR_BRANCH_SEARCH"; search: string }
-	| { type: "SET_MR_BRANCH_INDEX"; index: number }
 	| { type: "MR_CREATING" }
 	| {
 			type: "MR_DONE";
@@ -628,29 +406,13 @@ const reducer = (state: State, action: Action): State => {
 			return { ...state, projects: action.projects, projectsLoading: false };
 		case "PROJECTS_ERROR":
 			return { ...state, projectsError: action.error, projectsLoading: false };
-		case "SET_PROJECT_OPEN":
-			return {
-				...state,
-				projectOpen: action.open,
-				...(action.open ? {} : { projectSearch: "", projectIndex: -1 }),
-			};
-		case "SET_PROJECT_SEARCH":
-			return { ...state, projectSearch: action.search, projectIndex: -1 };
-		case "SET_PROJECT_INDEX":
-			return { ...state, projectIndex: action.index };
 		case "SELECT_PROJECT":
 			return {
 				...state,
 				selected: action.project,
-				projectOpen: false,
-				projectSearch: "",
-				projectIndex: -1,
 				branches: [],
 				branchesLoading: false,
 				selectedBranch: "",
-				branchOpen: false,
-				branchSearch: "",
-				branchIndex: -1,
 				pomInfo: null,
 				pomError: "",
 				selectedJiraProject: null,
@@ -663,9 +425,8 @@ const reducer = (state: State, action: Action): State => {
 				mrBranches: [],
 				mrSourceBranch: "",
 				mrTargetBranch: "",
-				mrBranchOpen: false,
-				mrBranchSearch: "",
-				mrBranchIndex: -1,
+				jiraProjectsLoading: false,
+				jiraProjects: [],
 			};
 		case "CLEAR_PROJECT":
 			return {
@@ -673,9 +434,6 @@ const reducer = (state: State, action: Action): State => {
 				selected: null,
 				branches: [],
 				selectedBranch: "",
-				branchOpen: false,
-				branchSearch: "",
-				branchIndex: -1,
 				pomInfo: null,
 				pomError: "",
 				pomLoading: false,
@@ -689,9 +447,6 @@ const reducer = (state: State, action: Action): State => {
 				mrBranches: [],
 				mrSourceBranch: "",
 				mrTargetBranch: "",
-				mrBranchOpen: false,
-				mrBranchSearch: "",
-				mrBranchIndex: -1,
 			};
 		case "BRANCHES_LOADING":
 			return {
@@ -702,23 +457,10 @@ const reducer = (state: State, action: Action): State => {
 			};
 		case "BRANCHES_LOADED":
 			return { ...state, branches: action.branches, branchesLoading: false };
-		case "SET_BRANCH_OPEN":
-			return {
-				...state,
-				branchOpen: action.open,
-				...(action.open ? {} : { branchSearch: "", branchIndex: -1 }),
-			};
-		case "SET_BRANCH_SEARCH":
-			return { ...state, branchSearch: action.search, branchIndex: -1 };
-		case "SET_BRANCH_INDEX":
-			return { ...state, branchIndex: action.index };
 		case "SELECT_BRANCH":
 			return {
 				...state,
 				selectedBranch: action.branch,
-				branchOpen: false,
-				branchSearch: "",
-				branchIndex: -1,
 			};
 		case "POM_LOADING":
 			return { ...state, pomLoading: true, pomError: "", pomInfo: null };
@@ -736,27 +478,10 @@ const reducer = (state: State, action: Action): State => {
 			};
 		case "JIRA_PROJECTS_ERROR":
 			return { ...state, jiraProjectsLoading: false };
-		case "SET_JIRA_PROJECT_OPEN":
-			return {
-				...state,
-				jiraProjectOpen: action.open,
-				...(action.open ? {} : { jiraProjectSearch: "", jiraProjectIndex: -1 }),
-			};
-		case "SET_JIRA_PROJECT_SEARCH":
-			return {
-				...state,
-				jiraProjectSearch: action.search,
-				jiraProjectIndex: -1,
-			};
-		case "SET_JIRA_PROJECT_INDEX":
-			return { ...state, jiraProjectIndex: action.index };
 		case "SELECT_JIRA_PROJECT":
 			return {
 				...state,
 				selectedJiraProject: action.project,
-				jiraProjectOpen: false,
-				jiraProjectSearch: "",
-				jiraProjectIndex: -1,
 				jiraStatus: "idle",
 				jiraResult: null,
 				jiraError: "",
@@ -765,9 +490,6 @@ const reducer = (state: State, action: Action): State => {
 			return {
 				...state,
 				selectedJiraProject: null,
-				jiraProjectOpen: false,
-				jiraProjectSearch: "",
-				jiraProjectIndex: -1,
 				jiraStatus: "idle",
 				jiraResult: null,
 				jiraError: "",
@@ -842,20 +564,7 @@ const reducer = (state: State, action: Action): State => {
 			return {
 				...state,
 				mrSourceBranch: action.branch,
-				mrBranchOpen: false,
-				mrBranchSearch: "",
-				mrBranchIndex: -1,
 			};
-		case "SET_MR_BRANCH_OPEN":
-			return {
-				...state,
-				mrBranchOpen: action.open,
-				...(action.open ? {} : { mrBranchSearch: "", mrBranchIndex: -1 }),
-			};
-		case "SET_MR_BRANCH_SEARCH":
-			return { ...state, mrBranchSearch: action.search, mrBranchIndex: -1 };
-		case "SET_MR_BRANCH_INDEX":
-			return { ...state, mrBranchIndex: action.index };
 		case "MR_LOADING":
 			return {
 				...state,
@@ -894,14 +603,12 @@ const reducer = (state: State, action: Action): State => {
 			};
 		case "MR_ERROR":
 			return { ...state, mrStatus: "error", mrError: action.error };
+		default:
+			return state;
 	}
 };
 
 // ── Helpers ──
-
-const cleanVersion = (v: string | null) => (v ?? "").split("-")[0];
-
-// ── Pipeline step class helper ──
 
 // ── History List Component ──
 
@@ -937,8 +644,12 @@ const HistoryList: FC<{ s: State; d: (action: Action) => void }> = ({
 	};
 
 	const handleClearHistory = async () => {
-		await fetch("/release/api/history", { method: "DELETE" });
-		d({ type: "CLEAR_HISTORY_DONE" });
+		try {
+			const res = await fetch("/release/api/history", { method: "DELETE" });
+			if (res.ok) d({ type: "CLEAR_HISTORY_DONE" });
+		} catch {
+			/* delete failed, keep local state */
+		}
 	};
 
 	return (
@@ -947,7 +658,7 @@ const HistoryList: FC<{ s: State; d: (action: Action) => void }> = ({
 			{s.history.length > 0 ? (
 				<div class="history-list">
 					{s.history.map((entry) => (
-						<div class="history-item">
+						<div class="history-item" key={entry.id}>
 							<div class="history-item-row">
 								<div class="history-info">
 									<span class="history-project">{entry.projectName}</span>
@@ -1095,10 +806,14 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 	s,
 	d,
 }) => {
-	const projectSearchRef = useRef<HTMLInputElement>(null);
-	const branchSearchRef = useRef<HTMLInputElement>(null);
-	const jiraSearchRef = useRef<HTMLInputElement>(null);
-	const mrBranchSearchRef = useRef<HTMLInputElement>(null);
+	const projectDd = useDropdown();
+	const branchDd = useDropdown();
+	const jiraProjectDd = useDropdown();
+	const mrBranchDd = useDropdown();
+	useClickOutside(
+		[projectDd, branchDd, jiraProjectDd, mrBranchDd],
+		["project", "branch", "jira-project", "mr-branch"],
+	);
 
 	useEffect(() => {
 		fetch("/release/api/config")
@@ -1118,35 +833,6 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 			})
 			.catch((e) => d({ type: "PROJECTS_ERROR", error: e.message }));
 	}, []);
-
-	useEffect(() => {
-		if (
-			!s.projectOpen &&
-			!s.branchOpen &&
-			!s.jiraProjectOpen &&
-			!s.mrBranchOpen
-		)
-			return;
-		const handler = (e: Event) => {
-			const target = e.target as HTMLElement;
-			if (!target.closest(".sel") && !target.closest(".mr-branch-sel")) {
-				d({ type: "SET_PROJECT_OPEN", open: false });
-				d({ type: "SET_BRANCH_OPEN", open: false });
-				d({ type: "SET_MR_BRANCH_OPEN", open: false });
-				d({ type: "SET_JIRA_PROJECT_OPEN", open: false });
-			}
-		};
-		document.addEventListener("click", handler);
-		return () => document.removeEventListener("click", handler);
-	}, [s.projectOpen, s.branchOpen, s.jiraProjectOpen]);
-
-	useEffect(() => {
-		if (s.projectOpen) setTimeout(() => projectSearchRef.current?.focus(), 50);
-		if (s.branchOpen) setTimeout(() => branchSearchRef.current?.focus(), 50);
-		if (s.jiraProjectOpen) setTimeout(() => jiraSearchRef.current?.focus(), 50);
-		if (s.mrBranchOpen)
-			setTimeout(() => mrBranchSearchRef.current?.focus(), 50);
-	}, [s.projectOpen, s.branchOpen, s.jiraProjectOpen, s.mrBranchOpen]);
 
 	// Auto-create MR after branch is selected
 	useEffect(() => {
@@ -1185,7 +871,14 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 					error: e instanceof Error ? e.message : "Failed",
 				}),
 			);
-	}, [s.mrStatus, s.mrSourceBranch]);
+	}, [
+		s.mrStatus,
+		s.mrSourceBranch,
+		s.selected?.id,
+		s.selectedBranch,
+		s.jiraResult?.key,
+		s.jiraHost,
+	]);
 
 	useEffect(() => {
 		if (
@@ -1241,6 +934,7 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 		const projectVersion = cleanVersion(s.pomInfo.version);
 		const versionName = `${flowPilotName}-${projectVersion}`;
 		const summary = `${flowPilotName}-${projectVersion} ${t("web.releaseSuffix") ?? t("release.releaseSuffix")}`;
+		const safeSummary = summary.replace(/"/g, '\\"');
 
 		d({ type: "JIRA_CHECKING" });
 		try {
@@ -1248,7 +942,7 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					jql: `summary ~ "${summary}" AND project = ${s.selectedJiraProject.key}`,
+					jql: `summary ~ "${safeSummary}" AND project = ${s.selectedJiraProject.key}`,
 					maxResults: 1,
 				}),
 			});
@@ -1262,20 +956,24 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 					type: "JIRA_DONE",
 					result: { key: searchData.issues[0].key, exists: true, versionName },
 				});
-				// Save to history
-				await fetch("/release/api/history", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						id: Date.now().toString(36),
-						createdAt: new Date().toISOString(),
-						projectId: s.selected.id,
-						projectName: s.selected.name,
-						projectPath: s.selected.pathWithNamespace ?? "",
-						branch: s.selectedBranch,
-						jiraProjectKey: s.selectedJiraProject.key,
-					}),
-				});
+				// Save to history (non-critical)
+				try {
+					await fetch("/release/api/history", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							id: Date.now().toString(36),
+							createdAt: new Date().toISOString(),
+							projectId: s.selected.id,
+							projectName: s.selected.name,
+							projectPath: s.selected.pathWithNamespace ?? "",
+							branch: s.selectedBranch,
+							jiraProjectKey: s.selectedJiraProject.key,
+						}),
+					});
+				} catch {
+					/* history save failed, non-critical */
+				}
 				return;
 			}
 
@@ -1319,20 +1017,24 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 					versionName: verData.name,
 				},
 			});
-			// Save to history
-			await fetch("/release/api/history", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					id: Date.now().toString(36),
-					createdAt: new Date().toISOString(),
-					projectId: s.selected.id,
-					projectName: s.selected.name,
-					projectPath: s.selected.pathWithNamespace ?? "",
-					branch: s.selectedBranch,
-					jiraProjectKey: s.selectedJiraProject.key,
-				}),
-			});
+			// Save to history (non-critical)
+			try {
+				await fetch("/release/api/history", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						id: Date.now().toString(36),
+						createdAt: new Date().toISOString(),
+						projectId: s.selected.id,
+						projectName: s.selected.name,
+						projectPath: s.selected.pathWithNamespace ?? "",
+						branch: s.selectedBranch,
+						jiraProjectKey: s.selectedJiraProject.key,
+					}),
+				});
+			} catch {
+				/* history save failed, non-critical */
+			}
 		} catch (e) {
 			d({
 				type: "JIRA_ERROR",
@@ -1341,22 +1043,6 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 		}
 	};
 
-	const fp = filterByRelevance(
-		s.projects.map((p) => ({
-			...p,
-			name: p.name,
-			path: p.pathWithNamespace ?? "",
-		})),
-		s.projectSearch,
-	);
-	const fb = filterByRelevance(
-		s.branches.map((b) => ({ ...b, name: b.name })),
-		s.branchSearch,
-	);
-	const fj = filterByRelevance(
-		s.jiraProjects.map((p) => ({ ...p, name: `${p.key} ${p.name ?? ""}` })),
-		s.jiraProjectSearch,
-	);
 	const jiraUrl =
 		s.jiraResult && s.jiraHost
 			? `${s.jiraHost}/browse/${s.jiraResult.key}`
@@ -1374,13 +1060,7 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 	const step5Done = !!s.jiraResult;
 	const step5Active = !!s.selectedJiraProject && !step5Done;
 
-	if (s.projectsLoading)
-		return (
-			<div class="loading-row">
-				<span class="spinner" />
-				{t("web.loadingProjects")}
-			</div>
-		);
+	if (s.projectsLoading) return <LoadingRow text={t("web.loadingProjects")} />;
 	if (s.projectsError) return <div class="state-error">{s.projectsError}</div>;
 
 	return (
@@ -1414,182 +1094,71 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 			</div>
 
 			{/* ── Project ── */}
-			<div
-				class="sel"
-				data-sel="project"
-				style={`z-index:${s.projectOpen ? 100 : 1}`}
-			>
-				<button
-					class={`sel-trigger${s.projectOpen ? " open" : ""}`}
-					type="button"
-					role="combobox"
-					aria-expanded={s.projectOpen}
-					aria-haspopup="listbox"
-					onClick={() => {
-						d({ type: "SET_BRANCH_OPEN", open: false });
-						d({ type: "SET_JIRA_PROJECT_OPEN", open: false });
-						d({ type: "SET_MR_BRANCH_OPEN", open: false });
-						d({ type: "SET_PROJECT_OPEN", open: !s.projectOpen });
-					}}
-				>
-					<span class="sel-trigger-label">{t("web.projectLabel")}</span>
-					<span class={`sel-trigger-value${s.selected ? "" : " empty"}`}>
-						{s.selected ? s.selected.name : t("web.selectProject")}
-					</span>
-					<span class="sel-trigger-arrow">▼</span>
-				</button>
-				{s.projectOpen && (
-					<div
-						class="sel-dropdown"
-						role="listbox"
-						aria-label={t("web.selectProject")}
-					>
-						<div class="sel-search">
-							<input
-								ref={projectSearchRef}
-								class="sel-search-input"
-								type="text"
-								placeholder={t("web.searchProjects")}
-								value={s.projectSearch}
-								onChange={(e: Event) =>
-									d({
-										type: "SET_PROJECT_SEARCH",
-										search: (e.target as HTMLInputElement).value,
-									})
-								}
-								onKeyDown={(e: KeyboardEvent) => {
-									const n = selKeyDown(
-										e,
-										s.projectOpen,
-										fp.length,
-										s.projectIndex,
-										(i) => {
-											const p = fp[i];
-											if (p) handleSelectProject(p as Project);
-										},
-										() => d({ type: "SET_PROJECT_OPEN", open: false }),
-									);
-									if (n !== undefined)
-										d({ type: "SET_PROJECT_INDEX", index: n });
-								}}
-							/>
-						</div>
-						{fp.length > 0 ? (
-							fp.map((p, i) => (
-								<div
-									class={`sel-item${s.selected?.id === (p as Project).id ? " active" : ""}${i === s.projectIndex ? " highlighted" : ""}`}
-									onMouseEnter={() =>
-										d({ type: "SET_PROJECT_INDEX", index: i })
-									}
-									onClick={() => handleSelectProject(p as Project)}
-								>
-									<div class="sel-item-name">{(p as Project).name}</div>
-									<div class="sel-item-sub">
-										{(p as Project).pathWithNamespace}
-									</div>
-								</div>
-							))
-						) : (
-							<div class="sel-empty">{t("web.noProjects")}</div>
+			<Select
+				id="project"
+				label={t("web.projectLabel")}
+				placeholder={t("web.selectProject")}
+				items={s.projects.map((p) => ({
+					...p,
+					name: p.name,
+					path: p.pathWithNamespace ?? "",
+				}))}
+				value={s.selected}
+				isEqual={(a, b) => a.id === b.id}
+				dropdown={projectDd}
+				onSelect={(p) => handleSelectProject(p as Project)}
+				onOpen={() => {
+					branchDd.close();
+					jiraProjectDd.close();
+					mrBranchDd.close();
+				}}
+				renderItem={(item, _isActive) => (
+					<span>
+						<div class={`sel-item-name`}>{(item as Project).name}</div>
+						{(item as Project).pathWithNamespace && (
+							<div class="sel-item-sub">
+								{(item as Project).pathWithNamespace}
+							</div>
 						)}
-					</div>
+					</span>
 				)}
-			</div>
+				searchPlaceholder={t("web.searchProjects")}
+				emptyText={t("web.noProjects")}
+			/>
 
 			{/* ── Branch ── */}
 			{s.selected &&
 				(s.branchesLoading ? (
-					<div class="loading-row">
-						<span class="spinner" />
-						{t("web.loadingBranches")}
-					</div>
+					<LoadingRow text={t("web.loadingBranches")} />
 				) : (
 					s.branches.length > 0 && (
-						<div
-							class="sel"
-							data-sel="branch"
-							style={`z-index:${s.branchOpen ? 100 : 1}`}
-						>
-							<button
-								class={`sel-trigger${s.branchOpen ? " open" : ""}`}
-								type="button"
-								role="combobox"
-								aria-expanded={s.branchOpen}
-								aria-haspopup="listbox"
-								onClick={() => {
-									d({ type: "SET_PROJECT_OPEN", open: false });
-									d({ type: "SET_JIRA_PROJECT_OPEN", open: false });
-									d({ type: "SET_MR_BRANCH_OPEN", open: false });
-									d({ type: "SET_BRANCH_OPEN", open: !s.branchOpen });
-								}}
-							>
-								<span class="sel-trigger-label">{t("web.branchLabel")}</span>
-								<span
-									class={`sel-trigger-value${s.selectedBranch ? "" : " empty"}`}
-								>
-									{s.selectedBranch || t("web.selectBranch")}
-								</span>
-								<span class="sel-trigger-arrow">▼</span>
-							</button>
-							{s.branchOpen && (
-								<div
-									class="sel-dropdown"
-									role="listbox"
-									aria-label={t("web.selectBranch")}
-								>
-									<div class="sel-search">
-										<input
-											ref={branchSearchRef}
-											class="sel-search-input"
-											type="text"
-											placeholder={t("web.filterBranches")}
-											value={s.branchSearch}
-											onChange={(e: Event) =>
-												d({
-													type: "SET_BRANCH_SEARCH",
-													search: (e.target as HTMLInputElement).value,
-												})
-											}
-											onKeyDown={(e: KeyboardEvent) => {
-												const n = selKeyDown(
-													e,
-													s.branchOpen,
-													fb.length,
-													s.branchIndex,
-													(i) => {
-														const b = fb[i];
-														if (b) handleSelectBranch((b as Branch).name);
-													},
-													() => d({ type: "SET_BRANCH_OPEN", open: false }),
-												);
-												if (n !== undefined)
-													d({ type: "SET_BRANCH_INDEX", index: n });
-											}}
-										/>
-									</div>
-									{fb.length > 0 ? (
-										fb.map((b, i) => (
-											<div
-												class={`sel-item${(b as Branch).name === s.selectedBranch ? " active" : ""}${i === s.branchIndex ? " highlighted" : ""}`}
-												onMouseEnter={() =>
-													d({ type: "SET_BRANCH_INDEX", index: i })
-												}
-												onClick={() => handleSelectBranch((b as Branch).name)}
-											>
-												<span class="sel-item-name">{(b as Branch).name}</span>
-												{(b as Branch).default && (
-													<span style="font-size:10px;color:var(--neon);margin-left:6px">
-														{t("web.defaultBranch")}
-													</span>
-												)}
-											</div>
-										))
-									) : (
-										<div class="sel-empty">{t("web.noBranches")}</div>
+						<Select
+							id="branch"
+							label={t("web.branchLabel")}
+							placeholder={t("web.selectBranch")}
+							items={s.branches.map((b) => ({ ...b, name: b.name }))}
+							value={s.selectedBranch ? { name: s.selectedBranch } : undefined}
+							isEqual={(a, b) => a.name === b.name}
+							dropdown={branchDd}
+							onSelect={(item) => handleSelectBranch(item.name)}
+							onOpen={() => {
+								projectDd.close();
+								jiraProjectDd.close();
+								mrBranchDd.close();
+							}}
+							renderItem={(item, _isActive) => (
+								<span>
+									<span class={`sel-item-name`}>{(item as Branch).name}</span>
+									{(item as Branch).default && (
+										<span style="font-size:10px;color:var(--neon);margin-left:6px">
+											{t("web.defaultBranch")}
+										</span>
 									)}
-								</div>
+								</span>
 							)}
-						</div>
+							searchPlaceholder={t("web.filterBranches")}
+							emptyText={t("web.noBranches")}
+						/>
 					)
 				))}
 
@@ -1598,10 +1167,7 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 				s.selectedBranch &&
 				!s.branchesLoading &&
 				(s.pomLoading ? (
-					<div class="loading-row">
-						<span class="spinner" />
-						{t("web.loadingVersion")}
-					</div>
+					<LoadingRow text={t("web.loadingVersion")} />
 				) : s.pomError ? (
 					<div class="version-error" role="alert">
 						{s.pomError.includes("404") ? t("web.noPom") : s.pomError}
@@ -1621,114 +1187,55 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 			{s.selected && s.pomInfo?.version && !s.pomLoading && (
 				<div class="jira-section">
 					{s.jiraProjectsLoading ? (
-						<div class="loading-row">
-							<span class="spinner" />
-							{t("web.loadingJiraProjects")}
-						</div>
+						<LoadingRow text={t("web.loadingJiraProjects")} />
 					) : (
-						<div
-							class="sel"
-							data-sel="jira"
-							style={`z-index:${s.jiraProjectOpen ? 100 : 1}`}
-						>
-							<button
-								class={`sel-trigger${s.jiraProjectOpen ? " open" : ""}`}
-								type="button"
-								role="combobox"
-								aria-expanded={s.jiraProjectOpen}
-								aria-haspopup="listbox"
-								onClick={() => {
-									d({ type: "SET_PROJECT_OPEN", open: false });
-									d({ type: "SET_BRANCH_OPEN", open: false });
-									d({
-										type: "SET_JIRA_PROJECT_OPEN",
-										open: !s.jiraProjectOpen,
-									});
-								}}
-							>
-								<span class="sel-trigger-label">
-									{t("web.jiraProjectLabel")}
-								</span>
-								<span
-									class={`sel-trigger-value${s.selectedJiraProject ? "" : " empty"}`}
-								>
-									{s.selectedJiraProject
-										? `${s.selectedJiraProject.key} - ${s.selectedJiraProject.name ?? ""}`
-										: t("web.selectJiraProject")}
-								</span>
-								<span class="sel-trigger-arrow">▼</span>
-							</button>
-							{s.jiraProjectOpen && (
-								<div
-									class="sel-dropdown"
-									role="listbox"
-									aria-label={t("web.selectJiraProject")}
-								>
-									<div class="sel-search">
-										<input
-											ref={jiraSearchRef}
-											class="sel-search-input"
-											type="text"
-											placeholder={t("web.searchJiraProject")}
-											value={s.jiraProjectSearch}
-											onChange={(e: Event) =>
-												d({
-													type: "SET_JIRA_PROJECT_SEARCH",
-													search: (e.target as HTMLInputElement).value,
-												})
-											}
-											onKeyDown={(e: KeyboardEvent) => {
-												const n = selKeyDown(
-													e,
-													s.jiraProjectOpen,
-													fj.length,
-													s.jiraProjectIndex,
-													(i) => {
-														const p = fj[i];
-														if (p)
-															d({
-																type: "SELECT_JIRA_PROJECT",
-																project: p as JiraProject,
-															});
-													},
-													() =>
-														d({ type: "SET_JIRA_PROJECT_OPEN", open: false }),
-												);
-												if (n !== undefined)
-													d({ type: "SET_JIRA_PROJECT_INDEX", index: n });
-											}}
-										/>
-									</div>
-									{fj.length > 0 ? (
-										fj.map((p, i) => (
-											<div
-												class={`sel-item${s.selectedJiraProject?.key === (p as JiraProject).key ? " active" : ""}${i === s.jiraProjectIndex ? " highlighted" : ""}`}
-												onMouseEnter={() =>
-													d({ type: "SET_JIRA_PROJECT_INDEX", index: i })
-												}
-												onClick={() =>
-													d({
-														type: "SELECT_JIRA_PROJECT",
-														project: p as JiraProject,
-													})
-												}
-											>
-												<span class="sel-item-name">
-													{(p as JiraProject).key}
-												</span>
-												{(p as JiraProject).name && (
-													<div class="sel-item-sub">
-														{(p as JiraProject).name}
-													</div>
-												)}
-											</div>
-										))
-									) : (
-										<div class="sel-empty">{t("web.noJiraProjects")}</div>
+						<Select
+							id="jira-project"
+							label={t("web.jiraProjectLabel")}
+							placeholder={t("web.selectJiraProject")}
+							items={s.jiraProjects.map((p) => ({
+								...p,
+								name: `${p.key} ${p.name ?? ""}`,
+							}))}
+							value={
+								s.selectedJiraProject
+									? {
+											...s.selectedJiraProject,
+											name: `${s.selectedJiraProject.key} ${s.selectedJiraProject.name ?? ""}`,
+										}
+									: null
+							}
+							isEqual={(a, b) =>
+								(a as JiraProject).key === (b as JiraProject).key
+							}
+							dropdown={jiraProjectDd}
+							onSelect={(item) =>
+								d({
+									type: "SELECT_JIRA_PROJECT",
+									project: item as JiraProject,
+								})
+							}
+							onOpen={() => {
+								projectDd.close();
+								branchDd.close();
+								mrBranchDd.close();
+							}}
+							renderItem={(item, _isActive) => (
+								<span>
+									<span class={`sel-item-name`}>
+										{(item as JiraProject).key}
+									</span>
+									{(item as JiraProject).name && (
+										<div class="sel-item-sub">{(item as JiraProject).name}</div>
 									)}
-								</div>
+								</span>
 							)}
-						</div>
+							renderValue={(item) =>
+								`${(item as JiraProject).key} - ${(item as JiraProject).name ?? ""}`
+							}
+							searchPlaceholder={t("web.searchJiraProject")}
+							emptyText={t("web.noJiraProjects")}
+						/>
 					)}
 
 					<button
@@ -1749,11 +1256,14 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 					</button>
 
 					{(s.jiraStatus === "checking" || s.jiraStatus === "creating") && (
-						<div class="loading-row" style="margin-top:12px">
-							<span class="spinner" />
-							{s.jiraStatus === "checking"
-								? t("web.checkingIssues")
-								: t("web.creatingIssue")}
+						<div style="margin-top:12px">
+							<LoadingRow
+								text={
+									s.jiraStatus === "checking"
+										? t("web.checkingIssues")
+										: t("web.creatingIssue")
+								}
+							/>
 						</div>
 					)}
 
@@ -1837,108 +1347,45 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 								)}
 							</button>
 						)}
-					{s.mrStatus === "selecting" &&
-						(() => {
-							const mrb = s.mrBranches.filter((b) =>
-								b.name.toLowerCase().includes(s.mrBranchSearch.toLowerCase()),
-							);
-							return (
-								<div class="mr-branch-sel" style="margin-top:12px">
-									<div style="font-size:13px;color:var(--text-2);margin-bottom:4px">
-										{t("release.selectMrBranch")}
-									</div>
-									<div class="sel" style="position:relative;z-index:100">
-										<button
-											type="button"
-											class="sel-trigger"
-											onClick={() =>
-												d({ type: "SET_MR_BRANCH_OPEN", open: !s.mrBranchOpen })
-											}
-										>
-											<span class="sel-trigger-label">
-												{t("web.branchLabel")}
+					{s.mrStatus === "selecting" && (
+						<div style="margin-top:12px">
+							<div style="font-size:13px;color:var(--text-2);margin-bottom:4px">
+								{t("release.selectMrBranch")}
+							</div>
+							<Select
+								id="mr-branch"
+								label={t("web.branchLabel")}
+								placeholder={t("web.selectBranch")}
+								items={s.mrBranches}
+								value={
+									s.mrSourceBranch ? { name: s.mrSourceBranch } : undefined
+								}
+								isEqual={(a, b) => a.name === b.name}
+								dropdown={mrBranchDd}
+								onSelect={(item) =>
+									d({ type: "MR_SOURCE_SELECTED", branch: item.name })
+								}
+								onOpen={() => {
+									projectDd.close();
+									branchDd.close();
+									jiraProjectDd.close();
+								}}
+								renderItem={(item, _isActive) => (
+									<span>
+										<span class={`sel-item-name`}>{item.name}</span>
+										{(item as Branch).default && (
+											<span style="font-size:10px;color:var(--neon);margin-left:6px">
+												{t("web.defaultBranch")}
 											</span>
-											<span
-												class={`sel-trigger-value${s.mrSourceBranch ? "" : " empty"}`}
-											>
-												{s.mrSourceBranch || t("web.selectBranch")}
-											</span>
-											<span class="sel-trigger-arrow">▼</span>
-										</button>
-										{s.mrBranchOpen && (
-											<div
-												class="sel-dropdown"
-												role="listbox"
-												aria-label={t("release.selectMrBranch")}
-											>
-												<div class="sel-search">
-													<input
-														ref={mrBranchSearchRef}
-														class="sel-search-input"
-														type="text"
-														placeholder={t("web.filterBranches")}
-														value={s.mrBranchSearch}
-														onChange={(e: Event) =>
-															d({
-																type: "SET_MR_BRANCH_SEARCH",
-																search: (e.target as HTMLInputElement).value,
-															})
-														}
-														onKeyDown={(e: KeyboardEvent) => {
-															const n = selKeyDown(
-																e,
-																s.mrBranchOpen,
-																mrb.length,
-																s.mrBranchIndex,
-																(i) => {
-																	if (mrb[i])
-																		d({
-																			type: "MR_SOURCE_SELECTED",
-																			branch: mrb[i].name,
-																		});
-																},
-																() =>
-																	d({
-																		type: "SET_MR_BRANCH_OPEN",
-																		open: false,
-																	}),
-															);
-															if (n !== undefined)
-																d({ type: "SET_MR_BRANCH_INDEX", index: n });
-														}}
-													/>
-												</div>
-												{mrb.length > 0 ? (
-													mrb.map((b, i) => (
-														<div
-															class={`sel-item${b.name === s.mrSourceBranch ? " active" : ""}${i === s.mrBranchIndex ? " highlighted" : ""}`}
-															onMouseEnter={() =>
-																d({ type: "SET_MR_BRANCH_INDEX", index: i })
-															}
-															onClick={() =>
-																d({
-																	type: "MR_SOURCE_SELECTED",
-																	branch: b.name,
-																})
-															}
-														>
-															<span class="sel-item-name">{b.name}</span>
-															{b.default && (
-																<span style="font-size:10px;color:var(--neon);margin-left:6px">
-																	{t("web.defaultBranch")}
-																</span>
-															)}
-														</div>
-													))
-												) : (
-													<div class="sel-empty">{t("web.noBranches")}</div>
-												)}
-											</div>
 										)}
-									</div>
-								</div>
-							);
-						})()}
+									</span>
+								)}
+								searchPlaceholder={t("web.filterBranches")}
+								emptyText={t("web.noBranches")}
+								zIndex={100}
+							/>
+						</div>
+					)}
 					{s.mrStatus === "selecting" && s.mrSourceBranch && (
 						<div style="margin-top:8px">
 							<div style="font-size:13px;color:var(--text-2);margin-bottom:6px">
@@ -1958,9 +1405,8 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 						</div>
 					)}
 					{s.mrStatus === "creating" && (
-						<div class="loading-row" style="margin-top:12px">
-							<span class="spinner" />
-							{t("release.creatingMrBtn")}
+						<div style="margin-top:12px">
+							<LoadingRow text={t("release.creatingMrBtn")} />
 						</div>
 					)}
 					{s.mrStatus === "done" && s.mrUrl && (
@@ -2009,72 +1455,32 @@ const ReleaseClient: FC = () => {
 	return (
 		<div>
 			<style>{releaseStyle}</style>
-			<div class="page-header">
-				<h2>{t("web.releaseTitle")}</h2>
-				<p>{t("web.releaseDesc")}</p>
-			</div>
+			<PageHeader
+				title={t("web.releaseTitle")}
+				description={t("web.releaseDesc")}
+			/>
 
 			{s.historyLoading ? (
-				<div class="loading-row">
-					<span class="spinner" />
-					{t("web.loading")}
-				</div>
+				<LoadingRow text={t("web.loading")} />
 			) : s.showNewModal ? (
-				<div
-					class="modal-overlay"
-					onClick={(e: Event) => {
-						if ((e.target as HTMLElement).classList.contains("modal-overlay")) {
-							fetch("/release/api/history")
-								.then((r) => r.json())
-								.then((data) => {
-									d({
-										type: "SET_HISTORY",
-										history: Array.isArray(data) ? data : [],
-									});
-									d({ type: "HIDE_NEW_MODAL" });
-								})
-								.catch(() => d({ type: "HIDE_NEW_MODAL" }));
-						}
+				<Modal
+					open={s.showNewModal}
+					onClose={() => {
+						fetch("/release/api/history")
+							.then((r) => r.json())
+							.then((data) => {
+								d({
+									type: "SET_HISTORY",
+									history: Array.isArray(data) ? data : [],
+								});
+								d({ type: "HIDE_NEW_MODAL" });
+							})
+							.catch(() => d({ type: "HIDE_NEW_MODAL" }));
 					}}
+					title={t("web.newModalTitle")}
 				>
-					<div class="modal-content">
-						<div class="modal-header">
-							<span class="modal-title">{t("web.newModalTitle")}</span>
-							<button
-								class="modal-close"
-								type="button"
-								onClick={() => {
-									fetch("/release/api/history")
-										.then((r) => r.json())
-										.then((data) => {
-											d({
-												type: "SET_HISTORY",
-												history: Array.isArray(data) ? data : [],
-											});
-											d({ type: "HIDE_NEW_MODAL" });
-										})
-										.catch(() => d({ type: "HIDE_NEW_MODAL" }));
-								}}
-							>
-								<svg
-									width="16"
-									height="16"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-								>
-									<title>Close</title>
-									<line x1="18" y1="6" x2="6" y2="18" />
-									<line x1="6" y1="6" x2="18" y2="18" />
-								</svg>
-							</button>
-						</div>
-						<ReleaseFlow s={s} d={d} />
-					</div>
-				</div>
+					<ReleaseFlow s={s} d={d} />
+				</Modal>
 			) : s.history.length > 0 ? (
 				<HistoryList s={s} d={d} />
 			) : (

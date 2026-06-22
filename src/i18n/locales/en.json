@@ -299,7 +299,10 @@
 		"watchEmptyHint": "Start a new monitor above",
 		"watchSaveHistory": "Save to History",
 		"watchDeleteHistory": "Delete this history entry",
-		"watchRetry": "Retry"
+		"watchRetry": "Retry",
+		"copied": "Copied!",
+		"skipToContent": "Skip to content",
+		"watchBuildAborted": "Aborted"
 	},
 	"mr": {
 		"notGitRepo": "Not a git repository. Run this inside a git project.",
@@ -418,7 +421,8 @@
 		"projectResolved": "Project resolved",
 		"resolveFailed": "Failed to resolve project",
 		"fetchingMembers": "Fetching project members...",
-		"membersLoaded": "Members loaded"
+		"membersLoaded": "Members loaded",
+		"projectNotFound": "GitLab project not found for this repository path"
 	},
 	"error": {
 		"gitlabHostMissing": "GitLab host not configured. Run `flowpilot config` first.",
