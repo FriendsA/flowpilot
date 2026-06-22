@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { configRoutes } from "./commands/config/routes";
 import { endRoutes } from "./commands/end/routes";
 import { mrRoutes } from "./commands/mr/routes";
@@ -40,6 +41,8 @@ declare module "hono" {
 }
 
 const app = new Hono();
+
+app.use("/*", cors());
 
 // i18n middleware: detect locale, init i18next, inject into renderer
 app.use("/*", async (c, next) => {
@@ -77,11 +80,12 @@ app.route("/watch", watchRoutes);
 
 // Serve client-side bundles and shared chunks (all under /client/)
 const __serverDir = dirname(fileURLToPath(import.meta.url));
+const __clientDir = join(__serverDir, "client");
 
 app.get("/client/*", async (c) => {
 	const relative = c.req.path.replace(/^\/client\//, "");
-	const filePath = join(__serverDir, relative);
-	if (!filePath.startsWith(__serverDir)) return c.notFound();
+	const filePath = join(__clientDir, relative);
+	if (!filePath.startsWith(__clientDir)) return c.notFound();
 	try {
 		const content = fs.readFileSync(filePath);
 		return new Response(content, {
