@@ -89,6 +89,7 @@ export default defineConfig([
 			chunkFileNames: "chunks/[name]-[hash].js",
 		},
 		platform: "browser",
+		external: [nodeBuiltins],
 		transform: {
 			jsx: { runtime: "automatic", importSource: "hono/jsx" },
 		},

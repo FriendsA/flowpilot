@@ -1,7 +1,6 @@
 // Shared common CSS + JSX components for spinner, loading-row, result-card, action-btn, copy-btn, page-header
 // Used by release/end/mr/watch/config Web UI pages
 import { type FC, useEffect, useRef, useState } from "hono/jsx";
-import { writeText } from "tinyclip";
 import { t } from "../i18n";
 
 export const commonCss = `
@@ -200,7 +199,7 @@ export const CopyButton: FC<CopyButtonProps> = ({ text, copyText }) => {
 	}, []);
 	const doCopy = async () => {
 		try {
-			await writeText(copyText);
+			await navigator.clipboard.writeText(copyText);
 			setCopied(true);
 			timerRef.current = setTimeout(() => setCopied(false), 2000);
 		} catch {
