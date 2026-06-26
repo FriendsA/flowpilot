@@ -50,7 +50,7 @@ Examples:
 - `src/gitlab-controller.ts` — GitLab API wrapper (GitBeaker, `camelize: true`)
 - `src/jira-controller.ts` — Jira API wrapper
 - `src/jenkins-controller.ts` — Jenkins API wrapper (crumb auth, build trigger)
-- `src/utils/pom.ts` — POM XML parser (reads `<flowpilot><releaseName>` and `<jenkinsJob>` with property fallbacks)
+- `src/utils/pom.ts` — POM XML parser (reads `<flowpilot><releaseName>` and `<jenkinsJob>` with property fallbacks; release name falls back to `<artifactId>` then GitLab project name at the call site)
 - `src/utils/git.ts` — Git CLI helpers (execSync, no simple-git dependency)
 - `src/utils/search.ts` — `searchSelect` (always-searchable CLI selection) + `filterByRelevance`
 - `src/utils/mr.ts` — MR creation helpers (description generation, project resolution, fallback logic)

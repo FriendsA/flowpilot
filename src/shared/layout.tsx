@@ -2,6 +2,9 @@ import type { Child, FC } from "hono/jsx";
 import { VERSION } from "../constants";
 import type { Locale } from "../i18n/web";
 import { t } from "../i18n/web";
+import { BorderBeamCornerCutCard } from "./components/neonblade/border-beam-corner-cut-card";
+import { CornerCutButton } from "./components/neonblade/corner-cut-button";
+import { NeonGlow } from "./components/neonblade/neon-glow";
 import { menus } from "./menus";
 import { globalStyle } from "./style";
 
@@ -31,17 +34,27 @@ export const Layout: FC<LayoutProps> = ({
 	const scriptContent = `
 		(function() {
 			var sidebar = document.querySelector('.sidebar');
-			var toggle = document.querySelector('.sidebar-toggle');
-			if (!sidebar || !toggle) return;
+			var trigger = document.querySelector('.sidebar-trigger');
+			var backdrop = document.querySelector('.sidebar-backdrop');
+			if (!sidebar || !trigger || !backdrop) return;
 
+			// SSR renders collapsed (drawer hidden) by default. Open if the user previously opened it.
 			var saved = localStorage.getItem('flowpilot_sidebar_collapsed');
-			if (saved === 'true') {
-				sidebar.classList.add('collapsed');
+			if (saved === 'false') {
+				sidebar.style.transition = 'none';
+				sidebar.classList.remove('collapsed');
+				requestAnimationFrame(function () { sidebar.style.transition = ''; });
 			}
 
-			toggle.addEventListener('click', function() {
+			function toggle() {
+				var willOpen = sidebar.classList.contains('collapsed');
 				sidebar.classList.toggle('collapsed');
-				localStorage.setItem('flowpilot_sidebar_collapsed', sidebar.classList.contains('collapsed'));
+				localStorage.setItem('flowpilot_sidebar_collapsed', String(!willOpen));
+			}
+			trigger.addEventListener('click', toggle);
+			backdrop.addEventListener('click', function () {
+				sidebar.classList.add('collapsed');
+				localStorage.setItem('flowpilot_sidebar_collapsed', 'true');
 			});
 		})();
 	`;
@@ -52,6 +65,7 @@ export const Layout: FC<LayoutProps> = ({
 				<meta charset="utf-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
 				<title>{pageTitle ?? "FlowPilot"}</title>
+				<link rel="stylesheet" href="/public/tailwind.css" />
 				<link rel="icon" type="image/x-icon" href="/public/favicon.ico" />
 				<link
 					rel="icon"
@@ -71,7 +85,7 @@ export const Layout: FC<LayoutProps> = ({
 					href="/public/apple-touch-icon.png"
 				/>
 				<link rel="manifest" href="/public/site.webmanifest" />
-				<style>{globalStyle}</style>
+				<style dangerouslySetInnerHTML={{ __html: globalStyle }} />
 				<script type="module" src={`/client/client.js?v=${Date.now()}`} defer />
 				<script
 					dangerouslySetInnerHTML={{
@@ -80,68 +94,102 @@ export const Layout: FC<LayoutProps> = ({
 				/>
 			</head>
 			<body>
+				<div
+					id="datalines-bg"
+					style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none"
+				/>
 				<a href="#main-content" class="skip-link">
 					{t("web.skipToContent") ?? "Skip to content"}
 				</a>
 
-				<nav class="sidebar" aria-label="Main navigation">
-					<div class="sidebar-header">
-						<div class="sidebar-brand">
-							<div
-								class="brand-icon"
-								dangerouslySetInnerHTML={{ __html: BRAND_SVG }}
-							/>
-							<div class="brand-text">
-								<span class="brand-name">FlowPilot</span>
-								<span class="brand-version">v{VERSION}</span>
+				<nav class="sidebar collapsed" aria-label="Main navigation">
+					<BorderBeamCornerCutCard
+						className="sidebar-card"
+						beamColor="#00f3ff"
+						beamColorB="#bf00ff"
+						variant="rainbow"
+						corner="bottom-right"
+						cornerSize={14}
+						borderWidth="2px"
+						glowIntensity="none"
+						size="sm"
+					>
+						<div class="sidebar-header">
+							<div class="sidebar-brand">
+								<div class="brand-icon">
+									<span
+										class="brand-icon-inner"
+										dangerouslySetInnerHTML={{ __html: BRAND_SVG }}
+									/>
+								</div>
+								<div class="brand-text">
+									<span class="brand-name">
+										<NeonGlow colors="#00f3ff" glowIntensity="subtle">
+											FlowPilot
+										</NeonGlow>
+									</span>
+									<span class="brand-version">v{VERSION}</span>
+								</div>
 							</div>
 						</div>
-						<button
-							class="sidebar-toggle"
-							type="button"
-							aria-label="Toggle sidebar"
-							dangerouslySetInnerHTML={{ __html: CHEVRON_SVG }}
-						/>
-					</div>
 
-					<div class="sidebar-nav">
-						{menus.map((m) => {
-							const isCurrent = m.href === activeHref;
-							return (
-								<a
-									key={m.href}
-									href={m.href}
-									class={`nav-item${isCurrent ? " active" : ""}`}
-									{...(isCurrent
-										? ({ "aria-current": "page" } as Record<string, string>)
-										: {})}
-								>
+						<div class="sidebar-nav">
+							{menus.map((m) => {
+								const isCurrent = m.href === activeHref;
+								return (
+									<a
+										key={m.href}
+										href={m.href}
+										class={`nav-item${isCurrent ? " active" : ""}`}
+										style={`--item-accent:${m.color}`}
+										{...(isCurrent
+											? ({ "aria-current": "page" } as Record<string, string>)
+											: {})}
+									>
+										<span class="nav-item-inner">
+											<span
+												class="nav-item-icon"
+												dangerouslySetInnerHTML={{ __html: m.icon }}
+											/>
+											<span class="nav-item-label">{t(m.titleKey)}</span>
+										</span>
+									</a>
+								);
+							})}
+						</div>
+
+						<div class="sidebar-footer">
+							<a
+								class={`footer-settings${isConfig ? " active" : ""}`}
+								href="/config"
+								style="--item-accent:#a78bfa"
+								aria-label={t("web.settingsAria")}
+							>
+								<span class="footer-settings-inner">
 									<span
-										class="nav-item-icon"
-										dangerouslySetInnerHTML={{ __html: m.icon }}
+										class="footer-settings-icon"
+										dangerouslySetInnerHTML={{ __html: SETTINGS_SVG }}
 									/>
-									<span class="nav-item-label">{t(m.titleKey)}</span>
-								</a>
-							);
-						})}
-					</div>
-
-					<div class="sidebar-footer">
-						<a
-							class={`footer-settings${isConfig ? " active" : ""}`}
-							href="/config"
-							aria-label={t("web.settingsAria")}
-						>
-							<span
-								class="footer-settings-icon"
-								dangerouslySetInnerHTML={{ __html: SETTINGS_SVG }}
-							/>
-							<span class="footer-settings-label">
-								{t("web.settingsTitle")}
-							</span>
-						</a>
-					</div>
+									<span class="footer-settings-label">
+										{t("web.settingsTitle")}
+									</span>
+								</span>
+							</a>
+						</div>
+					</BorderBeamCornerCutCard>
 				</nav>
+
+				<CornerCutButton
+					color="cyan"
+					size="sm"
+					variant="solid"
+					corner="all"
+					hoverEffect="glow"
+					className="sidebar-trigger"
+				>
+					<span dangerouslySetInnerHTML={{ __html: CHEVRON_SVG }} />
+				</CornerCutButton>
+				<div class="sidebar-backdrop" />
 
 				<div class="main-wrapper">
 					<main class="main" id="main-content">

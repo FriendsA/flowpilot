@@ -91,7 +91,8 @@ flowpilot config --open   # 打开 Web 页面配置
 1. `<flowpilot><releaseName>my-service</releaseName></flowpilot>` （推荐）
 2. `<flowpilot.releaseName>my-service</flowpilot.releaseName>` （点号语法）
 3. `<properties><releaseName>my-service</releaseName></properties>` （向后兼容）
-4. GitLab 项目名称（最终回退）
+4. `<artifactId>my-service</artifactId>` （Maven artifactId，回退）
+5. GitLab 项目名称（最终回退）
 
 **Jenkins 任务（jenkinsJob）：** 按以下优先级提取：
 1. `<flowpilot><jenkinsJob>my-service-deploy</jenkinsJob></flowpilot>` （推荐）

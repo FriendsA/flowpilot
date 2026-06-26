@@ -2,67 +2,45 @@ import { type FC, useEffect, useReducer } from "hono/jsx";
 import { render } from "hono/jsx/dom";
 import {
 	commonCss,
+	fieldLabel,
 	LoadingRow,
 	PageHeader,
 	pageHeaderCss,
+	sectionTitle,
 } from "../../shared/components/common";
 import { Modal, modalCss } from "../../shared/components/modal";
-import {
-	pipelineCss,
-	pipelineLineClass,
-	pipelineStepClass,
-} from "../../shared/components/pipeline";
-import {
-	Select,
-	selectCss,
-	useClickOutside,
-	useDropdown,
-} from "../../shared/components/select";
+import { Badge } from "../../shared/components/neonblade/badge";
+import { BorderBeamCornerCutCard } from "../../shared/components/neonblade/border-beam-corner-cut-card";
+import { CornerCutButton } from "../../shared/components/neonblade/corner-cut-button";
+import { GlitchText } from "../../shared/components/neonblade/glitch-text";
+import { NeonGlow } from "../../shared/components/neonblade/neon-glow";
+import { NeonGlowCornerCutCard } from "../../shared/components/neonblade/neon-glow-corner-cut-card";
+import { NeonSelect } from "../../shared/components/neonblade/neon-select";
 import { initPromise, t } from "../../shared/i18n";
 import { cleanVersion } from "../../utils/pom";
 
+const ACCENT = "#00f3ff";
+const ERROR_COLOR = "#ff4444";
+
 // ── Styles ──
 
-const releaseStyle = `${pipelineCss}${selectCss}${commonCss}${pageHeaderCss}${modalCss}
-  /* ── Version display ── */
-  .version-display {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 20px;
-    background: var(--bg-card);
-    border: 1px solid rgba(0,212,255,0.08);
-    border-radius: 8px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
+const releaseStyle = `${commonCss}${pageHeaderCss}${modalCss}
+  /* ── Theme: cyan accent overrides ── */
+  .spinner { border-top-color: ${ACCENT}; }
+  .result-card { border-color: rgba(0,243,255,0.08); }
+  .result-success { border-color: rgba(0,243,255,0.18); }
+  .result-key { color: ${ACCENT}; border-bottom-color: rgba(0,243,255,0.3); }
+  .result-key:hover { border-bottom-color: ${ACCENT}; }
+  .result-text.success { color: ${ACCENT}; }
+
+  /* ── Version display (inside NeonGlowCornerCutCard) ── */
   .version-tag { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--mono); }
-  .version-number { font-size: 20px; font-weight: 600; font-family: var(--mono); color: var(--cyan); letter-spacing: -0.01em; }
-  .version-error { color: var(--error); font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .version-number { font-size: 20px; font-weight: 600; font-family: var(--mono); letter-spacing: -0.01em; }
+  .version-display-card { height: auto !important; margin-bottom: 16px; }
+  .version-display-card .ngcc-card { height: auto !important; padding: 12px 16px; }
 
-  .empty-hint { text-align: center; padding: 32px 0; color: var(--text-3); font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
-  .state-error { color: var(--error); font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
-
-  /* ── Jira ── */
-  .jira-section { margin-top: 20px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
-  .jira-btn {
-    width: 100%;
-    min-height: 44px;
-    padding: 10px 20px;
-    font-size: 13px;
-    font-family: var(--sans);
-    font-weight: 500;
-    color: var(--bg-void);
-    background: var(--neon);
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.15s, box-shadow 0.2s;
-    margin-top: 16px;
-    position: relative;
-    z-index: 1;
-  }
-  .jira-btn:hover { background: var(--neon-hover); box-shadow: 0 0 12px var(--neon-glow), 0 2px 12px rgba(0,255,136,0.2); }
-  .jira-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .empty-hint { text-align: center; padding: 32px 0; font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
+  .error-text { color: ${ERROR_COLOR}; font-size: 13px; margin-top: 12px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
   /* ── Custom Checkbox ── */
   input[type="checkbox"] {
@@ -77,8 +55,8 @@ const releaseStyle = `${pipelineCss}${selectCss}${commonCss}${pageHeaderCss}${mo
     transition: border-color 0.15s, background 0.15s;
   }
   input[type="checkbox"]:checked {
-    background: var(--neon);
-    border-color: var(--neon);
+    background: ${ACCENT};
+    border-color: ${ACCENT};
   }
   input[type="checkbox"]:checked::after {
     content: "✓";
@@ -90,69 +68,41 @@ const releaseStyle = `${pipelineCss}${selectCss}${commonCss}${pageHeaderCss}${mo
     color: var(--bg-void);
   }
   input[type="checkbox"]:focus-visible {
-    outline: 2px solid var(--neon-soft);
+    outline: 2px solid color-mix(in srgb, ${ACCENT} 40%, transparent);
     outline-offset: 2px;
   }
-  .jira-result {
-    margin-top: 12px;
-    padding: 12px 16px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-    position: relative;
-    z-index: 1;
-  }
+
   .jira-result-key {
     font-family: var(--mono);
     font-size: 14px;
     font-weight: 600;
-    color: var(--neon);
+    color: ${ACCENT};
     text-decoration: none;
-    border-bottom: 1px dashed rgba(0,255,136,0.3);
+    border-bottom: 1px dashed ${ACCENT}4d;
     transition: border-color 0.2s;
   }
-  .jira-result-key:hover { border-bottom-color: var(--neon); }
+  .jira-result-key:hover { border-bottom-color: ${ACCENT}; }
   .jira-result-label { font-size: 11px; color: var(--text-3); margin-bottom: 4px; }
-  .jira-result-badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 4px; margin-left: 8px; font-weight: 500; }
-  .jira-result-badge.created { background: var(--neon-soft); color: var(--neon); }
-  .jira-result-badge.exists { background: var(--cyan-soft); color: var(--cyan); }
-  .jira-error { margin-top: 12px; color: var(--error); font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .jira-result-card { margin-top: 16px; height: auto !important; }
+  .jira-result-card .ngcc-card { padding: 12px 16px; height: auto !important; display: flex; flex-direction: column; gap: 8px; }
+  .jira-result-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-  /* ── History ── */
+  /* ── History (items rendered as BorderBeamCornerCutCard) ── */
+  .history-item-card { margin-bottom: 0; }
+  .history-item-card .bbc-inner { padding: 12px 16px; }
   .history-section {
     margin-bottom: 24px;
     animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
-  }
-  .history-title {
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 12px;
-    color: var(--text-1);
   }
   .history-list {
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
-  .history-item {
-    display: flex;
-    flex-direction: column;
-    padding: 12px 16px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
   .history-item-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-  }
-  .history-item:hover {
-    border-color: var(--border-active);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   }
   .history-info {
     display: flex;
@@ -160,27 +110,9 @@ const releaseStyle = `${pipelineCss}${selectCss}${commonCss}${pageHeaderCss}${mo
     gap: 12px;
     flex: 1;
   }
-  .history-project { font-weight: 500; color: var(--text-1); font-size: 14px; }
+  .history-project { font-weight: 600; font-size: 14px; }
   .history-detail { font-size: 12px; color: var(--text-3); font-family: var(--mono); }
   .history-actions { display: flex; align-items: center; gap: 8px; }
-  .history-quick-btn {
-    padding: 6px 14px;
-    font-size: 12px;
-    font-family: var(--sans);
-    font-weight: 500;
-    color: var(--bg-void);
-    background: var(--neon);
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  .history-quick-btn:hover { background: var(--neon-hover); }
-  .history-quick-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .history-quick-btn.executing {
-    background: var(--border);
-    color: var(--text-3);
-  }
   .history-footer {
     display: flex;
     align-items: center;
@@ -189,51 +121,25 @@ const releaseStyle = `${pipelineCss}${selectCss}${commonCss}${pageHeaderCss}${mo
     padding-top: 16px;
     border-top: 1px solid var(--border);
   }
-  .history-new-btn {
-    padding: 8px 16px;
-    font-size: 13px;
-    font-family: var(--sans);
-    font-weight: 500;
-    color: var(--bg-void);
-    background: var(--neon);
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.15s, box-shadow 0.2s;
-  }
-  .history-new-btn:hover { background: var(--neon-hover); box-shadow: 0 0 12px var(--neon-glow); }
-  .history-clear-btn {
-    padding: 8px 16px;
-    font-size: 13px;
-    font-family: var(--sans);
-    font-weight: 400;
-    color: var(--text-3);
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: border-color 0.15s, color 0.15s;
-  }
-  .history-clear-btn:hover { border-color: var(--error); color: var(--error); }
-  .history-result {
-    margin-top: 12px;
-    padding: 10px 14px;
-    background: var(--bg-void);
-    border: 1px solid rgba(0,255,136,0.08);
-    border-radius: 8px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
   .history-result-key {
     font-family: var(--mono);
     font-size: 14px;
     font-weight: 600;
-    color: var(--neon);
+    color: ${ACCENT};
     text-decoration: none;
   }
-  .history-result-error {
-    color: var(--error);
-    font-size: 13px;
+  .history-result {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: var(--bg-void);
+    border: 1px solid ${ACCENT}14;
+    border-radius: 8px;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
+
+  /* ── Step indicator (Badge-based) ── */
+  .release-steps { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both; }
+  .release-step-sep { display: inline-flex; align-items: center; color: ${ACCENT}; opacity: 0.6; font-size: 14px; }
 `;
 
 // ── History entry type ──
@@ -275,6 +181,7 @@ type PomInfo = {
 	version: string | null;
 	groupId: string | null;
 	flowPilotName: string | null;
+	artifactId: string | null;
 };
 type JiraProject = { key: string; id: string; name?: string };
 
@@ -654,29 +561,44 @@ const HistoryList: FC<{ s: State; d: (action: Action) => void }> = ({
 
 	return (
 		<div class="history-section">
-			<div class="history-title">{t("web.historyTitle")}</div>
+			<div style="margin-bottom:12px">
+				{sectionTitle(ACCENT, t("web.historyTitle"))}
+			</div>
 			{s.history.length > 0 ? (
 				<div class="history-list">
 					{s.history.map((entry) => (
-						<div class="history-item" key={entry.id}>
+						<BorderBeamCornerCutCard
+							key={entry.id}
+							className="history-item-card"
+							beamColor={ACCENT}
+							variant="pulse"
+							corner="bottom-right"
+							cornerSize={12}
+							size="sm"
+							glowIntensity="none"
+						>
 							<div class="history-item-row">
 								<div class="history-info">
-									<span class="history-project">{entry.projectName}</span>
+									<NeonGlow colors={ACCENT} glowIntensity="subtle">
+										<span class="history-project">{entry.projectName}</span>
+									</NeonGlow>
 									<span class="history-detail">
 										{entry.branch} / {entry.jiraProjectKey}
 									</span>
 									{entry.mrUrl && (
-										<span style="font-size:12px;color:var(--text-3);margin-left:6px">
-											{t("release.mrFromTo", {
-												source: entry.mrSourceBranch ?? "",
-												target: entry.mrTargetBranch ?? entry.branch,
-											})}
-										</span>
+										<NeonGlow colors={ACCENT} glowIntensity="subtle">
+											<span style="font-size:12px;margin-left:6px">
+												{t("release.mrFromTo", {
+													source: entry.mrSourceBranch ?? "",
+													target: entry.mrTargetBranch ?? entry.branch,
+												})}
+											</span>
+										</NeonGlow>
 									)}
 								</div>
 								<div class="history-actions">
 									{entry.mrUrl && (
-										<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-3);cursor:pointer">
+										<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
 											<input
 												type="checkbox"
 												checked={s.createMrChecked[entry.id] ?? false}
@@ -684,19 +606,22 @@ const HistoryList: FC<{ s: State; d: (action: Action) => void }> = ({
 													d({ type: "TOGGLE_CREATE_MR", id: entry.id })
 												}
 											/>
-											{t("web.createMrCheckbox")}
+											{fieldLabel(ACCENT, t("web.createMrCheckbox"))}
 										</label>
 									)}
-									<button
-										class={`history-quick-btn${s.quickExecuting === entry.id ? " executing" : ""}`}
-										type="button"
+									<CornerCutButton
+										color={ACCENT}
+										variant={
+											s.quickExecuting === entry.id ? "outline" : "solid"
+										}
+										size="xs"
 										disabled={s.quickExecuting !== null}
 										onClick={() => handleQuickExecute(entry.id)}
 									>
 										{s.quickExecuting === entry.id
 											? t("web.executing")
 											: t("web.quickExecute")}
-									</button>
+									</CornerCutButton>
 								</div>
 							</div>
 							{(() => {
@@ -712,20 +637,33 @@ const HistoryList: FC<{ s: State; d: (action: Action) => void }> = ({
 										>
 											{qr.issueKey}
 										</a>
-										<span
-											class={`jira-result-badge ${qr.issueCreated ? "created" : "exists"}`}
+										<Badge
+											color={ACCENT}
+											variant={qr.issueCreated ? "solid" : "outline"}
+											shape="pill"
+											dot="pulse"
+											size="xs"
+											glow={qr.issueCreated}
 										>
 											{qr.issueCreated
 												? t("web.createdBadge")
 												: t("web.existsBadge")}
-										</span>
-										<span style="font-size:12px;color:var(--text-3);margin-left:8px">
-											v{qr.version}
-										</span>
-										{qr.versionCreated && (
-											<span style="font-size:10px;color:var(--neon);margin-left:4px">
-												{t("web.createdBadge")}
+										</Badge>
+										<NeonGlow colors={ACCENT} glowIntensity="subtle">
+											<span style="font-size:12px;margin-left:8px">
+												v{qr.version}
 											</span>
+										</NeonGlow>
+										{qr.versionCreated && (
+											<Badge
+												color={ACCENT}
+												variant="solid"
+												shape="pill"
+												size="xs"
+												glow
+											>
+												{t("web.createdBadge")}
+											</Badge>
 										)}
 										{qr.mrUrl && (
 											<span style="font-size:12px;margin-left:12px">
@@ -733,7 +671,7 @@ const HistoryList: FC<{ s: State; d: (action: Action) => void }> = ({
 													href={qr.mrUrl}
 													target="_blank"
 													rel="noreferrer"
-													style="color:var(--cyan);text-decoration:none;border-bottom:1px dashed var(--cyan)"
+													style={`color:${ACCENT};text-decoration:none;border-bottom:1px dashed ${ACCENT}`}
 												>
 													{t("release.mrFromTo", {
 														source: qr.mrSourceBranch ?? "",
@@ -746,54 +684,63 @@ const HistoryList: FC<{ s: State; d: (action: Action) => void }> = ({
 								);
 							})()}
 							{s.quickErrors[entry.id] && (
-								<div class="history-result-error">
-									{s.quickErrors[entry.id]}
+								<div class="error-text" role="alert">
+									<NeonGlow colors={ERROR_COLOR} glowIntensity="subtle">
+										{s.quickErrors[entry.id]}
+									</NeonGlow>
 								</div>
 							)}
-						</div>
+						</BorderBeamCornerCutCard>
 					))}
 				</div>
 			) : (
-				<div class="empty-hint">{t("web.noHistory")}</div>
+				<div class="empty-hint">
+					<NeonGlow colors={ACCENT} glowIntensity="subtle">
+						{t("web.noHistory")}
+					</NeonGlow>
+				</div>
 			)}
 			<div class="history-footer">
-				<button
-					class="history-new-btn"
-					type="button"
+				<CornerCutButton
+					color={ACCENT}
+					size="sm"
+					variant="solid"
 					onClick={() => d({ type: "SHOW_NEW_MODAL" })}
 				>
 					{t("web.createNew")}
-				</button>
+				</CornerCutButton>
 				{s.history.length > 0 &&
 					(s.clearConfirm ? (
 						<div style="display:flex;align-items:center;gap:8px">
-							<span style="font-size:12px;color:var(--text-3)">
-								{t("web.clearConfirm")}
-							</span>
-							<button
-								class="history-clear-btn"
-								type="button"
-								style="border-color:var(--error);color:var(--error)"
+							<NeonGlow colors={ACCENT} glowIntensity="subtle">
+								<span style="font-size:12px">{t("web.clearConfirm")}</span>
+							</NeonGlow>
+							<CornerCutButton
+								color={ACCENT}
+								variant="ghost"
+								size="xs"
 								onClick={handleClearHistory}
 							>
 								{t("web.clearHistory")}
-							</button>
-							<button
-								class="history-clear-btn"
-								type="button"
+							</CornerCutButton>
+							<CornerCutButton
+								color={ACCENT}
+								variant="ghost"
+								size="xs"
 								onClick={() => d({ type: "CLEAR_CONFIRM_TOGGLE" })}
 							>
 								{t("web.cancel")}
-							</button>
+							</CornerCutButton>
 						</div>
 					) : (
-						<button
-							class="history-clear-btn"
-							type="button"
+						<CornerCutButton
+							color={ACCENT}
+							variant="ghost"
+							size="xs"
 							onClick={() => d({ type: "CLEAR_CONFIRM_TOGGLE" })}
 						>
 							{t("web.clearHistory")}
-						</button>
+						</CornerCutButton>
 					))}
 			</div>
 		</div>
@@ -806,15 +753,6 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 	s,
 	d,
 }) => {
-	const projectDd = useDropdown();
-	const branchDd = useDropdown();
-	const jiraProjectDd = useDropdown();
-	const mrBranchDd = useDropdown();
-	useClickOutside(
-		[projectDd, branchDd, jiraProjectDd, mrBranchDd],
-		["project", "branch", "jira-project", "mr-branch"],
-	);
-
 	useEffect(() => {
 		fetch("/release/api/config")
 			.then((r) => r.json())
@@ -930,7 +868,8 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 
 	const handleCreateIssue = async () => {
 		if (!s.selected || !s.pomInfo?.version || !s.selectedJiraProject) return;
-		const flowPilotName = s.pomInfo.flowPilotName ?? s.selected.name;
+		const flowPilotName =
+			s.pomInfo.flowPilotName ?? s.pomInfo.artifactId ?? s.selected.name;
 		const projectVersion = cleanVersion(s.pomInfo.version);
 		const versionName = `${flowPilotName}-${projectVersion}`;
 		const summary = `${flowPilotName}-${projectVersion} ${t("web.releaseSuffix") ?? t("release.releaseSuffix")}`;
@@ -1060,41 +999,75 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 	const step5Done = !!s.jiraResult;
 	const step5Active = !!s.selectedJiraProject && !step5Done;
 
-	if (s.projectsLoading) return <LoadingRow text={t("web.loadingProjects")} />;
-	if (s.projectsError) return <div class="state-error">{s.projectsError}</div>;
+	if (s.projectsLoading)
+		return <LoadingRow color={ACCENT} text={t("web.loadingProjects")} />;
+	if (s.projectsError)
+		return (
+			<div class="error-text" role="alert">
+				<NeonGlow colors={ERROR_COLOR} glowIntensity="subtle">
+					{s.projectsError}
+				</NeonGlow>
+			</div>
+		);
 
 	return (
 		<div>
 			{/* ── Pipeline ── */}
-			<div class="pipeline">
-				<div class={pipelineStepClass(step1Done, step1Active)}>
-					<span class="pipeline-node" />
+			<div class="release-steps">
+				<Badge
+					color={ACCENT}
+					variant={step1Done ? "solid" : step1Active ? "outline" : "ghost"}
+					shape="corner-cut"
+					size="sm"
+					glow={step1Done || step1Active}
+				>
 					{t("web.projectLabel")}
-				</div>
-				<div class={pipelineLineClass(step1Done)} />
-				<div class={pipelineStepClass(step2Done, step2Active)}>
-					<span class="pipeline-node" />
+				</Badge>
+				<span class="release-step-sep">›</span>
+				<Badge
+					color={ACCENT}
+					variant={step2Done ? "solid" : step2Active ? "outline" : "ghost"}
+					shape="corner-cut"
+					size="sm"
+					glow={step2Done || step2Active}
+				>
 					{t("web.branchLabel")}
-				</div>
-				<div class={pipelineLineClass(step2Done)} />
-				<div class={pipelineStepClass(step3Done, step3Active)}>
-					<span class="pipeline-node" />
+				</Badge>
+				<span class="release-step-sep">›</span>
+				<Badge
+					color={ACCENT}
+					variant={step3Done ? "solid" : step3Active ? "outline" : "ghost"}
+					shape="corner-cut"
+					size="sm"
+					glow={step3Done || step3Active}
+				>
 					{t("web.versionTag")}
-				</div>
-				<div class={pipelineLineClass(step3Done)} />
-				<div class={pipelineStepClass(step4Done, step4Active)}>
-					<span class="pipeline-node" />
+				</Badge>
+				<span class="release-step-sep">›</span>
+				<Badge
+					color={ACCENT}
+					variant={step4Done ? "solid" : step4Active ? "outline" : "ghost"}
+					shape="corner-cut"
+					size="sm"
+					glow={step4Done || step4Active}
+				>
 					{t("web.jiraProjectLabel")}
-				</div>
-				<div class={pipelineLineClass(step4Done)} />
-				<div class={pipelineStepClass(step5Done, step5Active)}>
-					<span class="pipeline-node" />
+				</Badge>
+				<span class="release-step-sep">›</span>
+				<Badge
+					color={ACCENT}
+					variant={step5Done ? "solid" : step5Active ? "outline" : "ghost"}
+					shape="corner-cut"
+					size="sm"
+					glow={step5Done || step5Active}
+				>
 					{t("web.createBtn")}
-				</div>
+				</Badge>
 			</div>
 
 			{/* ── Project ── */}
-			<Select
+			<NeonSelect
+				color={ACCENT}
 				id="project"
 				label={t("web.projectLabel")}
 				placeholder={t("web.selectProject")}
@@ -1105,13 +1078,7 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 				}))}
 				value={s.selected}
 				isEqual={(a, b) => a.id === b.id}
-				dropdown={projectDd}
 				onSelect={(p) => handleSelectProject(p as Project)}
-				onOpen={() => {
-					branchDd.close();
-					jiraProjectDd.close();
-					mrBranchDd.close();
-				}}
 				renderItem={(item, _isActive) => (
 					<span>
 						<div class={`sel-item-name`}>{(item as Project).name}</div>
@@ -1127,120 +1094,112 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 			/>
 
 			{/* ── Branch ── */}
-			{s.selected &&
-				(s.branchesLoading ? (
-					<LoadingRow text={t("web.loadingBranches")} />
-				) : (
-					s.branches.length > 0 && (
-						<Select
-							id="branch"
-							label={t("web.branchLabel")}
-							placeholder={t("web.selectBranch")}
-							items={s.branches.map((b) => ({ ...b, name: b.name }))}
-							value={s.selectedBranch ? { name: s.selectedBranch } : undefined}
-							isEqual={(a, b) => a.name === b.name}
-							dropdown={branchDd}
-							onSelect={(item) => handleSelectBranch(item.name)}
-							onOpen={() => {
-								projectDd.close();
-								jiraProjectDd.close();
-								mrBranchDd.close();
-							}}
-							renderItem={(item, _isActive) => (
-								<span>
-									<span class={`sel-item-name`}>{(item as Branch).name}</span>
-									{(item as Branch).default && (
-										<span style="font-size:10px;color:var(--neon);margin-left:6px">
-											{t("web.defaultBranch")}
-										</span>
-									)}
-								</span>
+			{s.selected && (s.branchesLoading || s.branches.length > 0) && (
+				<NeonSelect
+					color={ACCENT}
+					id="branch"
+					label={t("web.branchLabel")}
+					placeholder={t("web.selectBranch")}
+					loading={s.branchesLoading}
+					items={s.branches.map((b) => ({ ...b, name: b.name }))}
+					value={s.selectedBranch ? { name: s.selectedBranch } : undefined}
+					isEqual={(a, b) => a.name === b.name}
+					onSelect={(item) => handleSelectBranch(item.name)}
+					renderItem={(item, _isActive) => (
+						<span>
+							<span class={`sel-item-name`}>{(item as Branch).name}</span>
+							{(item as Branch).default && (
+								<Badge color={ACCENT} variant="outline" shape="pill" size="xs">
+									{t("web.defaultBranch")}
+								</Badge>
 							)}
-							searchPlaceholder={t("web.filterBranches")}
-							emptyText={t("web.noBranches")}
-						/>
-					)
-				))}
+						</span>
+					)}
+					searchPlaceholder={t("web.filterBranches")}
+					emptyText={t("web.noBranches")}
+				/>
+			)}
 
 			{/* ── Version ── */}
 			{s.selected &&
 				s.selectedBranch &&
 				!s.branchesLoading &&
 				(s.pomLoading ? (
-					<LoadingRow text={t("web.loadingVersion")} />
+					<LoadingRow color={ACCENT} text={t("web.loadingVersion")} />
 				) : s.pomError ? (
-					<div class="version-error" role="alert">
-						{s.pomError.includes("404") ? t("web.noPom") : s.pomError}
+					<div class="error-text" role="alert">
+						<NeonGlow colors={ERROR_COLOR} glowIntensity="subtle">
+							{s.pomError.includes("404") ? t("web.noPom") : s.pomError}
+						</NeonGlow>
 					</div>
 				) : (
 					s.pomInfo && (
-						<div class="version-display">
-							<span class="version-tag">{t("web.versionTag")}</span>
-							<span class="version-number">
-								{cleanVersion(s.pomInfo.version)}
-							</span>
-						</div>
+						<NeonGlowCornerCutCard
+							className="version-display-card"
+							colorA={ACCENT}
+							size="sm"
+							hoverEffect="glow-only"
+						>
+							<div style="display:flex;align-items:center;gap:12px">
+								<span class="version-tag">{t("web.versionTag")}</span>
+								<NeonGlow colors={ACCENT} glowIntensity="subtle">
+									<span class="version-number">
+										{cleanVersion(s.pomInfo.version)}
+									</span>
+								</NeonGlow>
+							</div>
+						</NeonGlowCornerCutCard>
 					)
 				))}
 
 			{/* ── Jira ── */}
 			{s.selected && s.pomInfo?.version && !s.pomLoading && (
-				<div class="jira-section">
-					{s.jiraProjectsLoading ? (
-						<LoadingRow text={t("web.loadingJiraProjects")} />
-					) : (
-						<Select
-							id="jira-project"
-							label={t("web.jiraProjectLabel")}
-							placeholder={t("web.selectJiraProject")}
-							items={s.jiraProjects.map((p) => ({
-								...p,
-								name: `${p.key} ${p.name ?? ""}`,
-							}))}
-							value={
-								s.selectedJiraProject
-									? {
-											...s.selectedJiraProject,
-											name: `${s.selectedJiraProject.key} ${s.selectedJiraProject.name ?? ""}`,
-										}
-									: null
-							}
-							isEqual={(a, b) =>
-								(a as JiraProject).key === (b as JiraProject).key
-							}
-							dropdown={jiraProjectDd}
-							onSelect={(item) =>
-								d({
-									type: "SELECT_JIRA_PROJECT",
-									project: item as JiraProject,
-								})
-							}
-							onOpen={() => {
-								projectDd.close();
-								branchDd.close();
-								mrBranchDd.close();
-							}}
-							renderItem={(item, _isActive) => (
-								<span>
-									<span class={`sel-item-name`}>
-										{(item as JiraProject).key}
-									</span>
-									{(item as JiraProject).name && (
-										<div class="sel-item-sub">{(item as JiraProject).name}</div>
-									)}
-								</span>
-							)}
-							renderValue={(item) =>
-								`${(item as JiraProject).key} - ${(item as JiraProject).name ?? ""}`
-							}
-							searchPlaceholder={t("web.searchJiraProject")}
-							emptyText={t("web.noJiraProjects")}
-						/>
-					)}
+				<div>
+					<NeonSelect
+						color={ACCENT}
+						id="jira-project"
+						label={t("web.jiraProjectLabel")}
+						placeholder={t("web.selectJiraProject")}
+						loading={s.jiraProjectsLoading}
+						items={s.jiraProjects.map((p) => ({
+							...p,
+							name: `${p.key} ${p.name ?? ""}`,
+						}))}
+						value={
+							s.selectedJiraProject
+								? {
+										...s.selectedJiraProject,
+										name: `${s.selectedJiraProject.key} ${s.selectedJiraProject.name ?? ""}`,
+									}
+								: null
+						}
+						isEqual={(a, b) =>
+							(a as JiraProject).key === (b as JiraProject).key
+						}
+						onSelect={(item) =>
+							d({
+								type: "SELECT_JIRA_PROJECT",
+								project: item as JiraProject,
+							})
+						}
+						renderItem={(item, _isActive) => (
+							<span>
+								<span class={`sel-item-name`}>{(item as JiraProject).key}</span>
+								{(item as JiraProject).name && (
+									<div class="sel-item-sub">{(item as JiraProject).name}</div>
+								)}
+							</span>
+						)}
+						renderValue={(item) =>
+							`${(item as JiraProject).key} - ${(item as JiraProject).name ?? ""}`
+						}
+						searchPlaceholder={t("web.searchJiraProject")}
+						emptyText={t("web.noJiraProjects")}
+					/>
 
-					<button
-						class="jira-btn"
-						type="button"
+					<CornerCutButton
+						color={ACCENT}
+						variant="solid"
 						disabled={
 							!s.selectedJiraProject ||
 							s.jiraStatus === "checking" ||
@@ -1253,11 +1212,12 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 							: s.jiraStatus === "creating"
 								? t("web.creatingBtn")
 								: t("web.createBtn")}
-					</button>
+					</CornerCutButton>
 
 					{(s.jiraStatus === "checking" || s.jiraStatus === "creating") && (
 						<div style="margin-top:12px">
 							<LoadingRow
+								color={ACCENT}
 								text={
 									s.jiraStatus === "checking"
 										? t("web.checkingIssues")
@@ -1268,7 +1228,12 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 					)}
 
 					{s.jiraResult && (
-						<div class="jira-result">
+						<NeonGlowCornerCutCard
+							className="jira-result-card"
+							colorA={ACCENT}
+							size="sm"
+							hoverEffect="glow-only"
+						>
 							<div class="jira-result-label">
 								{s.jiraResult.exists
 									? t("web.versionExistsResult", {
@@ -1278,35 +1243,42 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 											version: s.jiraResult.versionName,
 										})}
 							</div>
-							<a
-								class="jira-result-key"
-								href={jiraUrl}
-								target="_blank"
-								rel="noreferrer"
-							>
-								{s.jiraResult.key}
-							</a>
-							<span
-								class={`jira-result-badge ${s.jiraResult.exists ? "exists" : "created"}`}
-							>
-								{s.jiraResult.exists
-									? t("web.existsBadge")
-									: t("web.createdBadge")}
-							</span>
-						</div>
+							<div class="jira-result-row">
+								<a
+									class="jira-result-key"
+									href={jiraUrl}
+									target="_blank"
+									rel="noreferrer"
+								>
+									{s.jiraResult.key}
+								</a>
+								<Badge
+									color={ACCENT}
+									variant={s.jiraResult.exists ? "outline" : "solid"}
+									shape="pill"
+									size="xs"
+									glow={!s.jiraResult.exists}
+								>
+									{s.jiraResult.exists
+										? t("web.existsBadge")
+										: t("web.createdBadge")}
+								</Badge>
+							</div>
+						</NeonGlowCornerCutCard>
 					)}
 					{s.jiraError && (
-						<div class="jira-error" role="alert">
-							{s.jiraError}
+						<div class="error-text" role="alert">
+							<NeonGlow colors={ERROR_COLOR} glowIntensity="subtle">
+								{s.jiraError}
+							</NeonGlow>
 						</div>
 					)}
 					{s.jiraResult &&
 						(s.mrStatus === "idle" || s.mrStatus === "loading") && (
-							<button
-								class="jira-btn"
-								type="button"
+							<CornerCutButton
+								color={ACCENT}
+								variant="solid"
 								disabled={s.mrStatus === "loading"}
-								style="background:var(--cyan);margin-top:12px"
 								onClick={async () => {
 									if (s.mrStatus === "loading") return;
 									d({ type: "MR_LOADING" });
@@ -1345,14 +1317,19 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 								) : (
 									t("web.createMrBtn")
 								)}
-							</button>
+							</CornerCutButton>
 						)}
 					{s.mrStatus === "selecting" && (
 						<div style="margin-top:12px">
-							<div style="font-size:13px;color:var(--text-2);margin-bottom:4px">
-								{t("release.selectMrBranch")}
+							<div style="margin-bottom:4px">
+								<NeonGlow colors={ACCENT} glowIntensity="subtle">
+									<span style="font-size:13px">
+										{t("release.selectMrBranch")}
+									</span>
+								</NeonGlow>
 							</div>
-							<Select
+							<NeonSelect
+								color={ACCENT}
 								id="mr-branch"
 								label={t("web.branchLabel")}
 								placeholder={t("web.selectBranch")}
@@ -1361,22 +1338,21 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 									s.mrSourceBranch ? { name: s.mrSourceBranch } : undefined
 								}
 								isEqual={(a, b) => a.name === b.name}
-								dropdown={mrBranchDd}
 								onSelect={(item) =>
 									d({ type: "MR_SOURCE_SELECTED", branch: item.name })
 								}
-								onOpen={() => {
-									projectDd.close();
-									branchDd.close();
-									jiraProjectDd.close();
-								}}
 								renderItem={(item, _isActive) => (
 									<span>
 										<span class={`sel-item-name`}>{item.name}</span>
 										{(item as Branch).default && (
-											<span style="font-size:10px;color:var(--neon);margin-left:6px">
+											<Badge
+												color={ACCENT}
+												variant="outline"
+												shape="pill"
+												size="xs"
+											>
 												{t("web.defaultBranch")}
-											</span>
+											</Badge>
 										)}
 									</span>
 								)}
@@ -1388,29 +1364,37 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 					)}
 					{s.mrStatus === "selecting" && s.mrSourceBranch && (
 						<div style="margin-top:8px">
-							<div style="font-size:13px;color:var(--text-2);margin-bottom:6px">
-								{t("release.mrFromTo", {
-									source: s.mrSourceBranch,
-									target: s.selectedBranch,
-								})}
+							<div style="margin-bottom:6px">
+								<NeonGlow colors={ACCENT} glowIntensity="subtle">
+									<span style="font-size:13px">
+										{t("release.mrFromTo", {
+											source: s.mrSourceBranch,
+											target: s.selectedBranch,
+										})}
+									</span>
+								</NeonGlow>
 							</div>
-							<button
-								class="jira-btn"
-								type="button"
-								style="background:var(--cyan);font-size:13px;padding:4px 12px"
+							<CornerCutButton
+								color={ACCENT}
+								variant="solid"
 								onClick={() => d({ type: "MR_CREATING" })}
 							>
 								{t("release.confirmCreateMr")}
-							</button>
+							</CornerCutButton>
 						</div>
 					)}
 					{s.mrStatus === "creating" && (
 						<div style="margin-top:12px">
-							<LoadingRow text={t("release.creatingMrBtn")} />
+							<LoadingRow color={ACCENT} text={t("release.creatingMrBtn")} />
 						</div>
 					)}
 					{s.mrStatus === "done" && s.mrUrl && (
-						<div class="jira-result" style="margin-top:12px">
+						<NeonGlowCornerCutCard
+							className="jira-result-card"
+							colorA={ACCENT}
+							size="sm"
+							hoverEffect="glow-only"
+						>
 							<div class="jira-result-label">MR</div>
 							<a
 								class="jira-result-key"
@@ -1423,17 +1407,25 @@ const ReleaseFlow: FC<{ s: State; d: (action: Action) => void }> = ({
 									target: s.selectedBranch,
 								})}
 							</a>
-						</div>
+						</NeonGlowCornerCutCard>
 					)}
 					{s.mrStatus === "error" && s.mrError && (
-						<div class="jira-error" role="alert" style="margin-top:12px">
-							{s.mrError}
+						<div class="error-text" role="alert" style="margin-top:12px">
+							<NeonGlow colors={ERROR_COLOR} glowIntensity="subtle">
+								{s.mrError}
+							</NeonGlow>
 						</div>
 					)}
 				</div>
 			)}
 
-			{!s.selected && <div class="empty-hint">{t("web.emptyHint")}</div>}
+			{!s.selected && (
+				<div class="empty-hint">
+					<NeonGlow colors={ACCENT} glowIntensity="subtle">
+						{t("web.emptyHint")}
+					</NeonGlow>
+				</div>
+			)}
 		</div>
 	);
 };
@@ -1456,12 +1448,28 @@ const ReleaseClient: FC = () => {
 		<div>
 			<style>{releaseStyle}</style>
 			<PageHeader
-				title={t("web.releaseTitle")}
-				description={t("web.releaseDesc")}
+				title={
+					<GlitchText
+						neon
+						mode="active"
+						colorA={ACCENT}
+						colorB={ACCENT}
+						glowColor={ACCENT}
+						speed="slow"
+						style="color:#00f3ff"
+					>
+						{t("web.releaseTitle")}
+					</GlitchText>
+				}
+				description={
+					<NeonGlow colors={ACCENT} glowIntensity="subtle">
+						{t("web.releaseDesc")}
+					</NeonGlow>
+				}
 			/>
 
 			{s.historyLoading ? (
-				<LoadingRow text={t("web.loading")} />
+				<LoadingRow color={ACCENT} text={t("web.loading")} />
 			) : s.showNewModal ? (
 				<Modal
 					open={s.showNewModal}

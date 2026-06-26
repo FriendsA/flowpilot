@@ -1,7 +1,11 @@
-// Shared common CSS + JSX components for spinner, loading-row, result-card, action-btn, copy-btn, page-header
+// Shared common CSS + JSX components for spinner, loading-row, result-card, copy-btn, page-header
 // Used by release/end/mr/watch/config Web UI pages
-import { type FC, useEffect, useRef, useState } from "hono/jsx";
+import { type Child, type FC, useEffect, useRef, useState } from "hono/jsx";
 import { t } from "../i18n";
+import { CornerCutButton } from "./neonblade/corner-cut-button";
+import { GlitchText } from "./neonblade/glitch-text";
+import { NeonGlow } from "./neonblade/neon-glow";
+import { ProgressBar } from "./neonblade/progress-bar";
 
 export const commonCss = `
 /* ── Spinner ── */
@@ -35,7 +39,7 @@ export const commonCss = `
   animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .result-success {
-  border-color: rgba(0,255,136,0.12);
+  border-color: rgba(0,243,255,0.12);
 }
 .result-error {
   border-color: rgba(255,68,68,0.12);
@@ -51,7 +55,7 @@ export const commonCss = `
   font-weight: 600;
   color: var(--neon);
   text-decoration: none;
-  border-bottom: 1px dashed rgba(0,255,136,0.3);
+  border-bottom: 1px dashed rgba(0,243,255,0.3);
   transition: border-color 0.2s;
 }
 .result-key:hover { border-bottom-color: var(--neon); }
@@ -62,66 +66,14 @@ export const commonCss = `
 }
 .result-text.success { color: var(--neon); }
 .result-text.error { color: var(--error); }
-.result-badge {
-  display: inline-block;
-  font-size: 10px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  margin-left: 8px;
-  font-weight: 500;
-  background: var(--neon-soft);
-  color: var(--neon);
-}
 
-/* ── Action button ── */
-.action-btn {
-  width: 100%;
-  min-height: 44px;
-  padding: 10px 20px;
-  font-size: 13px;
-  font-family: var(--sans);
-  font-weight: 500;
-  color: var(--bg-void);
-  background: var(--neon);
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.15s, box-shadow 0.2s;
-  margin-bottom: 16px;
-  position: relative;
-  z-index: 1;
-}
-.action-btn:hover { background: var(--neon-hover); box-shadow: 0 0 12px var(--neon-glow), 0 2px 12px rgba(0,255,136,0.2); }
-.action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.action-btn.secondary {
+/* ── Hint (inline helper text, e.g. after a field label) ── */
+.hint {
+  font-weight: 300;
   color: var(--text-3);
-  background: transparent;
-  border: 1px solid var(--border);
-}
-.action-btn.secondary:hover { border-color: var(--text-2); color: var(--text-2); }
-.action-btn.rerun {
-  color: var(--text-2);
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  margin-top: 24px;
-}
-.action-btn.rerun:hover { border-color: var(--neon); color: var(--neon); }
-
-/* ── Copy button ── */
-.copy-btn {
-  padding: 8px 12px;
   font-size: 11px;
-  font-family: var(--sans);
-  font-weight: 500;
-  color: var(--bg-void);
-  background: var(--cyan);
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.15s;
+  margin-left: 4px;
 }
-.copy-btn:hover { background: #33e0ff; }
-.copy-btn.copied { background: var(--neon); }
 `;
 
 export const pageHeaderCss = `
@@ -145,11 +97,26 @@ export const pageHeaderCss = `
 
 // ── JSX Components ──
 
-type LoadingRowProps = { text: string };
-export const LoadingRow: FC<LoadingRowProps> = ({ text }) => (
-	<div class="loading-row">
-		<span class="spinner" />
-		{text}
+type LoadingRowProps = { text: string; color?: string };
+export const LoadingRow: FC<LoadingRowProps> = ({
+	text,
+	color = "#00f3ff",
+}) => (
+	<div
+		class="loading-row"
+		style="flex-direction:column;align-items:stretch;gap:8px;padding:10px 0"
+	>
+		<NeonGlow colors={color} glowIntensity="subtle">
+			{text}
+		</NeonGlow>
+		<ProgressBar
+			value={100}
+			variant="striped"
+			pulse
+			color={color}
+			size="sm"
+			glow
+		/>
 	</div>
 );
 
@@ -180,12 +147,40 @@ export const ResultText: FC<ResultTextProps> = ({ variant, children }) => (
 	<div class={`result-text${variant ? ` ${variant}` : ""}`}>{children}</div>
 );
 
-type PageHeaderProps = { title: string; description: string };
+type PageHeaderProps = { title: Child; description: Child };
 export const PageHeader: FC<PageHeaderProps> = ({ title, description }) => (
 	<div class="page-header">
 		<h2>{title}</h2>
 		<p>{description}</p>
 	</div>
+);
+
+export const sectionTitle = (color: string, text: string) => (
+	<GlitchText
+		neon
+		mode="active"
+		colorA={color}
+		colorB={color}
+		glowColor={color}
+		speed="slow"
+		style="font-size:1.5rem;font-weight:700"
+	>
+		{text}
+	</GlitchText>
+);
+
+export const fieldLabel = (color: string, text: string) => (
+	<GlitchText neon mode="hover" colorA={color} colorB={color} glowColor={color}>
+		{text}
+	</GlitchText>
+);
+
+export const hint = (color: string, text: string) => (
+	<span class="hint">
+		<NeonGlow colors={color} glowIntensity="subtle">
+			{text}
+		</NeonGlow>
+	</span>
 );
 
 type CopyButtonProps = { text: string; copyText: string };
@@ -207,12 +202,13 @@ export const CopyButton: FC<CopyButtonProps> = ({ text, copyText }) => {
 		}
 	};
 	return (
-		<button
-			class={`copy-btn${copied ? " copied" : ""}`}
-			type="button"
+		<CornerCutButton
+			color={copied ? "green" : "cyan"}
+			variant="solid"
+			size="xs"
 			onClick={doCopy}
 		>
 			{copied ? t("web.copied") : text}
-		</button>
+		</CornerCutButton>
 	);
 };

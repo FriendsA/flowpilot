@@ -81,7 +81,7 @@ export default defineConfig([
 
 	// Client bundle (Browser target, code splitting enabled)
 	{
-		input: { client: "src/client.ts" },
+		input: { client: "src/client.tsx" },
 		output: {
 			dir: "dist/client",
 			format: "esm",

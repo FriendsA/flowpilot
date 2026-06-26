@@ -172,6 +172,7 @@ describe("parsePomXml", () => {
 		expect(result).toEqual({
 			version: "1.2.3",
 			groupId: "com.example",
+			artifactId: "my-app",
 			flowPilotName: "my-flow-app",
 			jenkinsJobName: null,
 		});
@@ -228,6 +229,7 @@ describe("parsePomXml", () => {
 		expect(result).toEqual({
 			version: null,
 			groupId: null,
+			artifactId: null,
 			flowPilotName: null,
 			jenkinsJobName: null,
 		});
@@ -238,6 +240,7 @@ describe("parsePomXml", () => {
 		expect(result).toEqual({
 			version: null,
 			groupId: null,
+			artifactId: null,
 			flowPilotName: null,
 			jenkinsJobName: null,
 		});

@@ -105,6 +105,7 @@ const MIME_TYPES: Record<string, string> = {
 	".png": "image/png",
 	".json": "application/json",
 	".webmanifest": "application/manifest+json",
+	".css": "text/css",
 };
 
 app.get("/public/*", async (c) => {

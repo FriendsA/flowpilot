@@ -3,6 +3,7 @@ export function parsePomXml(raw: string): {
 	groupId: string | null;
 	flowPilotName: string | null;
 	jenkinsJobName: string | null;
+	artifactId: string | null;
 } {
 	const stripped = raw.replace(/<parent>[\s\S]*?<\/parent>/, "");
 	const pick = (src: string, tag: string): string | null =>
@@ -53,6 +54,7 @@ export function parsePomXml(raw: string): {
 	return {
 		version: pick(stripped, "version") ?? pick(raw, "version"),
 		groupId: pick(stripped, "groupId") ?? pick(raw, "groupId"),
+		artifactId: pick(stripped, "artifactId") ?? pick(raw, "artifactId"),
 		flowPilotName,
 		jenkinsJobName,
 	};

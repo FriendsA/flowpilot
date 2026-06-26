@@ -3,28 +3,36 @@ import { render } from "hono/jsx/dom";
 import {
 	CopyButton,
 	commonCss,
+	fieldLabel,
 	LoadingRow,
 	PageHeader,
 	pageHeaderCss,
 	ResultCard,
 	ResultText,
 } from "../../shared/components/common";
-import {
-	pipelineCss,
-	pipelineLineClass,
-	pipelineStepClass,
-} from "../../shared/components/pipeline";
-import {
-	Select,
-	selectCss,
-	useClickOutside,
-	useDropdown,
-} from "../../shared/components/select";
+import { Badge } from "../../shared/components/neonblade/badge";
+import { CornerCutButton } from "../../shared/components/neonblade/corner-cut-button";
+import { GlitchText } from "../../shared/components/neonblade/glitch-text";
+import { NeonGlow } from "../../shared/components/neonblade/neon-glow";
+import { NeonGlowCornerCutCard } from "../../shared/components/neonblade/neon-glow-corner-cut-card";
+import { NeonInput } from "../../shared/components/neonblade/neon-input";
+import { NeonSelect } from "../../shared/components/neonblade/neon-select";
 import { initPromise, t } from "../../shared/i18n";
+
+const ACCENT = "#39ff14";
+const ERROR_COLOR = "#ff4444";
 
 // ── Styles ──
 
-const endStyle = `${pipelineCss}${selectCss}${commonCss}${pageHeaderCss}
+const endStyle = `${commonCss}${pageHeaderCss}
+  /* ── Theme: green accent overrides ── */
+  .spinner { border-top-color: ${ACCENT}; }
+  .result-card { border-color: rgba(57,255,20,0.08); }
+  .result-success { border-color: rgba(57,255,20,0.18); }
+  .result-key { color: ${ACCENT}; border-bottom-color: rgba(57,255,20,0.3); }
+  .result-key:hover { border-bottom-color: ${ACCENT}; }
+  .result-text.success { color: ${ACCENT}; }
+
   /* ── Cwd input ── */
   .cwd-section {
     margin-bottom: 20px;
@@ -35,85 +43,25 @@ const endStyle = `${pipelineCss}${selectCss}${commonCss}${pageHeaderCss}
     gap: 8px;
     align-items: stretch;
   }
-  .cwd-input {
-    flex: 1;
-    padding: 10px 14px;
-    font-size: 13px;
-    font-family: var(--mono);
-    color: var(--text-1);
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    outline: none;
-    transition: border-color 0.15s;
-  }
-  .cwd-input::placeholder { color: var(--text-3); }
-  .cwd-input:focus { border-color: var(--neon); }
-  .cwd-btn {
-    padding: 10px 16px;
-    font-size: 13px;
-    font-family: var(--sans);
-    font-weight: 500;
-    color: var(--bg-void);
-    background: var(--neon);
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  .cwd-btn:hover { background: var(--neon-hover); }
-  .cwd-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .cwd-error {
-    font-size: 12px;
-    color: var(--error);
-    margin-top: 6px;
-  }
-  .cwd-display {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font-family: var(--mono);
-    font-size: 13px;
-    color: var(--text-1);
-  }
-  .cwd-display-label {
-    font-size: 11px;
-    color: var(--text-3);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
+  .cwd-input { flex: 1; min-width: 0; }
+  .cwd-set-btn { flex-shrink: 0; white-space: nowrap; }
 
-  /* ── Info card ── */
-  .info-card {
+  .end-card { margin-bottom: 16px; }
+  .end-card, .end-card .ngcc-card { height: auto; }
+  .info-block {
     display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 20px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    margin-bottom: 16px;
+    flex-direction: column;
+    gap: 6px;
     animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
-  .info-label {
-    font-size: 11px;
-    color: var(--text-3);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+  .info-block-value {
     font-family: var(--mono);
-  }
-  .info-value {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
-    font-family: var(--mono);
-    color: var(--cyan);
     letter-spacing: -0.01em;
+    line-height: 1.4;
+    word-break: break-all;
   }
-  .info-value.neon { color: var(--neon); }
 
   .mr-url-row {
     display: flex;
@@ -121,16 +69,22 @@ const endStyle = `${pipelineCss}${selectCss}${commonCss}${pageHeaderCss}
     gap: 8px;
     margin-top: 8px;
   }
-  .mr-url-input {
-    flex: 1;
-    padding: 8px 12px;
-    font-size: 12px;
-    font-family: var(--mono);
-    color: var(--text-1);
-    background: var(--bg-void);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    outline: none;
+
+  /* ── Step indicator (Badge-based) ── */
+  .end-steps {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
+  }
+  .end-step-sep {
+    display: inline-flex;
+    align-items: center;
+    color: ${ACCENT};
+    opacity: 0.6;
+    font-size: 14px;
   }
 
   /* ── Ticket list ── */
@@ -140,71 +94,34 @@ const endStyle = `${pipelineCss}${selectCss}${commonCss}${pageHeaderCss}
     gap: 8px;
     margin-bottom: 16px;
   }
-  .ticket-item {
+  .ticket-card {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-    transition: border-color 0.15s;
+    gap: 12px;
   }
-  .ticket-item:hover { border-color: var(--border-active); }
-  .ticket-key {
+  .ticket-card .ngcc-card {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+  }
+  .ticket-key-link {
     font-family: var(--mono);
     font-size: 14px;
     font-weight: 600;
-    color: var(--neon);
     text-decoration: none;
-    border-bottom: 1px dashed rgba(0,255,136,0.3);
   }
-  .ticket-key:hover { border-bottom-color: var(--neon); }
-  .ticket-status {
-    font-size: 12px;
-    color: var(--text-3);
-  }
-  .ticket-status.success { color: var(--neon); }
-  .ticket-status.error { color: var(--error); }
+  .ticket-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; flex-wrap: wrap; }
   .ticket-transitions {
     display: flex;
     gap: 6px;
-    margin-top: 8px;
-  }
-  .trans-btn {
-    padding: 6px 12px;
-    font-size: 12px;
-    font-family: var(--sans);
-    font-weight: 400;
-    color: var(--text-2);
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: border-color 0.15s, color 0.15s;
-  }
-  .trans-btn:hover { border-color: var(--neon); color: var(--neon); }
-  .trans-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .trans-btn.primary {
-    border-color: var(--neon);
-    color: var(--neon);
-    background: var(--neon-soft);
+    flex-wrap: wrap;
   }
 
-  /* ── Warning ── */
-  .warning-card {
-    padding: 12px 16px;
-    background: rgba(255,184,0,0.04);
-    border: 1px solid rgba(255,184,0,0.12);
-    border-radius: 8px;
-    margin-bottom: 16px;
-    color: var(--warning);
-    font-size: 13px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-
-  .empty-hint { text-align: center; padding: 32px 0; color: var(--text-3); font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
+  .error-text { color: ${ERROR_COLOR}; font-size: 13px; margin-top: 12px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
 `;
 
 // ── Types ──
@@ -406,8 +323,6 @@ const cwdBody = (cwd: string) => (cwd ? { cwd } : {});
 
 const EndClient: FC = () => {
 	const [s, d] = useReducer(reducer, initial);
-	const branchDd = useDropdown();
-	useClickOutside([branchDd], ["branch"]);
 
 	// Detect cwd from URL query param (set by CLI -o)
 	useEffect(() => {
@@ -657,12 +572,31 @@ const EndClient: FC = () => {
 		return (
 			<div>
 				<style>{endStyle}</style>
-				<PageHeader title={t("web.endTitle")} description={t("web.endDesc")} />
+				<PageHeader
+					title={
+						<GlitchText
+							neon
+							mode="active"
+							colorA={ACCENT}
+							colorB={ACCENT}
+							glowColor={ACCENT}
+							speed="slow"
+							style="color:#39ff14"
+						>
+							{t("web.endTitle")}
+						</GlitchText>
+					}
+					description={
+						<NeonGlow colors={ACCENT} glowIntensity="subtle">
+							{t("web.endDesc")}
+						</NeonGlow>
+					}
+				/>
 				<div class="cwd-section">
 					<div class="cwd-row">
-						<input
-							class="cwd-input"
-							type="text"
+						<NeonInput
+							className="cwd-input"
+							color={ACCENT}
 							placeholder={t("end.enterPath")}
 							value={s.cwdInput}
 							onInput={(e: Event) =>
@@ -675,16 +609,24 @@ const EndClient: FC = () => {
 								if (e.key === "Enter") setCwd();
 							}}
 						/>
-						<button
-							class="cwd-btn"
-							type="button"
+						<CornerCutButton
+							color={ACCENT}
+							variant="solid"
+							size="sm"
+							className="cwd-set-btn"
 							disabled={!s.cwdInput.trim()}
 							onClick={setCwd}
 						>
 							{t("end.setPath")}
-						</button>
+						</CornerCutButton>
 					</div>
-					{s.cwdError && <div class="cwd-error">{s.cwdError}</div>}
+					{s.cwdError && (
+						<div class="error-text" role="alert">
+							<NeonGlow colors={ERROR_COLOR} glowIntensity="subtle">
+								{s.cwdError}
+							</NeonGlow>
+						</div>
+					)}
 				</div>
 			</div>
 		);
@@ -694,11 +636,18 @@ const EndClient: FC = () => {
 		return (
 			<div>
 				<style>{endStyle}</style>
-				<div class="cwd-display">
-					<span class="cwd-display-label">{t("end.projectPath")}</span>
-					<span>{s.cwd}</span>
-				</div>
-				<LoadingRow text={t("web.loading")} />
+				<NeonGlowCornerCutCard
+					className="end-card info-block"
+					colorA={ACCENT}
+					size="sm"
+					hoverEffect="glow-only"
+				>
+					{fieldLabel(ACCENT, t("end.projectPath"))}
+					<NeonGlow colors={ACCENT} glowIntensity="subtle">
+						<span class="info-block-value">{s.cwd}</span>
+					</NeonGlow>
+				</NeonGlowCornerCutCard>
+				<LoadingRow color={ACCENT} text={t("web.loading")} />
 			</div>
 		);
 	}
@@ -707,20 +656,27 @@ const EndClient: FC = () => {
 		return (
 			<div>
 				<style>{endStyle}</style>
-				<div class="cwd-display">
-					<span class="cwd-display-label">{t("end.projectPath")}</span>
-					<span>{s.cwd}</span>
-				</div>
+				<NeonGlowCornerCutCard
+					className="end-card info-block"
+					colorA={ACCENT}
+					size="sm"
+					hoverEffect="glow-only"
+				>
+					{fieldLabel(ACCENT, t("end.projectPath"))}
+					<NeonGlow colors={ACCENT} glowIntensity="subtle">
+						<span class="info-block-value">{s.cwd}</span>
+					</NeonGlow>
+				</NeonGlowCornerCutCard>
 				<ResultCard variant="error">
 					<ResultText variant="error">{s.error}</ResultText>
 				</ResultCard>
-				<button
-					class="action-btn rerun"
-					type="button"
+				<CornerCutButton
+					color={ACCENT}
+					variant="ghost"
 					onClick={() => d({ type: "RESET" })}
 				>
 					{t("end.rerun")}
-				</button>
+				</CornerCutButton>
 			</div>
 		);
 	}
@@ -730,60 +686,123 @@ const EndClient: FC = () => {
 	return (
 		<div>
 			<style>{endStyle}</style>
-			<PageHeader title={t("web.endTitle")} description={t("web.endDesc")} />
+			<PageHeader
+				title={
+					<GlitchText
+						neon
+						mode="active"
+						colorA={ACCENT}
+						colorB={ACCENT}
+						glowColor={ACCENT}
+						speed="slow"
+						style="color:#39ff14"
+					>
+						{t("web.endTitle")}
+					</GlitchText>
+				}
+				description={
+					<NeonGlow colors={ACCENT} glowIntensity="subtle">
+						{t("web.endDesc")}
+					</NeonGlow>
+				}
+			/>
 
 			{/* ── Project path ── */}
-			<div class="cwd-display">
-				<span class="cwd-display-label">{t("end.projectPath")}</span>
-				<span>{s.cwd}</span>
-			</div>
+			<NeonGlowCornerCutCard
+				className="end-card info-block"
+				colorA={ACCENT}
+				size="sm"
+				hoverEffect="glow-only"
+			>
+				{fieldLabel(ACCENT, t("end.projectPath"))}
+				<NeonGlow colors={ACCENT} glowIntensity="subtle">
+					<span class="info-block-value">{s.cwd}</span>
+				</NeonGlow>
+			</NeonGlowCornerCutCard>
 
 			{/* ── Pipeline ── */}
-			<div class="pipeline">
-				<div class={pipelineStepClass(step1Done, step1Active)}>
-					<span class="pipeline-node" />
+			<div class="end-steps">
+				<Badge
+					color={ACCENT}
+					variant={step1Done ? "solid" : step1Active ? "outline" : "ghost"}
+					shape="corner-cut"
+					size="sm"
+					glow={step1Done || step1Active}
+				>
 					{t("end.stepBranch")}
-				</div>
-				<div class={pipelineLineClass(step1Done)} />
-				<div class={pipelineStepClass(step2Done, step2Active)}>
-					<span class="pipeline-node" />
+				</Badge>
+				<span class="end-step-sep">›</span>
+				<Badge
+					color={ACCENT}
+					variant={step2Done ? "solid" : step2Active ? "outline" : "ghost"}
+					shape="corner-cut"
+					size="sm"
+					glow={step2Done || step2Active}
+				>
 					{t("end.stepRebase")}
-				</div>
-				<div class={pipelineLineClass(step2Done)} />
-				<div class={pipelineStepClass(step3Done, step3Active)}>
-					<span class="pipeline-node" />
+				</Badge>
+				<span class="end-step-sep">›</span>
+				<Badge
+					color={ACCENT}
+					variant={step3Done ? "solid" : step3Active ? "outline" : "ghost"}
+					shape="corner-cut"
+					size="sm"
+					glow={step3Done || step3Active}
+				>
 					{t("end.stepPush")}
-				</div>
-				<div class={pipelineLineClass(step3Done)} />
-				<div class={pipelineStepClass(step4Done, step4Active)}>
-					<span class="pipeline-node" />
+				</Badge>
+				<span class="end-step-sep">›</span>
+				<Badge
+					color={ACCENT}
+					variant={step4Done ? "solid" : step4Active ? "outline" : "ghost"}
+					shape="corner-cut"
+					size="sm"
+					glow={step4Done || step4Active}
+				>
 					{t("end.stepTickets")}
-				</div>
-				<div class={pipelineLineClass(step4Done)} />
-				<div class={pipelineStepClass(step5Done, step5Active)}>
-					<span class="pipeline-node" />
+				</Badge>
+				<span class="end-step-sep">›</span>
+				<Badge
+					color={ACCENT}
+					variant={step5Done ? "solid" : step5Active ? "outline" : "ghost"}
+					shape="corner-cut"
+					size="sm"
+					glow={step5Done || step5Active}
+				>
 					{t("end.stepMR")}
-				</div>
-				<div class={pipelineLineClass(step5Done)} />
-				<div class={pipelineStepClass(step6Done, step6Active)}>
-					<span class="pipeline-node" />
+				</Badge>
+				<span class="end-step-sep">›</span>
+				<Badge
+					color={ACCENT}
+					variant={step6Done ? "solid" : step6Active ? "outline" : "ghost"}
+					shape="corner-cut"
+					size="sm"
+					glow={step6Done || step6Active}
+				>
 					{t("end.stepJira")}
-				</div>
+				</Badge>
 			</div>
 
 			{/* ── Step 1: Current branch + Target ── */}
-			<div class="info-card">
-				<span class="info-label">{t("end.currentBranch")}</span>
-				<span class="info-value neon">{s.currentBranch}</span>
-			</div>
+			<NeonGlowCornerCutCard
+				className="end-card info-block"
+				colorA={ACCENT}
+				size="sm"
+				hoverEffect="glow-only"
+			>
+				{fieldLabel(ACCENT, t("end.currentBranch"))}
+				<NeonGlow colors={ACCENT} glowIntensity="subtle">
+					<span class="info-block-value">{s.currentBranch}</span>
+				</NeonGlow>
+			</NeonGlowCornerCutCard>
 
-			<Select
+			<NeonSelect
 				id="branch"
+				color={ACCENT}
 				label={t("end.targetBranch")}
 				placeholder={t("end.selectBranch")}
 				items={branchItems}
 				value={s.targetBranch ? { name: s.targetBranch } : null}
-				dropdown={branchDd}
 				onSelect={(item) =>
 					d({ type: "SELECT_TARGET_BRANCH", branch: item.name })
 				}
@@ -796,12 +815,15 @@ const EndClient: FC = () => {
 
 			{/* ── Step 2: Rebase ── */}
 			{s.rebaseStatus === "idle" && s.targetBranch && (
-				<button class="action-btn" type="button" onClick={doRebase}>
+				<CornerCutButton color={ACCENT} variant="solid" onClick={doRebase}>
 					{t("end.rebaseBtn")} → {s.targetBranch}
-				</button>
+				</CornerCutButton>
 			)}
 			{s.rebaseStatus === "running" && (
-				<LoadingRow text={`${t("end.rebasing")} ${s.targetBranch}...`} />
+				<LoadingRow
+					color={ACCENT}
+					text={`${t("end.rebasing")} ${s.targetBranch}...`}
+				/>
 			)}
 			{s.rebaseStatus === "success" && (
 				<ResultCard variant="success">
@@ -811,7 +833,16 @@ const EndClient: FC = () => {
 				</ResultCard>
 			)}
 			{s.rebaseStatus === "conflict" && (
-				<div class="warning-card">{t("end.conflictWarning")}</div>
+				<NeonGlowCornerCutCard
+					className="end-card"
+					colorA="#e67e22"
+					size="sm"
+					hoverEffect="glow-only"
+				>
+					<NeonGlow colors="#e67e22" glowIntensity="subtle">
+						{t("end.conflictWarning")}
+					</NeonGlow>
+				</NeonGlowCornerCutCard>
 			)}
 			{s.rebaseStatus === "error" && (
 				<ResultCard variant="error">
@@ -821,12 +852,12 @@ const EndClient: FC = () => {
 
 			{/* ── Step 3: Push ── */}
 			{s.rebaseStatus === "success" && s.pushStatus === "idle" && (
-				<button class="action-btn" type="button" onClick={doPush}>
+				<CornerCutButton color={ACCENT} variant="solid" onClick={doPush}>
 					{t("end.pushBtn")} {s.currentBranch}
-				</button>
+				</CornerCutButton>
 			)}
 			{s.pushStatus === "running" && (
-				<LoadingRow text={`${t("end.pushing")}...`} />
+				<LoadingRow color={ACCENT} text={`${t("end.pushing")}...`} />
 			)}
 			{s.pushStatus === "success" && (
 				<ResultCard variant="success">
@@ -842,17 +873,29 @@ const EndClient: FC = () => {
 			)}
 
 			{/* ── Step 4: Ticket keys ── */}
-			{s.ticketsLoading && <LoadingRow text={t("end.analyzingCommits")} />}
+			{s.ticketsLoading && (
+				<LoadingRow color={ACCENT} text={t("end.analyzingCommits")} />
+			)}
 			{s.pushStatus === "success" && !s.ticketsLoading && (
 				<ResultCard>
-					<div class="result-label">{t("end.ticketKeys")}</div>
-					{s.ticketKeys.length > 0
-						? s.ticketKeys.map((key) => (
-								<span class="result-badge" style="margin-right:6px" key={key}>
+					{fieldLabel(ACCENT, t("end.ticketKeys"))}
+					{s.ticketKeys.length > 0 ? (
+						<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+							{s.ticketKeys.map((key) => (
+								<Badge
+									key={key}
+									color={ACCENT}
+									variant="outline"
+									shape="pill"
+									size="sm"
+								>
 									{key}
-								</span>
-							))
-						: t("end.noTickets")}
+								</Badge>
+							))}
+						</div>
+					) : (
+						t("end.noTickets")
+					)}
 				</ResultCard>
 			)}
 			{s.ticketsError && (
@@ -866,24 +909,30 @@ const EndClient: FC = () => {
 				!s.ticketsLoading &&
 				s.mrStatus === "idle" && (
 					<div style="display:flex;gap:8px">
-						<button class="action-btn" type="button" onClick={doCreateMR}>
+						<CornerCutButton
+							color={ACCENT}
+							variant="solid"
+							onClick={doCreateMR}
+						>
 							{t("end.createMrBtn")}
-						</button>
-						<button
-							class="action-btn secondary"
-							type="button"
+						</CornerCutButton>
+						<CornerCutButton
+							color={ACCENT}
+							variant="outline"
 							onClick={() => d({ type: "MR_SKIPPED" })}
 						>
 							{t("end.skipMr")}
-						</button>
+						</CornerCutButton>
 					</div>
 				)}
-			{s.mrStatus === "running" && <LoadingRow text={t("end.creatingMR")} />}
+			{s.mrStatus === "running" && (
+				<LoadingRow color={ACCENT} text={t("end.creatingMR")} />
+			)}
 			{s.mrStatus === "success" && s.mrUrl && (
 				<ResultCard variant="success">
 					<ResultText variant="success">{t("end.mrCreated")}</ResultText>
 					<div class="mr-url-row">
-						<input class="mr-url-input" type="text" readOnly value={s.mrUrl} />
+						<NeonInput color={ACCENT} readOnly={true} value={s.mrUrl} />
 						<a
 							class="result-key"
 							href={s.mrUrl}
@@ -904,8 +953,8 @@ const EndClient: FC = () => {
 			)}
 			{s.mrStatus === "skipped" && (
 				<ResultCard>
-					<div class="result-label">
-						{t("end.manualMR")} {s.targetBranch}
+					<div style="margin-bottom:4px">
+						{fieldLabel(ACCENT, t("end.manualMR"))} {s.targetBranch}
 					</div>
 				</ResultCard>
 			)}
@@ -915,29 +964,56 @@ const EndClient: FC = () => {
 				s.ticketKeys.length > 0 && (
 					<div class="ticket-list">
 						{s.ticketKeys.map((key) => (
-							<div class="ticket-item" key={key}>
-								<div style="flex:1">
+							<NeonGlowCornerCutCard
+								className="ticket-card"
+								colorA={ACCENT}
+								size="sm"
+								hoverEffect="glow-only"
+								key={key}
+							>
+								<div class="ticket-left">
 									<a
-										class="ticket-key"
+										class="ticket-key-link"
 										href={`${s.jiraHost}/browse/${key}`}
 										target="_blank"
 										rel="noreferrer"
 									>
-										{key}
+										<NeonGlow colors={ACCENT} glowIntensity="subtle">
+											{key}
+										</NeonGlow>
 									</a>
 									{s.jiraResults[key] && (
-										<span class="ticket-status success" style="margin-left:8px">
+										<Badge
+											color={ACCENT}
+											variant="ghost"
+											shape="pill"
+											size="xs"
+										>
 											→ {s.jiraResults[key]}
-										</span>
+										</Badge>
 									)}
 									{s.jiraErrors[key] && (
-										<span class="ticket-status error" style="margin-left:8px">
+										<Badge
+											color={ERROR_COLOR}
+											variant="ghost"
+											shape="pill"
+											size="xs"
+											glow
+										>
 											{t("end.transitionFailed")}
-										</span>
+										</Badge>
 									)}
 								</div>
 								{s.jiraStatus[key] === "success" ? (
-									<span class="result-badge">{t("end.transitionSuccess")}</span>
+									<Badge
+										color={ACCENT}
+										variant="solid"
+										shape="pill"
+										size="xs"
+										glow
+									>
+										{t("end.transitionSuccess")}
+									</Badge>
 								) : s.jiraStatus[key] === "loading" ? (
 									<span class="spinner" />
 								) : (
@@ -955,15 +1031,16 @@ const EndClient: FC = () => {
 													)
 													.slice(0, 1)
 													.map((tr) => (
-														<button
+														<CornerCutButton
 															key={tr.id}
-															class="trans-btn primary"
-															type="button"
+															color={ACCENT}
+															variant="solid"
+															size="xs"
 															onClick={() => doTransition(key, tr.id)}
 															disabled={s.jiraStatus[key] === "loading"}
 														>
 															{tr.name}
-														</button>
+														</CornerCutButton>
 													))}
 												{transitions
 													.filter(
@@ -974,21 +1051,22 @@ const EndClient: FC = () => {
 													)
 													.slice(0, 3)
 													.map((tr) => (
-														<button
+														<CornerCutButton
 															key={`${key}-${tr.id}`}
-															class="trans-btn"
-															type="button"
+															color={ACCENT}
+															variant="outline"
+															size="xs"
 															onClick={() => doTransition(key, tr.id)}
 															disabled={s.jiraStatus[key] === "loading"}
 														>
 															{tr.name}
-														</button>
+														</CornerCutButton>
 													))}
 											</div>
 										);
 									})()
 								)}
-							</div>
+							</NeonGlowCornerCutCard>
 						))}
 					</div>
 				)}
@@ -1000,13 +1078,13 @@ const EndClient: FC = () => {
 				</ResultCard>
 			)}
 			{allDone && (
-				<button
-					class="action-btn rerun"
-					type="button"
+				<CornerCutButton
+					color={ACCENT}
+					variant="ghost"
 					onClick={() => d({ type: "RESET" })}
 				>
 					{t("end.rerun")}
-				</button>
+				</CornerCutButton>
 			)}
 		</div>
 	);

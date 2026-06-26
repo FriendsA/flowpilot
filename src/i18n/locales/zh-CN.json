@@ -281,6 +281,7 @@
 		"watchClickToReselectJob": "点击重新选择 Jenkins Job",
 		"watchSearchingJobs": "搜索 Jenkins Jobs...",
 		"watchFetchingPom": "获取 pom.xml...",
+		"watchPomFallbackHint": "未能从 pom.xml 自动获取 Jenkins Job，请手动选择",
 		"watchFetchingBuild": "获取最新构建...",
 		"watchDuration": "构建耗时",
 		"watchBuildTime": "构建时间",

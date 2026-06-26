@@ -281,6 +281,7 @@
 		"watchClickToReselectJob": "Click to reselect Jenkins Job",
 		"watchSearchingJobs": "Searching Jenkins jobs...",
 		"watchFetchingPom": "Fetching pom.xml...",
+		"watchPomFallbackHint": "Could not auto-detect Jenkins Job from pom.xml, select it manually",
 		"watchFetchingBuild": "Fetching latest build...",
 		"watchDuration": "Duration",
 		"watchBuildTime": "Build Time",

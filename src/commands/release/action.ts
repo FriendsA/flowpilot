@@ -244,6 +244,7 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 		version: string | null;
 		groupId: string | null;
 		flowPilotName: string | null;
+		artifactId: string | null;
 	};
 
 	try {
@@ -273,7 +274,8 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 	);
 
 	const displayVersion = cleanVersion(pomInfo.version);
-	const flowPilotName = pomInfo.flowPilotName ?? projectName;
+	const flowPilotName =
+		pomInfo.flowPilotName ?? pomInfo.artifactId ?? projectName;
 	const versionName = `${flowPilotName}-${displayVersion}`;
 	const summary = `${flowPilotName}-${displayVersion} ${t("release.releaseSuffix")}`;
 

@@ -19,7 +19,8 @@
 		"flowpilot": "./dist/cli.js"
 	},
 	"scripts": {
-		"build": "biome check && rolldown -c rolldown.config.ts",
+		"build": "biome check && rolldown -c rolldown.config.ts && pnpm build:css",
+		"build:css": "tailwindcss -i src/styles/tailwind.css -o dist/public/tailwind.css",
 		"check": "biome check --write",
 		"dev": "rolldown -c rolldown.config.ts --watch",
 		"format": "biome format --write",
@@ -70,12 +71,19 @@
 	"devDependencies": {
 		"@biomejs/biome": "2.4.15",
 		"@rslib/core": "^0.21.4",
+		"@tailwindcss/cli": "^4.3.1",
 		"@types/node": "^25.6.2",
 		"@types/prompts": "^2.4.9",
 		"@typescript/native-preview": "7.0.0-dev.20260421.2",
 		"husky": "^9.1.7",
 		"rolldown": "^1.0.1",
+		"tailwindcss": "^4.3.1",
 		"typescript": "^6.0.3",
 		"vitest": "^4.1.6"
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"@parcel/watcher"
+		]
 	}
 }

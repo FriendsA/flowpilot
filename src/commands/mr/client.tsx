@@ -3,21 +3,31 @@ import { render } from "hono/jsx/dom";
 import {
 	CopyButton,
 	commonCss,
+	fieldLabel,
 	LoadingRow,
 	PageHeader,
 	pageHeaderCss,
 	ResultCard,
 	ResultText,
+	sectionTitle,
 } from "../../shared/components/common";
 import { Modal, modalCss } from "../../shared/components/modal";
-import { Pipeline, pipelineCss } from "../../shared/components/pipeline";
+import { Badge } from "../../shared/components/neonblade/badge";
+import { BorderBeamCornerCutCard } from "../../shared/components/neonblade/border-beam-corner-cut-card";
+import { CornerCutButton } from "../../shared/components/neonblade/corner-cut-button";
+import { GlitchText } from "../../shared/components/neonblade/glitch-text";
+import { NeonGlow } from "../../shared/components/neonblade/neon-glow";
+import { NeonGlowCornerCutCard } from "../../shared/components/neonblade/neon-glow-corner-cut-card";
+import { NeonInput } from "../../shared/components/neonblade/neon-input";
 import {
-	Select,
-	selectCss,
-	useClickOutside,
-	useDropdown,
-} from "../../shared/components/select";
+	NeonSelect,
+	neonSelectCss,
+} from "../../shared/components/neonblade/neon-select";
+import { NeonToggle } from "../../shared/components/neonblade/neon-toggle";
 import { initPromise, t } from "../../shared/i18n";
+
+const ACCENT = "#ff00ff";
+const ERROR_COLOR = "#ff4444";
 
 // ── Types ──
 
@@ -50,57 +60,52 @@ type ProjectInfo = {
 // ── Styles ──
 
 const mrStyle = `
-  ${pipelineCss}
-  ${selectCss}
+  ${neonSelectCss}
   ${commonCss}
   ${pageHeaderCss}
   ${modalCss}
 
+  /* ── Theme: pink accent overrides ── */
+  .spinner { border-top-color: ${ACCENT}; }
+  .result-card { border-color: rgba(255,0,255,0.08); }
+  .result-success { border-color: rgba(255,0,255,0.18); }
+  .result-key { color: ${ACCENT}; border-bottom-color: rgba(255,0,255,0.3); }
+  .result-key:hover { border-bottom-color: ${ACCENT}; }
+  .result-text.success { color: ${ACCENT}; }
+
   .cwd-section { margin-bottom: 20px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
   .cwd-row { display: flex; gap: 8px; align-items: stretch; }
-  .cwd-input { flex: 1; padding: 10px 14px; font-size: 13px; font-family: var(--mono); color: var(--text-1); background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; outline: none; transition: border-color 0.15s; }
-  .cwd-input::placeholder { color: var(--text-3); }
-  .cwd-input:focus { border-color: var(--neon); }
-  .cwd-btn { padding: 10px 16px; font-size: 13px; font-family: var(--sans); font-weight: 500; color: var(--bg-void); background: var(--neon); border: none; border-radius: 8px; cursor: pointer; } .cwd-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .cwd-display { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; font-family: var(--mono); font-size: 12px; color: var(--text-2); animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
-  .cwd-display code { color: var(--neon); font-weight: 500; }
-
-  .remote-hint { padding: 12px 16px; background: var(--cyan-soft); border: 1px solid rgba(0,212,255,0.12); border-radius: 8px; font-size: 13px; color: var(--text-2); margin-bottom: 20px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .cwd-input { flex: 1; min-width: 0; }
+  .cwd-set-btn { flex-shrink: 0; white-space: nowrap; }
+  .cwd-display-card { display: flex; align-items: center; gap: 12px; }
+  .cwd-display-value { font-family: var(--mono); font-size: 13px; font-weight: 600; word-break: break-all; }
 
   .history-section { margin-bottom: 24px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
   .history-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-  .history-header h3 { font-size: 14px; font-weight: 500; color: var(--text-2); }
-  .history-clear { padding: 4px 10px; font-size: 11px; color: var(--text-3); background: transparent; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
-  .history-clear:hover { border-color: var(--error); color: var(--error); }
-  .history-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; transition: border-color 0.15s; }
-  .history-item:hover { border-color: var(--neon); }
+  .history-list { display: flex; flex-direction: column; gap: 8px; }
+  .history-item-card { margin-bottom: 0; }
+  .history-item-card .bbc-inner { padding: 12px 16px; }
+  .history-item-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .history-info { flex: 1; font-size: 13px; color: var(--text-1); min-width: 0; }
-  .history-title { font-weight: 500; word-break: break-word; }
   .history-branches { font-size: 11px; color: var(--text-3); font-family: var(--mono); margin-top: 2px; }
   .history-sub { font-size: 11px; color: var(--text-3); margin-top: 2px; }
   .history-actions { display: flex; gap: 6px; flex-shrink: 0; }
-  .history-exec-btn { padding: 4px 12px; font-size: 11px; color: var(--bg-void); background: var(--neon); border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; }
-
-  .draft-toggle { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; cursor: pointer; }
-  .draft-toggle-label { font-size: 13px; color: var(--text-2); }
-  .draft-toggle-check { width: 16px; height: 16px; border: 1px solid var(--border); border-radius: 3px; display: flex; align-items: center; justify-content: center; }
-  .draft-toggle-check.active { background: var(--neon); border-color: var(--neon); color: var(--bg-void); }
-
-  .title-input, .desc-input { width: 100%; padding: 10px 14px; font-size: 13px; font-family: var(--mono); color: var(--text-1); background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; outline: none; margin-bottom: 16px; transition: border-color 0.15s; }
-  .title-input:focus, .desc-input:focus { border-color: var(--neon); }
-  .title-input::placeholder, .desc-input::placeholder { color: var(--text-3); }
-  .input-label { font-size: 11px; color: var(--text-3); margin-bottom: 4px; }
 
   .mr-url-row { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
-  .mr-url-link { flex: 1; font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--neon); text-decoration: none; border-bottom: 1px dashed rgba(0,255,136,0.3); word-break: break-all; min-width: 0; }
-  .mr-url-link:hover { border-bottom-color: var(--neon); }
+  .mr-url-link { flex: 1; font-family: var(--mono); font-size: 13px; font-weight: 600; color: ${ACCENT}; text-decoration: none; border-bottom: 1px dashed rgba(255,0,255,0.3); word-break: break-all; min-width: 0; }
+  .mr-url-link:hover { border-bottom-color: ${ACCENT}; }
 
-  .new-mr-btn { padding: 10px 16px; font-size: 13px; font-family: var(--sans); font-weight: 500; color: var(--neon); background: transparent; border: 1px solid var(--neon); border-radius: 8px; cursor: pointer; margin-bottom: 16px; }
-  .new-mr-btn:hover { background: var(--neon-soft); }
-
-  .cwd-error { color: var(--error); font-size: 12px; margin-top: 4px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
-  .no-history { padding: 20px; text-align: center; color: var(--text-3); font-size: 13px; }
+  .error-text { color: ${ERROR_COLOR}; font-size: 13px; margin-top: 12px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .empty-hint { padding: 20px; text-align: center; font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
   @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+  .desc-input { width: 100%; padding: 10px 14px; font-size: 13px; font-family: var(--mono); color: var(--text-1); background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; outline: none; margin-bottom: 16px; resize: vertical; }
+  .desc-input:focus { border-color: ${ACCENT}; }
+  .desc-input::placeholder { color: var(--text-3); }
+
+  /* ── Step indicator (Badge-based) ── */
+  .mr-steps { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both; }
+  .mr-step-sep { display: inline-flex; align-items: center; color: ${ACCENT}; opacity: 0.6; font-size: 14px; }
 `;
 
 // ── State ──
@@ -478,14 +483,6 @@ const reviewerItems = (
 
 const MrClient: FC = () => {
 	const [s, d] = useReducer(reducer, initial);
-	const projectDd = useDropdown();
-	const sourceBranchDd = useDropdown();
-	const branchDd = useDropdown();
-	const memberDd = useDropdown();
-	useClickOutside(
-		[projectDd, sourceBranchDd, branchDd, memberDd],
-		["project", "source-branch", "branch", "member"],
-	);
 
 	// ── Init on mount ──
 	useEffect(() => {
@@ -890,6 +887,25 @@ const MrClient: FC = () => {
 					},
 				];
 
+	const renderSteps = () => (
+		<div class="mr-steps">
+			{pipelineSteps.map((st, i) => (
+				<span style="display:inline-flex;align-items:center;gap:8px">
+					<Badge
+						color={ACCENT}
+						variant={st.done ? "solid" : st.active ? "outline" : "ghost"}
+						shape="corner-cut"
+						size="sm"
+						glow={st.done || st.active}
+					>
+						{st.label}
+					</Badge>
+					{i < pipelineSteps.length - 1 && <span class="mr-step-sep">›</span>}
+				</span>
+			))}
+		</div>
+	);
+
 	// ── Reusable branch renderItem ──
 	const branchRenderItem = (
 		item: { name: string; default?: boolean },
@@ -898,7 +914,9 @@ const MrClient: FC = () => {
 		<span>
 			<span class={`sel-item-name`}>{item.name}</span>
 			{item.default && (
-				<span class="result-badge">{t("web.defaultBranch")}</span>
+				<Badge color={ACCENT} variant="outline" shape="pill" size="xs">
+					{t("web.defaultBranch")}
+				</Badge>
 			)}
 		</span>
 	);
@@ -957,9 +975,9 @@ const MrClient: FC = () => {
 					<div class="result-label">
 						{t("web.mrStepJira")}: {key}
 					</div>
-					<button
-						class="action-btn secondary"
-						type="button"
+					<CornerCutButton
+						color={ACCENT}
+						variant="outline"
 						onClick={() =>
 							addJiraComment(
 								key,
@@ -971,36 +989,44 @@ const MrClient: FC = () => {
 						}
 					>
 						{t("web.mrJiraCommentBtn")}
-					</button>
-					<button
-						class="action-btn secondary"
-						type="button"
+					</CornerCutButton>
+					<CornerCutButton
+						color={ACCENT}
+						variant="outline"
 						onClick={() => loadJiraTransitions(key)}
 					>
 						{t("web.mrJiraTransitionBtn")}
-					</button>
+					</CornerCutButton>
 					{s.jiraTransitions[key] && (
 						<div style="margin-top: 8px;">
 							{s.jiraTransitions[key].map((tr) => (
-								<button
+								<CornerCutButton
+									color={ACCENT}
+									variant="outline"
 									key={tr.id}
-									class="action-btn secondary"
-									type="button"
 									onClick={() => transitionJira(key, tr.id)}
-									style="margin-bottom: 4px"
+									className="mb-1"
 								>
 									{tr.name}
-								</button>
+								</CornerCutButton>
 							))}
 						</div>
 					)}
 					{s.jiraResults[key] === "success" && (
-						<span class="result-badge">{t("web.executeSuccess")}</span>
+						<Badge color={ACCENT} variant="solid" shape="pill" size="xs" glow>
+							{t("web.executeSuccess")}
+						</Badge>
 					)}
 					{s.jiraResults[key] === "error" && (
-						<span style="color: var(--error); font-size: 12px">
+						<Badge
+							color={ERROR_COLOR}
+							variant="ghost"
+							shape="pill"
+							size="xs"
+							glow
+						>
 							{t("web.executeFailed")}
-						</span>
+						</Badge>
 					)}
 				</ResultCard>
 			))}
@@ -1011,85 +1037,109 @@ const MrClient: FC = () => {
 	const historySection = () => (
 		<div class="history-section">
 			<div class="history-header">
-				<h3>{t("web.mrHistoryTitle")}</h3>
+				<div style="margin-bottom:0">
+					{sectionTitle(ACCENT, t("web.mrHistoryTitle"))}
+				</div>
 				{s.clearConfirm ? (
 					<div style="display:flex;align-items:center;gap:8px">
-						<span style="font-size:12px;color:var(--text-3)">
-							{t("web.clearConfirm")}
-						</span>
-						<button
-							class="history-clear"
-							type="button"
-							style="border-color:var(--error);color:var(--error)"
+						<NeonGlow colors={ACCENT} glowIntensity="subtle">
+							<span style="font-size:12px">{t("web.clearConfirm")}</span>
+						</NeonGlow>
+						<CornerCutButton
+							color={ACCENT}
+							variant="ghost"
+							size="xs"
+							className="!border-[var(--error)]"
 							onClick={clearHistory}
 						>
 							{t("web.clearHistory")}
-						</button>
-						<button
-							class="history-clear"
-							type="button"
+						</CornerCutButton>
+						<CornerCutButton
+							color={ACCENT}
+							variant="ghost"
+							size="xs"
 							onClick={() => d({ type: "CLEAR_CONFIRM_TOGGLE" })}
 						>
 							{t("web.cancel")}
-						</button>
+						</CornerCutButton>
 					</div>
 				) : (
-					<button
-						class="history-clear"
-						type="button"
+					<CornerCutButton
+						color={ACCENT}
+						variant="ghost"
+						size="xs"
 						onClick={() => d({ type: "CLEAR_CONFIRM_TOGGLE" })}
 					>
 						{t("web.clearHistory")}
-					</button>
+					</CornerCutButton>
 				)}
 			</div>
-			{s.history.map((entry: MrHistoryEntry) => (
-				<div class="history-item" key={entry.id}>
-					<div class="history-info">
-						<div class="history-title">
-							{entry.title || `${entry.sourceBranch} → ${entry.targetBranch}`}
+			<div class="history-list">
+				{s.history.map((entry: MrHistoryEntry) => (
+					<BorderBeamCornerCutCard
+						key={entry.id}
+						className="history-item-card"
+						beamColor={ACCENT}
+						variant="pulse"
+						corner="bottom-right"
+						cornerSize={12}
+						size="sm"
+						glowIntensity="none"
+					>
+						<div class="history-item-row">
+							<div class="history-info">
+								<div style="word-break:break-word">
+									{fieldLabel(
+										ACCENT,
+										entry.title ||
+											`${entry.sourceBranch} → ${entry.targetBranch}`,
+									)}
+								</div>
+								<div class="history-branches">
+									{entry.sourceBranch} → {entry.targetBranch}
+								</div>
+								<div class="history-sub">
+									{entry.projectName} · {entry.createdAt}
+								</div>
+							</div>
+							<div class="history-actions">
+								<CornerCutButton
+									color={ACCENT}
+									variant="solid"
+									size="xs"
+									onClick={() => executeHistory(entry)}
+								>
+									{t("web.quickExecute")}
+								</CornerCutButton>
+							</div>
 						</div>
-						<div class="history-branches">
-							{entry.sourceBranch} → {entry.targetBranch}
-						</div>
-						<div class="history-sub">
-							{entry.projectName} · {entry.createdAt}
-						</div>
-					</div>
-					<div class="history-actions">
-						<button
-							class="history-exec-btn"
-							type="button"
-							onClick={() => executeHistory(entry)}
-						>
-							{t("web.quickExecute")}
-						</button>
-					</div>
-				</div>
-			))}
+					</BorderBeamCornerCutCard>
+				))}
+			</div>
 		</div>
 	);
 
 	// ── Draft toggle ──
 	const draftToggle = () => (
-		<div
-			class="draft-toggle"
-			onClick={() => d({ type: "SET_DRAFT", draft: !s.draft })}
-		>
-			<div class={`draft-toggle-check${s.draft ? " active" : ""}`}>
-				{s.draft && "✓"}
-			</div>
-			<span class="draft-toggle-label">{t("web.mrDraftToggle")}</span>
+		<div style="margin-bottom:16px">
+			<NeonToggle
+				checked={s.draft}
+				onChange={(next: boolean) => d({ type: "SET_DRAFT", draft: next })}
+				color={ACCENT}
+				size="sm"
+				label={t("web.mrDraftToggle")}
+			/>
 		</div>
 	);
 
 	// ── Title + description inputs ──
 	const titleDescInputs = () => (
 		<div>
-			<div class="input-label">{t("web.mrTitleLabel")}</div>
-			<input
-				class="title-input"
-				type="text"
+			<div style="margin-bottom:4px">
+				{fieldLabel(ACCENT, t("web.mrTitleLabel"))}
+			</div>
+			<NeonInput
+				color={ACCENT}
 				placeholder={t("web.mrEnterTitle")}
 				value={s.mrTitle}
 				onInput={(e: Event) =>
@@ -1098,8 +1148,11 @@ const MrClient: FC = () => {
 						title: (e.target as HTMLInputElement).value,
 					})
 				}
+				className="mb-4"
 			/>
-			<div class="input-label">{t("web.mrDescriptionLabel")}</div>
+			<div style="margin-bottom:4px">
+				{fieldLabel(ACCENT, t("web.mrDescriptionLabel"))}
+			</div>
 			<textarea
 				class="desc-input"
 				placeholder={t("web.mrEnterDescription")}
@@ -1122,7 +1175,26 @@ const MrClient: FC = () => {
 			<style>{mrStyle}</style>
 
 			{/* ── Header ── */}
-			<PageHeader title={t("web.mrTitle")} description={t("web.mrDesc")} />
+			<PageHeader
+				title={
+					<GlitchText
+						neon
+						mode="active"
+						colorA={ACCENT}
+						colorB={ACCENT}
+						glowColor={ACCENT}
+						speed="slow"
+						style="color:#ff00ff"
+					>
+						{t("web.mrTitle")}
+					</GlitchText>
+				}
+				description={
+					<NeonGlow colors={ACCENT} glowIntensity="subtle">
+						{t("web.mrDesc")}
+					</NeonGlow>
+				}
+			/>
 
 			{s.mode === "undetermined" &&
 				(s.error ? (
@@ -1130,23 +1202,30 @@ const MrClient: FC = () => {
 						<ResultText variant="error">{s.error}</ResultText>
 					</ResultCard>
 				) : (
-					<LoadingRow text={t("web.loading")} />
+					<LoadingRow color={ACCENT} text={t("web.loading")} />
 				))}
 
 			{/* ── Local mode ── */}
 			{s.mode === "local" && (
 				<>
 					{s.cwd ? (
-						<div class="cwd-display">
-							<span>{t("web.mrProjectPath")}:</span>
-							<code>{s.cwd}</code>
-						</div>
+						<NeonGlowCornerCutCard
+							className="cwd-display-card"
+							colorA={ACCENT}
+							size="sm"
+							hoverEffect="glow-only"
+						>
+							{fieldLabel(ACCENT, t("web.mrProjectPath"))}
+							<NeonGlow colors={ACCENT} glowIntensity="subtle">
+								<span class="cwd-display-value">{s.cwd}</span>
+							</NeonGlow>
+						</NeonGlowCornerCutCard>
 					) : (
 						<div class="cwd-section">
 							<div class="cwd-row">
-								<input
-									class="cwd-input"
-									type="text"
+								<NeonInput
+									className="cwd-input"
+									color={ACCENT}
 									placeholder={t("web.mrEnterPath")}
 									value={s.cwdInput}
 									onInput={(e: Event) =>
@@ -1156,20 +1235,28 @@ const MrClient: FC = () => {
 										})
 									}
 								/>
-								<button
-									class="cwd-btn"
-									type="button"
+								<CornerCutButton
+									color={ACCENT}
+									variant="solid"
+									size="sm"
+									className="cwd-set-btn"
 									disabled={!s.cwdInput.trim()}
 									onClick={setCwd}
 								>
 									{t("web.mrSetPath")}
-								</button>
+								</CornerCutButton>
 							</div>
-							{s.cwdError && <div class="cwd-error">{s.cwdError}</div>}
+							{s.cwdError && (
+								<div class="error-text" role="alert">
+									<NeonGlow colors={ERROR_COLOR} glowIntensity="subtle">
+										{s.cwdError}
+									</NeonGlow>
+								</div>
+							)}
 						</div>
 					)}
 
-					{s.loading && <LoadingRow text={t("web.loading")} />}
+					{s.loading && <LoadingRow color={ACCENT} text={t("web.loading")} />}
 					{s.error && (
 						<ResultCard variant="error">
 							<ResultText variant="error">{s.error}</ResultText>
@@ -1181,26 +1268,28 @@ const MrClient: FC = () => {
 							{/* ── History exists: show history + new button (modal for creation) ── */}
 							{s.history.length > 0 && !s.modalOpen && historySection()}
 
-							{s.quickExecuting && <LoadingRow text={t("web.mrCreatingMR")} />}
+							{s.quickExecuting && (
+								<LoadingRow color={ACCENT} text={t("web.mrCreatingMR")} />
+							)}
 
 							{(s.mrStatus === "success" || s.mrStatus === "existing") &&
 								!s.modalOpen &&
 								mrSuccessCard()}
 
 							{s.history.length > 0 && !s.modalOpen && !s.quickExecuting && (
-								<button
-									class="new-mr-btn"
-									type="button"
+								<CornerCutButton
+									color={ACCENT}
+									variant="outline"
 									onClick={() => d({ type: "TOGGLE_MODAL", open: true })}
 								>
 									{t("web.mrNewBtn")}
-								</button>
+								</CornerCutButton>
 							)}
 
 							{/* ── No history: show inline create flow ── */}
 							{s.history.length === 0 && !s.modalOpen && !s.quickExecuting && (
 								<>
-									<Pipeline steps={pipelineSteps} />
+									{renderSteps()}
 
 									{/* ── Step 1: Branch ── */}
 									<div>
@@ -1210,21 +1299,27 @@ const MrClient: FC = () => {
 												{s.currentBranch}
 											</ResultText>
 											{s.detectedSource && (
-												<span class="result-badge">
+												<Badge
+													color={ACCENT}
+													variant="outline"
+													shape="pill"
+													size="xs"
+												>
 													{t("web.mrDetectSource")}: {s.detectedSource}
-												</span>
+												</Badge>
 											)}
 										</ResultCard>
 
 										{/* Target branch selector */}
-										<Select
+										<NeonSelect
+											color={ACCENT}
 											id="branch"
+											loading={s.remoteBranchesLoading}
 											label={t("web.mrIntoBranch")}
 											placeholder={t("web.mrSelectInto")}
 											items={branchItems(s.remoteBranches)}
 											value={s.targetBranch ? { name: s.targetBranch } : null}
 											isEqual={(a, b) => a.name === b.name}
-											dropdown={branchDd}
 											onSelect={(item) =>
 												d({ type: "SELECT_TARGET_BRANCH", branch: item.name })
 											}
@@ -1249,13 +1344,13 @@ const MrClient: FC = () => {
 												</ResultText>
 											</ResultCard>
 										) : (
-											<button
-												class="action-btn secondary"
-												type="button"
+											<CornerCutButton
+												color={ACCENT}
+												variant="outline"
 												onClick={resolveProject}
 											>
 												{t("web.mrResolveProject")}
-											</button>
+											</CornerCutButton>
 										)}
 									</div>
 
@@ -1265,8 +1360,10 @@ const MrClient: FC = () => {
 											{titleDescInputs()}
 
 											{/* Reviewer selector */}
-											<Select
+											<NeonSelect
+												color={ACCENT}
 												id="member"
+												loading={s.membersLoading}
 												label={t("web.mrReviewerLabel")}
 												placeholder={t("web.mrSkipReviewer")}
 												items={reviewerItems(
@@ -1287,7 +1384,6 @@ const MrClient: FC = () => {
 															}
 												}
 												isEqual={(a, b) => a.id === b.id}
-												dropdown={memberDd}
 												onSelect={(item) =>
 													d({
 														type: "SELECT_REVIEWER",
@@ -1316,16 +1412,16 @@ const MrClient: FC = () => {
 									{s.targetBranch && (
 										<div>
 											{s.pushStatus === "idle" && (
-												<button
-													class="action-btn"
-													type="button"
+												<CornerCutButton
+													color={ACCENT}
+													variant="solid"
 													onClick={pushBranch}
 												>
 													{t("web.mrPushBtn")}
-												</button>
+												</CornerCutButton>
 											)}
 											{s.pushStatus === "running" && (
-												<LoadingRow text={t("web.mrPushing")} />
+												<LoadingRow color={ACCENT} text={t("web.mrPushing")} />
 											)}
 											{s.pushStatus === "success" && (
 												<ResultCard variant="success">
@@ -1344,13 +1440,13 @@ const MrClient: FC = () => {
 											)}
 											{s.pushStatus !== "success" &&
 												s.pushStatus !== "running" && (
-													<button
-														class="action-btn secondary"
-														type="button"
+													<CornerCutButton
+														color={ACCENT}
+														variant="outline"
 														onClick={() => d({ type: "SET_STEP", step: 3 })}
 													>
 														{t("web.mrSkipPush")}
-													</button>
+													</CornerCutButton>
 												)}
 										</div>
 									)}
@@ -1358,20 +1454,20 @@ const MrClient: FC = () => {
 									{/* ── Step 4: Create MR ── */}
 									{s.mrStatus === "idle" && (
 										<div>
-											<button
-												class="action-btn"
-												type="button"
+											<CornerCutButton
+												color={ACCENT}
+												variant="solid"
 												onClick={createMR}
 												disabled={!s.targetBranch || !s.mrTitle}
 											>
 												{s.draft
 													? t("web.mrCreateDraftBtn")
 													: t("web.mrCreateBtn")}
-											</button>
+											</CornerCutButton>
 										</div>
 									)}
 									{s.mrStatus === "running" && (
-										<LoadingRow text={t("web.mrCreatingMR")} />
+										<LoadingRow color={ACCENT} text={t("web.mrCreatingMR")} />
 									)}
 									{(s.mrStatus === "success" || s.mrStatus === "existing") &&
 										mrSuccessCard()}
@@ -1398,7 +1494,11 @@ const MrClient: FC = () => {
 			{/* ── Remote mode ── */}
 			{s.mode === "remote" && (
 				<>
-					<div class="remote-hint">{t("web.mrRemoteModeHint")}</div>
+					<div class="empty-hint">
+						<NeonGlow colors={ACCENT} glowIntensity="subtle">
+							{t("web.mrRemoteModeHint")}
+						</NeonGlow>
+					</div>
 
 					{s.error && (
 						<ResultCard variant="error">
@@ -1409,29 +1509,32 @@ const MrClient: FC = () => {
 					{/* ── History exists: show history + new button (modal for creation) ── */}
 					{s.history.length > 0 && !s.modalOpen && historySection()}
 
-					{s.quickExecuting && <LoadingRow text={t("web.mrCreatingMR")} />}
+					{s.quickExecuting && (
+						<LoadingRow color={ACCENT} text={t("web.mrCreatingMR")} />
+					)}
 
 					{(s.mrStatus === "success" || s.mrStatus === "existing") &&
 						!s.modalOpen &&
 						mrSuccessCard()}
 
 					{s.history.length > 0 && !s.modalOpen && !s.quickExecuting && (
-						<button
-							class="new-mr-btn"
-							type="button"
+						<CornerCutButton
+							color={ACCENT}
+							variant="outline"
 							onClick={() => d({ type: "TOGGLE_MODAL", open: true })}
 						>
 							{t("web.mrNewBtn")}
-						</button>
+						</CornerCutButton>
 					)}
 
 					{/* ── No history: show inline create flow ── */}
 					{s.history.length === 0 && !s.modalOpen && !s.quickExecuting && (
 						<>
-							<Pipeline steps={pipelineSteps} />
+							{renderSteps()}
 
 							{/* ── Step 0: Project Selection ── */}
-							<Select
+							<NeonSelect
+								color={ACCENT}
 								id="project"
 								label={t("web.projectLabel")}
 								placeholder={t("web.mrSelectProject")}
@@ -1446,7 +1549,6 @@ const MrClient: FC = () => {
 										: null
 								}
 								isEqual={(a, b) => Number(a.id) === Number(b.id)}
-								dropdown={projectDd}
 								onSelect={(item) => {
 									d({
 										type: "SELECT_REMOTE_PROJECT",
@@ -1459,6 +1561,7 @@ const MrClient: FC = () => {
 								}}
 								renderItem={projectRenderItem}
 								searchPlaceholder={t("web.mrSearchProject")}
+								loading={s.projectsLoading}
 								emptyText={
 									s.projectsLoading ? undefined : t("web.mrNoProjects")
 								}
@@ -1468,14 +1571,15 @@ const MrClient: FC = () => {
 							{s.projectId > 0 && (
 								<div>
 									{/* Source branch selector */}
-									<Select
+									<NeonSelect
+										color={ACCENT}
 										id="source-branch"
+										loading={s.remoteBranchesLoading}
 										label={t("web.mrFromBranch")}
 										placeholder={t("web.mrSelectFrom")}
 										items={branchItems(s.remoteBranches)}
 										value={s.sourceBranch ? { name: s.sourceBranch } : null}
 										isEqual={(a, b) => a.name === b.name}
-										dropdown={sourceBranchDd}
 										onSelect={(item) =>
 											d({ type: "SELECT_SOURCE_BRANCH", branch: item.name })
 										}
@@ -1491,14 +1595,15 @@ const MrClient: FC = () => {
 									/>
 
 									{/* Target branch selector */}
-									<Select
+									<NeonSelect
+										color={ACCENT}
 										id="branch"
+										loading={s.remoteBranchesLoading}
 										label={t("web.mrIntoBranch")}
 										placeholder={t("web.mrSelectInto")}
 										items={branchItems(s.remoteBranches)}
 										value={s.targetBranch ? { name: s.targetBranch } : null}
 										isEqual={(a, b) => a.name === b.name}
-										dropdown={branchDd}
 										onSelect={(item) =>
 											d({ type: "SELECT_TARGET_BRANCH", branch: item.name })
 										}
@@ -1520,8 +1625,10 @@ const MrClient: FC = () => {
 									{titleDescInputs()}
 
 									{/* Reviewer selector */}
-									<Select
+									<NeonSelect
+										color={ACCENT}
 										id="member"
+										loading={s.membersLoading}
 										label={t("web.mrReviewerLabel")}
 										placeholder={t("web.mrSkipReviewer")}
 										items={reviewerItems(s.members, t("web.mrSkipReviewer"))}
@@ -1535,7 +1642,6 @@ const MrClient: FC = () => {
 												: { name: t("web.mrSkipReviewer"), id: 0, username: "" }
 										}
 										isEqual={(a, b) => a.id === b.id}
-										dropdown={memberDd}
 										onSelect={(item) =>
 											d({
 												type: "SELECT_REVIEWER",
@@ -1563,18 +1669,18 @@ const MrClient: FC = () => {
 							{/* ── Step 3: Create MR ── */}
 							{s.mrStatus === "idle" && (
 								<div>
-									<button
-										class="action-btn"
-										type="button"
+									<CornerCutButton
+										color={ACCENT}
+										variant="solid"
 										onClick={createMR}
 										disabled={!s.sourceBranch || !s.targetBranch || !s.mrTitle}
 									>
 										{s.draft ? t("web.mrCreateDraftBtn") : t("web.mrCreateBtn")}
-									</button>
+									</CornerCutButton>
 								</div>
 							)}
 							{s.mrStatus === "running" && (
-								<LoadingRow text={t("web.mrCreatingMR")} />
+								<LoadingRow color={ACCENT} text={t("web.mrCreatingMR")} />
 							)}
 							{(s.mrStatus === "success" || s.mrStatus === "existing") &&
 								mrSuccessCard()}
@@ -1601,27 +1707,28 @@ const MrClient: FC = () => {
 				{/* ── Modal create flow for local mode ── */}
 				{s.mode === "local" && s.currentBranch && (
 					<>
-						<Pipeline steps={pipelineSteps} />
+						{renderSteps()}
 
 						<ResultCard>
 							<div class="result-label">{t("web.mrFromBranch")}</div>
 							<ResultText variant="success">{s.currentBranch}</ResultText>
 							{s.detectedSource && (
-								<span class="result-badge">
+								<Badge color={ACCENT} variant="outline" shape="pill" size="xs">
 									{t("web.mrDetectSource")}: {s.detectedSource}
-								</span>
+								</Badge>
 							)}
 						</ResultCard>
 
 						{/* Target branch selector */}
-						<Select
+						<NeonSelect
+							color={ACCENT}
 							id="branch"
+							loading={s.remoteBranchesLoading}
 							label={t("web.mrIntoBranch")}
 							placeholder={t("web.mrSelectInto")}
 							items={branchItems(s.remoteBranches)}
 							value={s.targetBranch ? { name: s.targetBranch } : null}
 							isEqual={(a, b) => a.name === b.name}
-							dropdown={branchDd}
 							onSelect={(item) =>
 								d({ type: "SELECT_TARGET_BRANCH", branch: item.name })
 							}
@@ -1641,8 +1748,10 @@ const MrClient: FC = () => {
 								{titleDescInputs()}
 
 								{/* Reviewer selector */}
-								<Select
+								<NeonSelect
+									color={ACCENT}
 									id="member"
+									loading={s.membersLoading}
 									label={t("web.mrReviewerLabel")}
 									placeholder={t("web.mrSkipReviewer")}
 									items={reviewerItems(s.members, t("web.mrSkipReviewer"))}
@@ -1652,7 +1761,6 @@ const MrClient: FC = () => {
 											: { name: t("web.mrSkipReviewer"), id: 0, username: "" }
 									}
 									isEqual={(a, b) => a.id === b.id}
-									dropdown={memberDd}
 									onSelect={(item) =>
 										d({
 											type: "SELECT_REVIEWER",
@@ -1681,12 +1789,16 @@ const MrClient: FC = () => {
 						{s.targetBranch && (
 							<div>
 								{s.pushStatus === "idle" && (
-									<button class="action-btn" type="button" onClick={pushBranch}>
+									<CornerCutButton
+										color={ACCENT}
+										variant="solid"
+										onClick={pushBranch}
+									>
 										{t("web.mrPushBtn")}
-									</button>
+									</CornerCutButton>
 								)}
 								{s.pushStatus === "running" && (
-									<LoadingRow text={t("web.mrPushing")} />
+									<LoadingRow color={ACCENT} text={t("web.mrPushing")} />
 								)}
 								{s.pushStatus === "success" && (
 									<ResultCard variant="success">
@@ -1704,13 +1816,13 @@ const MrClient: FC = () => {
 									</ResultCard>
 								)}
 								{s.pushStatus !== "success" && s.pushStatus !== "running" && (
-									<button
-										class="action-btn secondary"
-										type="button"
+									<CornerCutButton
+										color={ACCENT}
+										variant="outline"
 										onClick={() => d({ type: "SET_STEP", step: 3 })}
 									>
 										{t("web.mrSkipPush")}
-									</button>
+									</CornerCutButton>
 								)}
 							</div>
 						)}
@@ -1718,18 +1830,18 @@ const MrClient: FC = () => {
 						{/* Create MR */}
 						{s.mrStatus === "idle" && (
 							<div>
-								<button
-									class="action-btn"
-									type="button"
+								<CornerCutButton
+									color={ACCENT}
+									variant="solid"
 									onClick={createMR}
 									disabled={!s.targetBranch || !s.mrTitle}
 								>
 									{s.draft ? t("web.mrCreateDraftBtn") : t("web.mrCreateBtn")}
-								</button>
+								</CornerCutButton>
 							</div>
 						)}
 						{s.mrStatus === "running" && (
-							<LoadingRow text={t("web.mrCreatingMR")} />
+							<LoadingRow color={ACCENT} text={t("web.mrCreatingMR")} />
 						)}
 						{(s.mrStatus === "success" || s.mrStatus === "existing") &&
 							mrSuccessCard()}
@@ -1744,10 +1856,11 @@ const MrClient: FC = () => {
 				{/* ── Modal create flow for remote mode ── */}
 				{s.mode === "remote" && (
 					<>
-						<Pipeline steps={pipelineSteps} />
+						{renderSteps()}
 
 						{/* Project selector */}
-						<Select
+						<NeonSelect
+							color={ACCENT}
 							id="project"
 							label={t("web.projectLabel")}
 							placeholder={t("web.mrSelectProject")}
@@ -1762,7 +1875,6 @@ const MrClient: FC = () => {
 									: null
 							}
 							isEqual={(a, b) => Number(a.id) === Number(b.id)}
-							dropdown={projectDd}
 							onSelect={(item) => {
 								d({
 									type: "SELECT_REMOTE_PROJECT",
@@ -1775,6 +1887,7 @@ const MrClient: FC = () => {
 							}}
 							renderItem={projectRenderItem}
 							searchPlaceholder={t("web.mrSearchProject")}
+							loading={s.projectsLoading}
 							emptyText={s.projectsLoading ? undefined : t("web.mrNoProjects")}
 						/>
 
@@ -1782,14 +1895,15 @@ const MrClient: FC = () => {
 						{s.projectId > 0 && (
 							<div>
 								{/* Source branch */}
-								<Select
+								<NeonSelect
+									color={ACCENT}
 									id="source-branch"
+									loading={s.remoteBranchesLoading}
 									label={t("web.mrFromBranch")}
 									placeholder={t("web.mrSelectFrom")}
 									items={branchItems(s.remoteBranches)}
 									value={s.sourceBranch ? { name: s.sourceBranch } : null}
 									isEqual={(a, b) => a.name === b.name}
-									dropdown={sourceBranchDd}
 									onSelect={(item) =>
 										d({ type: "SELECT_SOURCE_BRANCH", branch: item.name })
 									}
@@ -1805,14 +1919,15 @@ const MrClient: FC = () => {
 								/>
 
 								{/* Target branch */}
-								<Select
+								<NeonSelect
+									color={ACCENT}
 									id="branch"
+									loading={s.remoteBranchesLoading}
 									label={t("web.mrIntoBranch")}
 									placeholder={t("web.mrSelectInto")}
 									items={branchItems(s.remoteBranches)}
 									value={s.targetBranch ? { name: s.targetBranch } : null}
 									isEqual={(a, b) => a.name === b.name}
-									dropdown={branchDd}
 									onSelect={(item) =>
 										d({ type: "SELECT_TARGET_BRANCH", branch: item.name })
 									}
@@ -1834,8 +1949,10 @@ const MrClient: FC = () => {
 								{titleDescInputs()}
 
 								{/* Reviewer */}
-								<Select
+								<NeonSelect
+									color={ACCENT}
 									id="member"
+									loading={s.membersLoading}
 									label={t("web.mrReviewerLabel")}
 									placeholder={t("web.mrSkipReviewer")}
 									items={reviewerItems(s.members, t("web.mrSkipReviewer"))}
@@ -1845,7 +1962,6 @@ const MrClient: FC = () => {
 											: { name: t("web.mrSkipReviewer"), id: 0, username: "" }
 									}
 									isEqual={(a, b) => a.id === b.id}
-									dropdown={memberDd}
 									onSelect={(item) =>
 										d({
 											type: "SELECT_REVIEWER",
@@ -1873,18 +1989,18 @@ const MrClient: FC = () => {
 						{/* Create MR */}
 						{s.mrStatus === "idle" && (
 							<div>
-								<button
-									class="action-btn"
-									type="button"
+								<CornerCutButton
+									color={ACCENT}
+									variant="solid"
 									onClick={createMR}
 									disabled={!s.sourceBranch || !s.targetBranch || !s.mrTitle}
 								>
 									{s.draft ? t("web.mrCreateDraftBtn") : t("web.mrCreateBtn")}
-								</button>
+								</CornerCutButton>
 							</div>
 						)}
 						{s.mrStatus === "running" && (
-							<LoadingRow text={t("web.mrCreatingMR")} />
+							<LoadingRow color={ACCENT} text={t("web.mrCreatingMR")} />
 						)}
 						{(s.mrStatus === "success" || s.mrStatus === "existing") &&
 							mrSuccessCard()}
@@ -1898,16 +2014,16 @@ const MrClient: FC = () => {
 
 				{/* ── Close modal on MR success ── */}
 				{(s.mrStatus === "success" || s.mrStatus === "existing") && (
-					<button
-						class="action-btn secondary"
-						type="button"
+					<CornerCutButton
+						color={ACCENT}
+						variant="outline"
 						onClick={() => {
 							d({ type: "TOGGLE_MODAL", open: false });
 							loadHistory();
 						}}
 					>
 						{t("web.cancel")}
-					</button>
+					</CornerCutButton>
 				)}
 			</Modal>
 		</>

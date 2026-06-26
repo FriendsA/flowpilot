@@ -154,6 +154,7 @@ router.post("/api/history/:id/execute", async (c) => {
 		version: string | null;
 		groupId: string | null;
 		flowPilotName: string | null;
+		artifactId: string | null;
 	};
 	try {
 		const file = await git.getFile(entry.projectId, "pom.xml", entry.branch);
@@ -167,7 +168,8 @@ router.post("/api/history/:id/execute", async (c) => {
 	}
 
 	const displayVersion = cleanVersion(pomInfo.version ?? "");
-	const flowPilotName = pomInfo.flowPilotName ?? entry.projectName;
+	const flowPilotName =
+		pomInfo.flowPilotName ?? pomInfo.artifactId ?? entry.projectName;
 	const versionName = `${flowPilotName}-${displayVersion}`;
 	const summary = `${flowPilotName}-${displayVersion} release request`;
 	const safeSummary = summary.replace(/"/g, '\\"');
@@ -349,6 +351,7 @@ router.get("/api/projects/:id/pom-version", async (c) => {
 		return c.json({
 			version: pomInfo.version,
 			groupId: pomInfo.groupId,
+			artifactId: pomInfo.artifactId,
 			flowPilotName: pomInfo.flowPilotName,
 		});
 	} catch (e: unknown) {

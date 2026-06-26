@@ -1,5 +1,6 @@
 // Shared Modal component for release/mr/watch Web UI pages
 import type { FC } from "hono/jsx";
+import { CornerCutButton } from "./neonblade/corner-cut-button";
 
 type ModalProps = {
 	open: boolean;
@@ -28,9 +29,17 @@ export const Modal: FC<ModalProps> = ({
 			<div class={`modal-content${variant === "wide" ? " modal-wide" : ""}`}>
 				<div class="modal-header">
 					<span class="modal-title">{title}</span>
-					<button class="modal-close" type="button" onClick={onClose}>
-						x
-					</button>
+					<CornerCutButton
+						color="cyan"
+						size="xs"
+						variant="ghost"
+						corner="all"
+						hoverEffect="glow"
+						className="modal-close"
+						onClick={onClose}
+					>
+						✕
+					</CornerCutButton>
 				</div>
 				{children}
 			</div>
@@ -56,7 +65,7 @@ export const modalCss = `
   max-width: 540px;
   margin: auto;
   padding: 24px;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 12px rgba(0,255,136,0.03);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 12px rgba(0,243,255,0.03);
   animation: slide-up 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .modal-wide { max-width: 640px; }
@@ -72,12 +81,16 @@ export const modalCss = `
   color: var(--text-1);
 }
 .modal-close {
-  padding: 4px 8px;
-  font-size: 14px;
-  color: var(--text-3);
-  background: transparent;
-  border: none;
-  cursor: pointer;
+  padding: 0 !important;
+  width: 28px; height: 28px;
+  line-height: 0;
 }
-.modal-close:hover { color: var(--text-1); }
+.modal-close button {
+  padding: 0 !important;
+  min-height: 0 !important;
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.modal-close .ccb-clip-all { border-radius: 6px; }
 `;

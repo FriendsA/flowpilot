@@ -1,33 +1,25 @@
+import { neonbladeCss } from "./components/neonblade/styles";
+
 export const globalStyle = `
+@layer base {
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
   :root {
     --bg-void: #0A0A0F;
-    --bg-surface: #0D1117;
     --bg-card: #111820;
     --bg-input: #0A0E14;
-    --bg-hover: rgba(0, 255, 136, 0.04);
-    --neon: #00FF88;
-    --neon-hover: #33FFAA;
-    --neon-soft: rgba(0, 255, 136, 0.08);
-    --neon-glow: rgba(0, 255, 136, 0.15);
+    --neon: #00f3ff;
+    --neon-glow: rgba(0, 243, 255, 0.15);
     --cyan: #00D4FF;
-    --cyan-soft: rgba(0, 212, 255, 0.08);
-    --cyan-glow: rgba(0, 212, 255, 0.15);
-    --border: rgba(0, 255, 136, 0.06);
-    --border-active: rgba(0, 255, 136, 0.15);
+    --border: rgba(0, 243, 255, 0.06);
     --text-1: #E2E8F0;
     --text-2: #94A3B8;
     --text-3: #64748B;
-    --success: #00FF88;
-    --success-soft: rgba(0, 255, 136, 0.08);
+    --success-soft: rgba(0, 243, 255, 0.08);
     --error: #FF4444;
-    --error-soft: rgba(255, 68, 68, 0.08);
-    --warning: #FFB800;
     --mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', Menlo, Consolas, monospace;
     --sans: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
     --sidebar-width: 240px;
-    --sidebar-collapsed-width: 64px;
   }
 
   html, body { height: 100%; }
@@ -57,7 +49,7 @@ export const globalStyle = `
 
   @keyframes neon-pulse {
     0%, 100% { box-shadow: 0 0 4px var(--neon-glow); }
-    50% { box-shadow: 0 0 12px var(--neon-glow), 0 0 20px rgba(0,255,136,0.06); }
+    50% { box-shadow: 0 0 12px var(--neon-glow), 0 0 20px rgba(0,243,255,0.06); }
   }
 
   @keyframes dropdown-in {
@@ -98,23 +90,74 @@ export const globalStyle = `
     top: 8px;
   }
 
-  /* ── Sidebar ── */
+  /* ── Sidebar (drawer) ── */
   .sidebar {
     position: fixed;
-    left: 0;
-    top: 0;
-    bottom: 0;
+    left: 12px;
+    top: 12px;
+    bottom: 12px;
     width: var(--sidebar-width);
-    background: var(--bg-surface);
-    border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 100;
-    overflow: hidden;
+    transform: translateX(0);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 101;
   }
   .sidebar.collapsed {
-    width: var(--sidebar-collapsed-width);
+    transform: translateX(calc(-100% - 16px));
+    pointer-events: none;
+  }
+  .sidebar-card { flex: 1; min-height: 0; height: 100%; }
+  .sidebar-card .bbc-inner { padding: 0 !important; height: 100%; }
+
+  /* Floating trigger tab to open/close the drawer */
+  .sidebar-trigger {
+    position: fixed !important;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%) !important;
+    z-index: 102;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .sidebar-trigger button {
+    width: 26px;
+    height: 48px;
+    padding: 0 !important;
+    min-height: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .sidebar-trigger .ccb-clip-all,
+  .sidebar-trigger .ccb-frame {
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%) !important;
+  }
+  .sidebar-trigger svg {
+    width: 14px;
+    height: 14px;
+    transition: transform 0.3s;
+  }
+  /* When drawer open: move tab to the drawer's right edge and flip the icon */
+  .sidebar:not(.collapsed) ~ .sidebar-trigger {
+    left: calc(var(--sidebar-width) + 12px);
+  }
+  .sidebar:not(.collapsed) ~ .sidebar-trigger svg {
+    transform: rotate(180deg);
+  }
+
+  /* Backdrop: click to close */
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .sidebar:not(.collapsed) ~ .sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .sidebar-header {
@@ -133,29 +176,33 @@ export const globalStyle = `
     min-width: 0;
   }
   .brand-icon {
-    width: 32px; height: 32px;
-    min-width: 32px;
-    border-radius: 8px;
+    width: 38px; height: 38px;
+    min-width: 38px;
+    padding: 1.5px;
     background: linear-gradient(135deg, var(--neon), var(--cyan));
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 0 12px var(--neon-glow);
-    transition: box-shadow 0.3s;
+    box-shadow: 0 0 14px color-mix(in srgb, var(--neon) 35%, transparent);
+    transition: box-shadow 0.3s, filter 0.3s;
   }
   .brand-icon:hover {
-    box-shadow: 0 0 20px var(--neon-glow), 0 0 32px rgba(0,255,136,0.2);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--neon) 55%, transparent);
+    filter: saturate(1.2);
   }
-  .brand-icon svg { width: 18px; height: 18px; }
+  .brand-icon-inner {
+    width: 100%; height: 100%;
+    background: var(--bg-void);
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--neon);
+  }
+  .brand-icon-inner svg { width: 18px; height: 18px; stroke: currentColor; }
   .brand-text {
     display: flex;
     flex-direction: column;
     gap: 2px;
     overflow: hidden;
     opacity: 1;
-    transition: opacity 0.2s;
-  }
-  .sidebar.collapsed .brand-text {
-    opacity: 0;
-    width: 0;
   }
   .brand-name {
     font-size: 15px;
@@ -171,76 +218,44 @@ export const globalStyle = `
     white-space: nowrap;
   }
 
-  .sidebar-toggle {
-    width: 28px; height: 28px;
-    border-radius: 6px;
-    border: none;
-    background: transparent;
-    color: var(--text-3);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s, color 0.2s, transform 0.3s;
-  }
-  .sidebar-toggle:hover {
-    background: var(--bg-hover);
-    color: var(--text-1);
-  }
-  .sidebar-toggle svg {
-    width: 16px; height: 16px;
-    transition: transform 0.3s;
-  }
-  .sidebar.collapsed .sidebar-toggle svg {
-    transform: rotate(180deg);
-  }
-
   .sidebar-nav {
     flex: 1;
-    padding: 12px 8px;
+    padding: 10px 8px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
     overflow-y: auto;
   }
   .nav-item {
+    display: block;
+    padding: 1px;
+    background: var(--border);
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+  .nav-item-inner {
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 10px 12px;
     font-size: 13px;
-    font-weight: 450;
-    color: var(--text-2);
-    border-radius: 8px;
-    text-decoration: none;
-    transition: all 0.2s;
-    position: relative;
-    overflow: hidden;
-  }
-  .nav-item::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%) scaleY(0);
-    width: 3px;
-    height: 20px;
-    background: var(--neon);
-    border-radius: 0 4px 4px 0;
-    transition: transform 0.2s;
-  }
-  .nav-item:hover {
-    color: var(--text-1);
-    background: var(--bg-hover);
-    transform: translateX(2px);
-  }
-  .nav-item.active {
-    color: var(--neon);
-    background: var(--neon-soft);
     font-weight: 500;
+    color: var(--text-2);
+    background: var(--bg-card);
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+    transition: color 0.2s, background 0.2s;
   }
-  .nav-item.active::before {
-    transform: translateY(-50%) scaleY(1);
+  .nav-item:hover { background: color-mix(in srgb, var(--item-accent, var(--neon)) 55%, transparent); }
+  .nav-item:hover .nav-item-inner {
+    color: var(--item-accent, var(--neon));
+    background: color-mix(in srgb, var(--item-accent, var(--neon)) 10%, var(--bg-card));
+  }
+  .nav-item.active { background: var(--item-accent, var(--neon)); }
+  .nav-item.active .nav-item-inner {
+    color: var(--item-accent, var(--neon));
+    font-weight: 600;
+    background: color-mix(in srgb, var(--item-accent, var(--neon)) 14%, var(--bg-card));
   }
   .nav-item-icon {
     width: 20px; height: 20px;
@@ -262,14 +277,6 @@ export const globalStyle = `
     flex: 1;
     white-space: nowrap;
     opacity: 1;
-    transition: opacity 0.2s;
-  }
-  .sidebar.collapsed .nav-item-label {
-    opacity: 0;
-  }
-  .sidebar.collapsed .nav-item {
-    justify-content: center;
-    padding: 10px;
   }
 
   .sidebar-footer {
@@ -277,23 +284,35 @@ export const globalStyle = `
     border-top: 1px solid var(--border);
   }
   .footer-settings {
+    display: block;
+    padding: 1px;
+    background: var(--border);
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+  .footer-settings-inner {
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 10px 12px;
     font-size: 13px;
+    font-weight: 500;
     color: var(--text-3);
-    border-radius: 8px;
-    text-decoration: none;
-    transition: all 0.2s;
+    background: var(--bg-card);
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+    transition: color 0.2s, background 0.2s;
   }
-  .footer-settings:hover {
-    color: var(--text-1);
-    background: var(--bg-hover);
+  .footer-settings:hover { background: color-mix(in srgb, var(--item-accent, var(--neon)) 55%, transparent); }
+  .footer-settings:hover .footer-settings-inner {
+    color: var(--item-accent, var(--neon));
+    background: color-mix(in srgb, var(--item-accent, var(--neon)) 10%, var(--bg-card));
   }
-  .footer-settings.active {
-    color: var(--neon);
-    background: var(--neon-soft);
+  .footer-settings.active { background: var(--item-accent, var(--neon)); }
+  .footer-settings.active .footer-settings-inner {
+    color: var(--item-accent, var(--neon));
+    font-weight: 600;
+    background: color-mix(in srgb, var(--item-accent, var(--neon)) 14%, var(--bg-card));
   }
   .footer-settings-icon {
     width: 20px; height: 20px;
@@ -311,29 +330,18 @@ export const globalStyle = `
   .footer-settings-label {
     flex: 1;
     opacity: 1;
-    transition: opacity 0.2s;
-  }
-  .sidebar.collapsed .footer-settings-label {
-    opacity: 0;
-  }
-  .sidebar.collapsed .footer-settings {
-    justify-content: center;
-    padding: 10px;
   }
 
   /* ── Main area ── */
   .main-wrapper {
     flex: 1;
-    margin-left: var(--sidebar-width);
-    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     min-height: 100vh;
-  }
-  .sidebar.collapsed + .main-wrapper {
-    margin-left: var(--sidebar-collapsed-width);
+    padding: 0 24px;
   }
   .main {
     min-height: 100vh;
-    padding: 32px 48px;
+    padding: 32px 24px;
+    margin: 0 auto;
     animation: slide-right 0.4s ease both;
     max-width: 1200px;
   }
@@ -357,17 +365,10 @@ export const globalStyle = `
   }
 
   @media (max-width: 768px) {
-    .sidebar {
-      width: var(--sidebar-collapsed-width);
-    }
-    .sidebar .brand-text,
-    .sidebar .nav-item-label,
-    .sidebar .footer-settings-label {
-      opacity: 0;
-    }
-    .main-wrapper {
-      margin-left: var(--sidebar-collapsed-width);
-    }
     .main { padding: 24px 20px; }
   }
+}
+
+/* ── NeonBlade UI components (un-layered, highest cascade priority) ── */
+${neonbladeCss}
 `;

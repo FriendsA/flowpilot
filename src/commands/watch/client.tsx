@@ -1,15 +1,26 @@
 import { type FC, useEffect, useReducer, useRef } from "hono/jsx";
 import { render } from "hono/jsx/dom";
 import i18next from "i18next";
-import { commonCss } from "../../shared/components/common";
 import {
-	pipelineCss,
-	pipelineLineClass,
-	pipelineStepClass,
-} from "../../shared/components/pipeline";
-import { selectCss, selKeyDown } from "../../shared/components/select";
+	commonCss,
+	fieldLabel,
+	PageHeader,
+	pageHeaderCss,
+	sectionTitle,
+} from "../../shared/components/common";
+import { modalCss } from "../../shared/components/modal";
+import { Badge } from "../../shared/components/neonblade/badge";
+import { BorderBeamCornerCutCard } from "../../shared/components/neonblade/border-beam-corner-cut-card";
+import { CornerCutButton } from "../../shared/components/neonblade/corner-cut-button";
+import { GlitchText } from "../../shared/components/neonblade/glitch-text";
+import { NeonGlow } from "../../shared/components/neonblade/neon-glow";
+import { NeonGlowCornerCutCard } from "../../shared/components/neonblade/neon-glow-corner-cut-card";
+import { NeonSelect } from "../../shared/components/neonblade/neon-select";
+import { ProgressBar } from "../../shared/components/neonblade/progress-bar";
 import { useChainPolling } from "../../utils/polling";
-import { filterByRelevance } from "../../utils/search";
+
+const ACCENT = "#bf00ff";
+const ERROR_COLOR = "#ff4444";
 
 const initPromise =
 	typeof window !== "undefined" &&
@@ -86,43 +97,30 @@ type BuildStatus =
 	| "error"
 	| "no-build";
 
-const watchStyle = `${pipelineCss}${selectCss}${commonCss}
-  .page-header {
-    margin-bottom: 28px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
-  }
-  .page-header h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 6px; }
-  .page-header p { font-size: 13px; color: var(--text-2); font-weight: 300; line-height: 1.5; }
+const watchStyle = `${commonCss}${pageHeaderCss}${modalCss}
+  /* ── Theme: purple accent overrides ── */
+  .spinner { border-top-color: ${ACCENT}; }
 
-  /* ── Tabs ── */
-  .watch-tabs {
-    display: inline-flex;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 3px;
+  /* ── Step indicator (Badge-based) ── */
+  .watch-steps {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     margin-bottom: 24px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
   }
-  .watch-tab {
-    padding: 8px 20px;
-    font-size: 13px;
-    font-family: var(--sans);
-    font-weight: 500;
-    color: var(--text-3);
-    background: transparent;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
+  .watch-step-sep {
+    display: inline-flex;
+    align-items: center;
+    color: ${ACCENT};
+    opacity: 0.6;
+    font-size: 14px;
   }
-  .watch-tab:hover { color: var(--text-1); }
-  .watch-tab.active {
-    background: var(--neon);
-    color: var(--bg-void);
-    box-shadow: 0 0 8px var(--neon-glow);
-  }
+
+  /* ── Tabs (inside NeonGlowCornerCutCard) ── */
+  .watch-tabs-card { display: inline-flex; width: fit-content; margin-bottom: 24px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both; }
+  .watch-tabs-card .ngcc-card { padding: 8px; display: flex; flex-direction: row; align-items: center; gap: 6px; }
+  .watch-tab-cta { flex: 0 0 auto; }
 
   /* ── Quick search ── */
   .quick-section {
@@ -132,142 +130,12 @@ const watchStyle = `${pipelineCss}${selectCss}${commonCss}
     animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
   }
 
-  .sel {
-    position: relative;
-    margin-bottom: 16px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
-    z-index: 1;
-  }
-  .sel-trigger {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 14px;
-    font-size: 13px;
-    font-family: var(--sans);
-    color: var(--text-1, #E2E8F0);
-    background: var(--bg-input, #0A0E14);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    cursor: pointer;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    text-align: left;
-  }
-  .sel-trigger:hover { border-color: var(--border-active); }
-  .sel-trigger:focus, .sel-trigger.open {
-    border-color: var(--neon);
-    box-shadow: 0 0 0 2px var(--neon-soft), 0 0 8px var(--neon-glow);
-  }
-  .sel-trigger-label { font-size: 11px; color: var(--text-3, #64748B); flex-shrink: 0; }
-  .sel-trigger-value { flex: 1; font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--text-1); }
-  .sel-trigger-value.empty { color: var(--text-3); font-weight: 300; }
-  .sel-trigger-arrow { color: var(--text-3); font-size: 10px; transition: transform 0.2s; }
-  .sel-trigger.open .sel-trigger-arrow { transform: rotate(180deg); }
-  .sel-dropdown {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0; right: 0;
-    max-height: 280px;
-    overflow-y: auto;
-    background: var(--bg-card, #111820);
-    border: 1px solid rgba(0,255,136,0.08);
-    border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 12px rgba(0,255,136,0.03);
-    z-index: 1000;
-    animation: dropdown-in 0.12s ease both;
-  }
-  .sel-dropdown::-webkit-scrollbar { width: 6px; }
-  .sel-dropdown::-webkit-scrollbar-track { background: transparent; }
-  .sel-dropdown::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  .sel-search {
-    padding: 8px;
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    background: var(--bg-card, #111820);
-    z-index: 1;
-  }
-  .sel-search-input {
-    width: 100%;
-    padding: 6px 10px;
-    font-size: 12px;
-    font-family: var(--mono);
-    color: var(--text-1);
-    background: var(--bg-void);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    outline: none;
-    transition: border-color 0.15s;
-  }
-  .sel-search-input::placeholder { color: var(--text-3); }
-  .sel-search-input:focus { border-color: var(--neon); }
-  .sel-item {
-    padding: 10px 14px;
-    font-size: 13px;
-    cursor: pointer;
-    transition: background 0.1s;
-    border-left: 3px solid transparent;
-    color: var(--text-1);
-  }
-  .sel-item:first-child { border-radius: 7px 7px 0 0; }
-  .sel-item:last-child { border-radius: 0 0 7px 7px; }
-  .sel-item:hover, .sel-item.highlighted { background: var(--bg-hover); }
-  .sel-item.active { background: var(--neon-soft); border-left-color: var(--neon); font-weight: 500; }
-  .sel-item-name { font-weight: 500; color: var(--text-1); }
-  .sel-item-sub { font-size: 11px; color: var(--text-3); font-family: var(--mono); margin-top: 2px; }
-  .sel-empty { padding: 12px; text-align: center; color: var(--text-3); font-size: 12px; }
-
-  .empty-hint { text-align: center; padding: 32px 0; color: var(--text-3); font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
-  .state-error { color: var(--error); font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
-
-  .watch-btn {
-    width: 100%;
-    min-height: 44px;
-    padding: 10px 20px;
-    font-size: 13px;
-    font-family: var(--sans);
-    font-weight: 500;
-    color: var(--bg-void);
-    background: var(--neon);
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.15s, box-shadow 0.2s;
-    margin-top: 8px;
-    position: relative;
-    z-index: 1;
-  }
-  .watch-btn:hover { background: var(--neon-hover); box-shadow: 0 0 12px var(--neon-glow); }
-  .watch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .watch-btn.danger { background: var(--error); }
-  .watch-btn.secondary { background: transparent; color: var(--text-2); border: 1px solid var(--border); }
-  .watch-btn.secondary:hover { border-color: var(--text-2); color: var(--text-1); }
-  .watch-btn.stop {
-    width: auto;
-    min-height: 0;
-    padding: 4px 12px;
-    font-size: 11px;
-    font-weight: 400;
-    color: var(--text-3);
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    margin: 0;
-    transition: border-color 0.15s, color 0.15s, background 0.15s;
-  }
-  .watch-btn.stop:hover {
-    color: var(--error);
-    border-color: rgba(255,68,68,0.3);
-    background: rgba(255,68,68,0.06);
-    box-shadow: none;
-  }
+  .empty-hint { text-align: center; padding: 32px 0; font-size: 13px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
+  .error-text { color: ${ERROR_COLOR}; font-size: 13px; margin-top: 12px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
   /* ── History item layout ── */
-  .history-item {
-    position: relative;
-  }
+  .history-item { position: relative; }
+  .history-item .bbc-inner { padding: 12px 16px; }
   .history-info {
     min-width: 0;
     flex: 1;
@@ -277,61 +145,6 @@ const watchStyle = `${pipelineCss}${selectCss}${commonCss}
     gap: 8px;
     align-items: center;
   }
-  .history-action-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    height: 28px;
-    padding: 0 12px;
-    font-size: 12px;
-    font-family: var(--sans);
-    font-weight: 500;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
-  .history-action-btn.primary {
-    color: var(--neon);
-    background: var(--neon-soft);
-    border: 1px solid rgba(0, 255, 136, 0.15);
-  }
-  .history-action-btn.primary:hover {
-    background: rgba(0, 255, 136, 0.12);
-    border-color: rgba(0, 255, 136, 0.3);
-  }
-  .history-action-btn.secondary {
-    color: var(--text-2);
-    background: transparent;
-    border: 1px solid var(--border);
-  }
-  .history-action-btn.secondary:hover {
-    color: var(--text-1);
-    background: var(--bg-hover);
-    border-color: var(--border-active);
-  }
-  .history-action-btn.retry {
-    color: var(--error);
-    background: rgba(255, 68, 68, 0.08);
-    border: 1px solid rgba(255, 68, 68, 0.15);
-  }
-  .history-action-btn.retry:hover {
-    background: rgba(255, 68, 68, 0.12);
-    border-color: rgba(255, 68, 68, 0.3);
-  }
-  .history-action-btn.delete {
-    width: 28px;
-    padding: 0;
-    color: var(--text-3);
-    background: transparent;
-    border: 1px solid var(--border);
-  }
-  .history-action-btn.delete:hover {
-    color: var(--error);
-    background: rgba(255, 68, 68, 0.08);
-    border-color: rgba(255, 68, 68, 0.2);
-  }
   .retry-icon {
     display: inline-block;
     width: 14px;
@@ -339,31 +152,9 @@ const watchStyle = `${pipelineCss}${selectCss}${commonCss}
     stroke: currentColor;
     vertical-align: middle;
   }
-  .watch-btn .stop-icon {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    background: currentColor;
-    border-radius: 2px;
-    margin-right: 5px;
-    vertical-align: middle;
-    opacity: 0.7;
-  }
-
-  /* ── Build result ── */
-  .build-section {
-    margin-top: 16px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-  .build-section.building { border-color: rgba(0,212,255,0.2); }
-  .build-section.success { border-color: rgba(0,255,136,0.2); }
-  .build-section.failure { border-color: rgba(255,68,68,0.2); }
-  .build-section.aborted { border-color: rgba(255,170,0,0.2); }
-
+  /* ── Build result (rendered inside NeonGlowCornerCutCard) ── */
+  .build-section-card { margin-top: 16px; }
+  .build-section-card .ngcc-card { padding: 0; }
   .build-top {
     display: flex;
     align-items: center;
@@ -376,33 +167,15 @@ const watchStyle = `${pipelineCss}${selectCss}${commonCss}
     align-items: center;
     gap: 12px;
   }
-  .build-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 14px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-family: var(--mono);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  .build-status.success { background: rgba(0,255,136,0.15); color: var(--neon); }
-  .build-status.failure { background: rgba(255,68,68,0.15); color: var(--error); }
-  .build-status.aborted { background: rgba(255,170,0,0.15); color: #ffaa00; }
-  .build-status.building { background: rgba(0,212,255,0.15); color: var(--cyan); animation: neon-pulse 2s ease infinite; }
-  .build-status-dot {
-    width: 6px; height: 6px; border-radius: 50%;
-  }
-  .build-status.success .build-status-dot { background: var(--neon); }
-  .build-status.failure .build-status-dot { background: var(--error); }
-  .build-status.aborted .build-status-dot { background: #ffaa00; }
-  .build-status.building .build-status-dot { background: var(--cyan); animation: neon-pulse 1.5s ease infinite; }
   .build-top-right {
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+  .stop-polling-btn { animation: stop-polling-pulse 1.3s ease-in-out infinite !important; }
+  @keyframes stop-polling-pulse {
+    0%, 100% { box-shadow: 0 0 6px color-mix(in srgb, #ff4444 35%, transparent); }
+    50% { box-shadow: 0 0 16px color-mix(in srgb, #ff4444 75%, transparent); }
   }
 
   .build-meta-grid {
@@ -430,7 +203,7 @@ const watchStyle = `${pipelineCss}${selectCss}${commonCss}
     color: var(--text-1);
   }
   .build-meta-value a {
-    color: var(--cyan);
+    color: ${ACCENT};
     text-decoration: none;
     transition: opacity 0.15s;
   }
@@ -442,10 +215,10 @@ const watchStyle = `${pipelineCss}${selectCss}${commonCss}
     justify-content: center;
     gap: 8px;
     padding: 10px 16px;
-    background: rgba(0,212,255,0.04);
+    background: rgba(191,0,255,0.04);
     font-size: 12px;
     color: var(--text-3);
-    border-top: 1px solid rgba(0,212,255,0.08);
+    border-top: 1px solid rgba(191,0,255,0.08);
   }
 
   .artifacts-list {
@@ -480,45 +253,20 @@ const watchStyle = `${pipelineCss}${selectCss}${commonCss}
   }
   .artifact-icon { flex-shrink: 0; font-size: 12px; }
   .artifact-link {
-    color: var(--cyan);
+    color: ${ACCENT};
     text-decoration: none;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     transition: color 0.15s;
   }
-  .artifact-link:hover { color: var(--neon); }
-
-  .polling-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 12px;
-    padding: 8px 12px;
-    background: var(--bg-void);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    font-size: 12px;
-    color: var(--text-3);
-  }
+  .artifact-link:hover { color: #d566ff; }
 
   .history-section { margin-bottom: 24px; animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both; }
-  .history-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: var(--text-1); }
   .history-list { display: flex; flex-direction: column; gap: 8px; }
-  .history-item {
-    display: flex;
-    flex-direction: column;
-    padding: 12px 16px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
   .history-item-row { display: flex; align-items: center; justify-content: space-between; }
-  .history-item:hover { border-color: var(--border-active); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
   .history-info { display: flex; align-items: center; gap: 12px; flex: 1; }
-  .history-project { font-weight: 500; color: var(--text-1); font-size: 14px; }
+  .history-project { font-weight: 600; font-size: 14px; }
   .history-detail { font-size: 12px; color: var(--text-3); font-family: var(--mono); }
   .history-actions { display: flex; align-items: center; gap: 8px; }
   .history-footer {
@@ -529,85 +277,21 @@ const watchStyle = `${pipelineCss}${selectCss}${commonCss}
     padding-top: 16px;
     border-top: 1px solid var(--border);
   }
-  .history-new-btn, .history-clear-btn {
-    padding: 8px 16px;
-    font-size: 13px;
-    font-family: var(--sans);
-    font-weight: 500;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
-  }
-  .history-new-btn { color: var(--bg-void); background: var(--neon); border: none; }
-  .history-new-btn:hover { background: var(--neon-hover); box-shadow: 0 0 12px var(--neon-glow); }
-  .history-clear-btn { color: var(--text-3); background: transparent; border: 1px solid var(--border); }
-  .history-clear-btn:hover { border-color: var(--error); color: var(--error); }
 
-  .modal-overlay {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 2000;
-    animation: fade-in 0.2s ease both;
-  }
-  .modal-content {
-    width: 90%;
-    max-width: 560px;
-    max-height: 90vh;
-    overflow: visible;
-    background: var(--bg-void);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 24px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-  .modal-title { font-size: 18px; font-weight: 600; color: var(--text-1); }
-  .modal-close {
-    width: 32px; height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    color: var(--text-3);
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: border-color 0.15s, color 0.15s;
-  }
-  .modal-close:hover { border-color: var(--text-2); color: var(--text-2); }
-
-  .job-name-display {
-    padding: 10px 14px;
-    background: var(--bg-card);
-    border: 1px solid rgba(0,212,255,0.08);
-    border-radius: 8px;
-    margin-bottom: 16px;
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-    font-family: var(--mono);
-    font-size: 13px;
-  }
-  .job-name-label { font-size: 11px; color: var(--text-3); font-family: var(--sans); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
-  .job-name-value { color: var(--cyan); font-weight: 600; }
+  .job-name-display-card { margin-bottom: 16px; }
+  .job-name-display-card .ngcc-card { padding: 10px 14px; }
+  .pom-fallback-card { margin-top: 12px; height: auto !important; }
+  .pom-fallback-card .ngcc-card { padding: 12px 14px; height: auto !important; }
+  .pom-fallback-card .nsl-wrapper { margin-bottom: 0; }
 `;
 
 type State = {
 	projects: Project[];
 	projectsLoading: boolean;
 	projectsError: string;
-	projectOpen: boolean;
-	projectSearch: string;
-	projectIndex: number;
 	selected: Project | null;
 	branches: Branch[];
 	branchesLoading: boolean;
-	branchOpen: boolean;
-	branchSearch: string;
-	branchIndex: number;
 	selectedBranch: string;
 	pomInfo: PomInfo | null;
 	pomLoading: boolean;
@@ -615,9 +299,6 @@ type State = {
 	jenkinsJobs: JenkinsJob[];
 	jenkinsJobsLoading: boolean;
 	jenkinsJobName: string;
-	jenkinsJobOpen: boolean;
-	jenkinsJobSearch: string;
-	jenkinsJobIndex: number;
 	selectedJob: JenkinsJob | null;
 	buildStatus: BuildStatus;
 	buildInfo: JenkinsBuildInfo | null;
@@ -637,11 +318,8 @@ type State = {
 		}
 	>;
 	activeTab: "quick" | "project";
-	quickSearch: string;
 	quickJobs: JenkinsJob[];
 	quickJobsLoading: boolean;
-	quickJobOpen: boolean;
-	quickJobIndex: number;
 	quickSelectedJob: JenkinsJob | null;
 	quickBuildStatus: BuildStatus;
 	quickBuildInfo: JenkinsBuildInfo | null;
@@ -655,15 +333,9 @@ const initial: State = {
 	projects: [],
 	projectsLoading: true,
 	projectsError: "",
-	projectOpen: false,
-	projectSearch: "",
-	projectIndex: -1,
 	selected: null,
 	branches: [],
 	branchesLoading: false,
-	branchOpen: false,
-	branchSearch: "",
-	branchIndex: -1,
 	selectedBranch: "",
 	pomInfo: null,
 	pomLoading: false,
@@ -671,9 +343,6 @@ const initial: State = {
 	jenkinsJobs: [],
 	jenkinsJobsLoading: false,
 	jenkinsJobName: "",
-	jenkinsJobOpen: false,
-	jenkinsJobSearch: "",
-	jenkinsJobIndex: -1,
 	selectedJob: null,
 	buildStatus: "idle",
 	buildInfo: null,
@@ -684,11 +353,8 @@ const initial: State = {
 	historyLoading: true,
 	historyBuilds: {},
 	activeTab: "quick",
-	quickSearch: "",
 	quickJobs: [],
 	quickJobsLoading: false,
-	quickJobOpen: false,
-	quickJobIndex: -1,
 	quickSelectedJob: null,
 	quickBuildStatus: "idle",
 	quickBuildInfo: null,
@@ -701,26 +367,18 @@ const initial: State = {
 type Action =
 	| { type: "PROJECTS_LOADED"; projects: Project[] }
 	| { type: "PROJECTS_ERROR"; error: string }
-	| { type: "SET_PROJECT_OPEN"; open: boolean }
-	| { type: "SET_PROJECT_SEARCH"; search: string }
-	| { type: "SET_PROJECT_INDEX"; index: number }
 	| { type: "SELECT_PROJECT"; project: Project }
 	| { type: "CLEAR_PROJECT" }
 	| { type: "BRANCHES_LOADING" }
 	| { type: "BRANCHES_LOADED"; branches: Branch[] }
-	| { type: "SET_BRANCH_OPEN"; open: boolean }
-	| { type: "SET_BRANCH_SEARCH"; search: string }
-	| { type: "SET_BRANCH_INDEX"; index: number }
 	| { type: "SELECT_BRANCH"; branch: string }
 	| { type: "POM_LOADING" }
 	| { type: "POM_LOADED"; info: PomInfo }
 	| { type: "POM_ERROR"; error: string }
 	| { type: "JENKINS_JOBS_LOADING" }
 	| { type: "JENKINS_JOBS_LOADED"; jobs: JenkinsJob[] }
-	| { type: "SET_JENKINS_JOB_OPEN"; open: boolean }
-	| { type: "SET_JENKINS_JOB_SEARCH"; search: string }
-	| { type: "SET_JENKINS_JOB_INDEX"; index: number }
 	| { type: "SELECT_JENKINS_JOB"; job: JenkinsJob }
+	| { type: "MANUAL_JOB_SELECTED"; job: JenkinsJob }
 	| { type: "CLEAR_JENKINS_JOB" }
 	| { type: "BUILD_START_POLL" }
 	| { type: "BUILD_POLL_RESULT"; info: JenkinsBuildInfo }
@@ -756,9 +414,6 @@ type Action =
 	| { type: "HISTORY_BUILD_CLEAR"; id: string }
 	| { type: "CLEAN_HISTORY_BUILDS" }
 	| { type: "SET_ACTIVE_TAB"; tab: "quick" | "project" }
-	| { type: "QUICK_SET_SEARCH"; search: string }
-	| { type: "QUICK_SET_JOB_OPEN"; open: boolean }
-	| { type: "QUICK_SET_JOB_INDEX"; index: number }
 	| { type: "QUICK_SELECT_JOB"; job: JenkinsJob }
 	| { type: "QUICK_JOBS_LOADING" }
 	| { type: "QUICK_JOBS_LOADED"; jobs: JenkinsJob[] }
@@ -774,29 +429,13 @@ const reducer = (state: State, action: Action): State => {
 			return { ...state, projects: action.projects, projectsLoading: false };
 		case "PROJECTS_ERROR":
 			return { ...state, projectsError: action.error, projectsLoading: false };
-		case "SET_PROJECT_OPEN":
-			return {
-				...state,
-				projectOpen: action.open,
-				...(action.open ? {} : { projectSearch: "", projectIndex: -1 }),
-			};
-		case "SET_PROJECT_SEARCH":
-			return { ...state, projectSearch: action.search, projectIndex: -1 };
-		case "SET_PROJECT_INDEX":
-			return { ...state, projectIndex: action.index };
 		case "SELECT_PROJECT":
 			return {
 				...state,
 				selected: action.project,
-				projectOpen: false,
-				projectSearch: "",
-				projectIndex: -1,
 				branches: [],
 				branchesLoading: false,
 				selectedBranch: "",
-				branchOpen: false,
-				branchSearch: "",
-				branchIndex: -1,
 				pomInfo: null,
 				pomError: "",
 				jenkinsJobs: [],
@@ -813,17 +452,11 @@ const reducer = (state: State, action: Action): State => {
 				selected: null,
 				branches: [],
 				selectedBranch: "",
-				branchOpen: false,
-				branchSearch: "",
-				branchIndex: -1,
 				pomInfo: null,
 				pomError: "",
 				pomLoading: false,
 				jenkinsJobs: [],
 				jenkinsJobName: "",
-				jenkinsJobOpen: false,
-				jenkinsJobSearch: "",
-				jenkinsJobIndex: -1,
 				selectedJob: null,
 				buildStatus: "idle",
 				buildInfo: null,
@@ -849,23 +482,10 @@ const reducer = (state: State, action: Action): State => {
 			};
 		case "BRANCHES_LOADED":
 			return { ...state, branches: action.branches, branchesLoading: false };
-		case "SET_BRANCH_OPEN":
-			return {
-				...state,
-				branchOpen: action.open,
-				...(action.open ? {} : { branchSearch: "", branchIndex: -1 }),
-			};
-		case "SET_BRANCH_SEARCH":
-			return { ...state, branchSearch: action.search, branchIndex: -1 };
-		case "SET_BRANCH_INDEX":
-			return { ...state, branchIndex: action.index };
 		case "SELECT_BRANCH":
 			return {
 				...state,
 				selectedBranch: action.branch,
-				branchOpen: false,
-				branchSearch: "",
-				branchIndex: -1,
 				pomInfo: null,
 				pomError: "",
 				jenkinsJobs: [],
@@ -879,12 +499,11 @@ const reducer = (state: State, action: Action): State => {
 		case "POM_LOADING":
 			return { ...state, pomLoading: true, pomError: "", pomInfo: null };
 		case "POM_LOADED": {
-			const jobName = action.info.jenkinsJobName ?? state.selected?.name ?? "";
 			return {
 				...state,
 				pomLoading: false,
 				pomInfo: action.info,
-				jenkinsJobName: jobName,
+				jenkinsJobName: action.info.jenkinsJobName ?? "",
 			};
 		}
 		case "POM_ERROR":
@@ -898,23 +517,21 @@ const reducer = (state: State, action: Action): State => {
 			};
 		case "JENKINS_JOBS_LOADED":
 			return { ...state, jenkinsJobsLoading: false, jenkinsJobs: action.jobs };
-		case "SET_JENKINS_JOB_OPEN":
-			return {
-				...state,
-				jenkinsJobOpen: action.open,
-				...(action.open ? {} : { jenkinsJobSearch: "", jenkinsJobIndex: -1 }),
-			};
-		case "SET_JENKINS_JOB_SEARCH":
-			return { ...state, jenkinsJobSearch: action.search, jenkinsJobIndex: -1 };
-		case "SET_JENKINS_JOB_INDEX":
-			return { ...state, jenkinsJobIndex: action.index };
 		case "SELECT_JENKINS_JOB":
 			return {
 				...state,
 				selectedJob: action.job,
-				jenkinsJobOpen: false,
-				jenkinsJobSearch: "",
-				jenkinsJobIndex: -1,
+				buildStatus: "idle",
+				buildInfo: null,
+				buildError: "",
+			};
+		case "MANUAL_JOB_SELECTED":
+			return {
+				...state,
+				selectedJob: action.job,
+				jenkinsJobName: action.job.name,
+				pomError: "",
+				pomInfo: null,
 				buildStatus: "idle",
 				buildInfo: null,
 				buildError: "",
@@ -923,9 +540,6 @@ const reducer = (state: State, action: Action): State => {
 			return {
 				...state,
 				selectedJob: null,
-				jenkinsJobOpen: false,
-				jenkinsJobSearch: "",
-				jenkinsJobIndex: -1,
 				buildStatus: "idle",
 				buildInfo: null,
 				buildError: "",
@@ -1119,23 +733,10 @@ const reducer = (state: State, action: Action): State => {
 		}
 		case "SET_ACTIVE_TAB":
 			return { ...state, activeTab: action.tab };
-		case "QUICK_SET_SEARCH":
-			return { ...state, quickSearch: action.search, quickJobIndex: -1 };
-		case "QUICK_SET_JOB_OPEN":
-			return {
-				...state,
-				quickJobOpen: action.open,
-				...(action.open ? {} : { quickSearch: "", quickJobIndex: -1 }),
-			};
-		case "QUICK_SET_JOB_INDEX":
-			return { ...state, quickJobIndex: action.index };
 		case "QUICK_SELECT_JOB":
 			return {
 				...state,
 				quickSelectedJob: action.job,
-				quickJobOpen: false,
-				quickSearch: "",
-				quickJobIndex: -1,
 				quickBuildStatus: "idle",
 				quickBuildInfo: null,
 				quickBuildError: "",
@@ -1282,29 +883,59 @@ const HistoryBuildItem: FC<{
 		if (status === "idle") return null;
 		if (status === "polling") {
 			return (
-				<div class="build-section building" style="margin-top:12px">
+				<NeonGlowCornerCutCard
+					className="build-section-card"
+					colorA={ACCENT}
+					size="sm"
+					hoverEffect="glow-only"
+					style="margin-top:12px"
+				>
 					<div class="build-top">
 						<div class="build-top-left">
-							<span class="build-status building">
-								<span class="build-status-dot" />
+							<Badge
+								color={ACCENT}
+								variant="ghost"
+								shape="pill"
+								size="sm"
+								glow
+								dot="pulse"
+							>
 								{t("web.watchFetchingBuild")}
-							</span>
+							</Badge>
 						</div>
 					</div>
-				</div>
+				</NeonGlowCornerCutCard>
 			);
 		}
 		if (status === "error") {
 			return (
-				<div class="build-section failure" style="margin-top:12px">
+				<NeonGlowCornerCutCard
+					className="build-section-card"
+					colorA={ERROR_COLOR}
+					size="sm"
+					hoverEffect="glow-only"
+					style="margin-top:12px"
+				>
 					<div class="build-top">
 						<div class="build-top-left">
-							<span class="build-status failure">
-								<span class="build-status-dot" />
+							<Badge
+								color="#ff4444"
+								variant="ghost"
+								shape="pill"
+								size="sm"
+								glow
+								dot="solid"
+							>
 								{t("web.watchBuildError")}
-							</span>
+							</Badge>
 						</div>
-						<button class="watch-btn stop" type="button" onClick={handleStop}>
+						<CornerCutButton
+							color="#ff4444"
+							variant="ghost"
+							size="xs"
+							className="stop-polling-btn"
+							onClick={handleStop}
+						>
 							<svg
 								width="8"
 								height="8"
@@ -1316,12 +947,18 @@ const HistoryBuildItem: FC<{
 								<rect x="4" y="4" width="16" height="16" rx="2" />
 							</svg>
 							{t("web.watchStopPolling")}
-						</button>
+						</CornerCutButton>
 					</div>
-					<div style="padding:10px 14px;font-size:12px;color:var(--error)">
-						{build.buildError}
+					<div
+						class="error-text"
+						role="alert"
+						style="margin-top:0;padding:10px 14px"
+					>
+						<NeonGlow colors={ERROR_COLOR} glowIntensity="subtle">
+							{build.buildError}
+						</NeonGlow>
 					</div>
-				</div>
+				</NeonGlowCornerCutCard>
 			);
 		}
 		if (!bi) return null;
@@ -1340,16 +977,47 @@ const HistoryBuildItem: FC<{
 					? t("web.watchBuildFailed")
 					: (bi.result ?? t("web.watchBuildUnknown"));
 
+		const cardColor =
+			statusClass === "failure" || statusClass === "aborted"
+				? ERROR_COLOR
+				: ACCENT;
+		const statusColor =
+			statusClass === "failure"
+				? "#ff4444"
+				: statusClass === "aborted"
+					? "#ffaa00"
+					: statusClass === "building"
+						? ACCENT
+						: "#39ff14";
+
 		return (
-			<div class={`build-section ${statusClass}`} style="margin-top:12px">
+			<NeonGlowCornerCutCard
+				className="build-section-card"
+				colorA={cardColor}
+				size="sm"
+				hoverEffect="glow-only"
+				style="margin-top:12px"
+			>
 				<div class="build-top">
 					<div class="build-top-left">
-						<span class={`build-status ${statusClass}`}>
-							<span class="build-status-dot" />
+						<Badge
+							color={statusColor}
+							variant="ghost"
+							shape="pill"
+							size="sm"
+							glow
+							dot={statusClass === "building" ? "pulse" : "solid"}
+						>
 							{statusLabel}
-						</span>
+						</Badge>
 					</div>
-					<button class="watch-btn stop" type="button" onClick={handleStop}>
+					<CornerCutButton
+						color="#ff4444"
+						variant="ghost"
+						size="xs"
+						className="stop-polling-btn"
+						onClick={handleStop}
+					>
 						<svg
 							width="8"
 							height="8"
@@ -1362,29 +1030,41 @@ const HistoryBuildItem: FC<{
 							<rect x="4" y="4" width="16" height="16" rx="2" />
 						</svg>
 						{t("web.watchStopPolling")}
-					</button>
+					</CornerCutButton>
 				</div>
 				<div class="build-meta-grid">
 					<div class="build-meta-cell">
-						<div class="build-meta-label">{t("web.watchBuild")}</div>
+						<div class="build-meta-label">
+							{fieldLabel(ACCENT, t("web.watchBuild"))}
+						</div>
 						<div class="build-meta-value" style="font-size:12px">
 							<a href={bi.url} target="_blank" rel="noreferrer">
-								#{bi.number}
+								<NeonGlow colors={ACCENT} glowIntensity="subtle">
+									#{bi.number}
+								</NeonGlow>
 							</a>
 						</div>
 					</div>
 					<div class="build-meta-cell">
-						<div class="build-meta-label">{t("web.watchDuration")}</div>
+						<div class="build-meta-label">
+							{fieldLabel(ACCENT, t("web.watchDuration"))}
+						</div>
 						<div class="build-meta-value" style="font-size:12px">
-							{!bi.building && bi.duration > 0
-								? formatDuration(bi.duration)
-								: "—"}
+							<NeonGlow colors={ACCENT} glowIntensity="subtle">
+								{!bi.building && bi.duration > 0
+									? formatDuration(bi.duration)
+									: "—"}
+							</NeonGlow>
 						</div>
 					</div>
 					<div class="build-meta-cell">
-						<div class="build-meta-label">{t("web.watchBuildTime")}</div>
+						<div class="build-meta-label">
+							{fieldLabel(ACCENT, t("web.watchBuildTime"))}
+						</div>
 						<div class="build-meta-value" style="font-size:12px">
-							{bi.timestamp > 0 ? formatBuildTime(bi.timestamp) : "—"}
+							<NeonGlow colors={ACCENT} glowIntensity="subtle">
+								{bi.timestamp > 0 ? formatBuildTime(bi.timestamp) : "—"}
+							</NeonGlow>
 						</div>
 					</div>
 				</div>
@@ -1397,7 +1077,9 @@ const HistoryBuildItem: FC<{
 							class="spinner"
 							style="width:8px;height:8px;border-width:1px"
 						/>
-						{t("web.watchPollingHint")}
+						<NeonGlow colors={ACCENT} glowIntensity="subtle">
+							{t("web.watchPollingHint")}
+						</NeonGlow>
 					</div>
 				)}
 				{!bi.building && bi.artifacts && bi.artifacts.length > 0 && (
@@ -1406,7 +1088,9 @@ const HistoryBuildItem: FC<{
 							class="artifacts-title"
 							style="font-size:9px;margin-bottom:6px"
 						>
-							{t("web.watchArtifacts")}
+							<NeonGlow colors={ACCENT} glowIntensity="subtle">
+								{t("web.watchArtifacts")}
+							</NeonGlow>
 						</div>
 						<div class="artifacts-grid" style="gap:4px">
 							{bi.artifacts.map((a) => (
@@ -1435,37 +1119,52 @@ const HistoryBuildItem: FC<{
 										target="_blank"
 										rel="noreferrer"
 									>
-										{a.fileName || a.relativePath}
+										<NeonGlow colors={ACCENT} glowIntensity="subtle">
+											{a.fileName || a.relativePath}
+										</NeonGlow>
 									</a>
 								</div>
 							))}
 						</div>
 					</div>
 				)}
-			</div>
+			</NeonGlowCornerCutCard>
 		);
 	};
 
 	return (
-		<div class="history-item">
+		<BorderBeamCornerCutCard
+			className="history-item"
+			beamColor={ACCENT}
+			variant="pulse"
+			corner="bottom-right"
+			cornerSize={12}
+			size="sm"
+			glowIntensity="none"
+		>
 			<div class="history-item-row">
 				<div class="history-info">
-					<span class="history-project" style="font-size:15px">
-						{entry.jenkinsJobName}
-					</span>
+					<NeonGlow colors={ACCENT} glowIntensity="subtle">
+						<span class="history-project" style="font-size:15px">
+							{entry.jenkinsJobName}
+						</span>
+					</NeonGlow>
 					<span class="history-detail" style="font-size:11px;opacity:0.7">
-						{entry.projectName} · {entry.branch}
+						<NeonGlow colors={ACCENT} glowIntensity="subtle">
+							{entry.projectName} · {entry.branch}
+						</NeonGlow>
 					</span>
 				</div>
 				<div class="history-actions">
 					{status === "idle" ? (
-						<button
-							class="history-action-btn primary"
-							type="button"
+						<CornerCutButton
+							color={ACCENT}
+							variant="solid"
+							size="xs"
 							onClick={handleWatch}
 						>
 							{t("web.watchNow")}
-						</button>
+						</CornerCutButton>
 					) : status === "error" ||
 						status === "success" ||
 						status === "failure" ||
@@ -1474,9 +1173,10 @@ const HistoryBuildItem: FC<{
 							{(status === "failure" ||
 								status === "aborted" ||
 								status === "error") && (
-								<button
-									class="history-action-btn retry"
-									type="button"
+								<CornerCutButton
+									color="#ff4444"
+									variant="outline"
+									size="xs"
 									onClick={handleRetry}
 								>
 									<svg
@@ -1495,22 +1195,23 @@ const HistoryBuildItem: FC<{
 										<path d="M3 3v5h5" />
 									</svg>
 									{t("web.watchRetry")}
-								</button>
+								</CornerCutButton>
 							)}
-							<button
-								class="history-action-btn secondary"
-								type="button"
+							<CornerCutButton
+								color={ACCENT}
+								variant="outline"
+								size="xs"
 								onClick={handleWatch}
 							>
 								{t("web.watchNow")}
-							</button>
+							</CornerCutButton>
 						</>
 					) : null}
-					<button
-						class="history-action-btn delete"
-						type="button"
+					<CornerCutButton
+						color="#ff4444"
+						variant="ghost"
+						size="xs"
 						onClick={handleDelete}
-						title={t("web.watchDeleteHistory")}
 					>
 						<svg
 							width="12"
@@ -1526,11 +1227,11 @@ const HistoryBuildItem: FC<{
 							<line x1="18" y1="6" x2="6" y2="18" />
 							<line x1="6" y1="6" x2="18" y2="18" />
 						</svg>
-					</button>
+					</CornerCutButton>
 				</div>
 			</div>
 			{renderBuild()}
-		</div>
+		</BorderBeamCornerCutCard>
 	);
 };
 
@@ -1542,7 +1243,9 @@ const HistoryList: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 
 	return (
 		<div class="history-section">
-			<div class="history-title">{t("web.historyTitle")}</div>
+			<div style="margin-bottom:12px">
+				{sectionTitle(ACCENT, t("web.historyTitle"))}
+			</div>
 			{s.history.length > 0 ? (
 				<div class="history-list">
 					{s.history.map((entry) => (
@@ -1550,39 +1253,45 @@ const HistoryList: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 					))}
 				</div>
 			) : (
-				<div class="empty-hint">{t("web.noHistory")}</div>
+				<div class="empty-hint">
+					<NeonGlow colors={ACCENT} glowIntensity="subtle">
+						{t("web.noHistory")}
+					</NeonGlow>
+				</div>
 			)}
 			{s.history.length > 0 && (
 				<div class="history-footer">
 					{s.clearConfirm ? (
 						<div style="display:flex;align-items:center;gap:8px">
-							<span style="font-size:12px;color:var(--text-3)">
-								{t("web.clearConfirm")}
-							</span>
-							<button
-								class="history-clear-btn"
-								type="button"
-								style="border-color:var(--error);color:var(--error)"
+							<NeonGlow colors={ACCENT} glowIntensity="subtle">
+								<span style="font-size:12px">{t("web.clearConfirm")}</span>
+							</NeonGlow>
+							<CornerCutButton
+								color="#ff4444"
+								variant="ghost"
+								size="sm"
 								onClick={handleClear}
 							>
 								{t("web.clearHistory")}
-							</button>
-							<button
-								class="history-clear-btn"
-								type="button"
+							</CornerCutButton>
+							<CornerCutButton
+								color={ACCENT}
+								variant="ghost"
+								size="sm"
 								onClick={() => d({ type: "CLEAR_CONFIRM_TOGGLE" })}
 							>
 								{t("web.cancel")}
-							</button>
+							</CornerCutButton>
 						</div>
 					) : (
-						<button
-							class="history-clear-btn"
-							type="button"
+						<CornerCutButton
+							color={ACCENT}
+							variant="ghost"
+							size="sm"
 							onClick={() => d({ type: "CLEAR_CONFIRM_TOGGLE" })}
 						>
 							{t("web.clearHistory")}
-						</button>
+						</CornerCutButton>
 					)}
 				</div>
 			)}
@@ -1611,33 +1320,65 @@ const BuildPanel: FC<{
 
 	if (buildStatus === "polling") {
 		return (
-			<div class="build-section">
+			<NeonGlowCornerCutCard
+				className="build-section-card"
+				colorA={ACCENT}
+				size="sm"
+				hoverEffect="glow-only"
+			>
 				<div class="loading-row">
 					<span class="spinner" />
-					{t("web.watchFetchingBuild")}
+					<NeonGlow colors={ACCENT} glowIntensity="subtle">
+						{t("web.watchFetchingBuild")}
+					</NeonGlow>
 				</div>
-			</div>
+			</NeonGlowCornerCutCard>
 		);
 	}
 
 	if (buildStatus === "error") {
 		return (
-			<div class="build-section result-error">
+			<NeonGlowCornerCutCard
+				className="build-section-card"
+				colorA={ERROR_COLOR}
+				size="sm"
+				hoverEffect="glow-only"
+			>
 				<div class="build-top">
-					<span class="build-status failure">{t("web.watchBuildError")}</span>
+					<Badge
+						color="#ff4444"
+						variant="ghost"
+						shape="pill"
+						size="sm"
+						glow
+						dot="solid"
+					>
+						{t("web.watchBuildError")}
+					</Badge>
 				</div>
-				<div style="color:var(--error);font-size:13px">{buildError}</div>
-			</div>
+				<div class="error-text" role="alert" style="margin-top:0">
+					<NeonGlow colors={ERROR_COLOR} glowIntensity="subtle">
+						{buildError}
+					</NeonGlow>
+				</div>
+			</NeonGlowCornerCutCard>
 		);
 	}
 
 	if (buildStatus === "no-build") {
 		return (
-			<div class="build-section">
-				<div style="color:var(--text-3);font-size:13px">
-					{t("web.watchNoBuild")}
+			<NeonGlowCornerCutCard
+				className="build-section-card"
+				colorA={ACCENT}
+				size="sm"
+				hoverEffect="glow-only"
+			>
+				<div class="empty-hint" style="padding:16px">
+					<NeonGlow colors={ACCENT} glowIntensity="subtle">
+						{t("web.watchNoBuild")}
+					</NeonGlow>
 				</div>
-			</div>
+			</NeonGlowCornerCutCard>
 		);
 	}
 
@@ -1657,33 +1398,59 @@ const BuildPanel: FC<{
 			: bi.result === "FAILURE"
 				? t("web.watchBuildFailed")
 				: (bi.result ?? t("web.watchBuildUnknown"));
+	const panelColor =
+		statusClass === "failure" || statusClass === "aborted"
+			? ERROR_COLOR
+			: ACCENT;
+	const statusColor =
+		statusClass === "failure"
+			? "#ff4444"
+			: statusClass === "aborted"
+				? "#ffaa00"
+				: statusClass === "building"
+					? ACCENT
+					: "#39ff14";
 
 	return (
-		<div
-			class={`build-section ${bi.building ? "building" : bi.result === "SUCCESS" ? "success" : bi.result === "FAILURE" ? "failure" : bi.result === "ABORTED" ? "aborted" : ""}`}
+		<NeonGlowCornerCutCard
+			className="build-section-card"
+			colorA={panelColor}
+			size="sm"
+			hoverEffect="glow-only"
 		>
 			{/* Top bar: status badge + action buttons */}
 			<div class="build-top">
 				<div class="build-top-left">
-					<span class={`build-status ${statusClass}`}>
-						<span class="build-status-dot" />
+					<Badge
+						color={statusColor}
+						variant="ghost"
+						shape="pill"
+						size="sm"
+						glow
+						dot={statusClass === "building" ? "pulse" : "solid"}
+					>
 						{statusLabel}
-					</span>
+					</Badge>
 					{selectedJob && !bi.building && onReselectJob && (
-						<button
-							class="watch-btn secondary"
-							type="button"
-							style="width:auto;padding:3px 10px;font-size:11px;margin:0"
-							onClick={onReselectJob}
-							title={t("web.watchClickToReselectJob")}
-						>
-							{selectedJob.name}
-						</button>
+						<span title={t("web.watchClickToReselectJob")}>
+							<CornerCutButton
+								color={ACCENT}
+								variant="outline"
+								onClick={onReselectJob}
+							>
+								{selectedJob.name}
+							</CornerCutButton>
+						</span>
 					)}
 				</div>
 				<div class="build-top-right">
 					{polling && !bi.building && onStopPoll && (
-						<button class="watch-btn stop" type="button" onClick={onStopPoll}>
+						<CornerCutButton
+							color="#ff4444"
+							variant="ghost"
+							size="xs"
+							onClick={onStopPoll}
+						>
 							<svg
 								width="8"
 								height="8"
@@ -1695,7 +1462,7 @@ const BuildPanel: FC<{
 								<rect x="4" y="4" width="16" height="16" rx="2" />
 							</svg>
 							{t("web.watchStopPolling")}
-						</button>
+						</CornerCutButton>
 					)}
 				</div>
 			</div>
@@ -1703,25 +1470,37 @@ const BuildPanel: FC<{
 			{/* Meta grid: Build # / Duration / Time — full width */}
 			<div class="build-meta-grid">
 				<div class="build-meta-cell">
-					<div class="build-meta-label">{t("web.watchBuild")}</div>
+					<div class="build-meta-label">
+						{fieldLabel(ACCENT, t("web.watchBuild"))}
+					</div>
 					<div class="build-meta-value">
 						<a href={bi.url} target="_blank" rel="noreferrer">
-							#{bi.number}
+							<NeonGlow colors={ACCENT} glowIntensity="subtle">
+								#{bi.number}
+							</NeonGlow>
 						</a>
 					</div>
 				</div>
 				<div class="build-meta-cell">
-					<div class="build-meta-label">{t("web.watchDuration")}</div>
+					<div class="build-meta-label">
+						{fieldLabel(ACCENT, t("web.watchDuration"))}
+					</div>
 					<div class="build-meta-value">
-						{!bi.building && bi.duration > 0
-							? formatDuration(bi.duration)
-							: "—"}
+						<NeonGlow colors={ACCENT} glowIntensity="subtle">
+							{!bi.building && bi.duration > 0
+								? formatDuration(bi.duration)
+								: "—"}
+						</NeonGlow>
 					</div>
 				</div>
 				<div class="build-meta-cell">
-					<div class="build-meta-label">{t("web.watchBuildTime")}</div>
+					<div class="build-meta-label">
+						{fieldLabel(ACCENT, t("web.watchBuildTime"))}
+					</div>
 					<div class="build-meta-value">
-						{bi.timestamp > 0 ? formatBuildTime(bi.timestamp) : "—"}
+						<NeonGlow colors={ACCENT} glowIntensity="subtle">
+							{bi.timestamp > 0 ? formatBuildTime(bi.timestamp) : "—"}
+						</NeonGlow>
 					</div>
 				</div>
 			</div>
@@ -1733,7 +1512,9 @@ const BuildPanel: FC<{
 						class="spinner"
 						style="width:10px;height:10px;border-width:1px"
 					/>
-					{t("web.watchPollingHint")}
+					<NeonGlow colors={ACCENT} glowIntensity="subtle">
+						{t("web.watchPollingHint")}
+					</NeonGlow>
 				</div>
 			)}
 
@@ -1741,7 +1522,9 @@ const BuildPanel: FC<{
 			{!bi.building && bi.artifacts && bi.artifacts.length > 0 && (
 				<div class="artifacts-list">
 					<div class="artifacts-title">
-						{t("web.watchArtifacts")} ({bi.artifacts.length})
+						<NeonGlow colors={ACCENT} glowIntensity="subtle">
+							{t("web.watchArtifacts")} ({bi.artifacts.length})
+						</NeonGlow>
 					</div>
 					<div class="artifacts-grid">
 						{bi.artifacts.map((a) => {
@@ -1772,7 +1555,9 @@ const BuildPanel: FC<{
 										rel="noreferrer"
 										title={a.fileName || a.relativePath}
 									>
-										{a.fileName || a.relativePath}
+										<NeonGlow colors={ACCENT} glowIntensity="subtle">
+											{a.fileName || a.relativePath}
+										</NeonGlow>
 									</a>
 								</div>
 							);
@@ -1780,15 +1565,13 @@ const BuildPanel: FC<{
 					</div>
 				</div>
 			)}
-		</div>
+		</NeonGlowCornerCutCard>
 	);
 };
 
 // ── Quick Search Tab ───────────────────────────────────────────
 
 const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
-	const jobSearchRef = useRef<HTMLInputElement>(null);
-
 	useChainPolling({
 		active: s.quickPolling,
 		jobName: s.quickSelectedJob?.name,
@@ -1798,42 +1581,9 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 		restartToken: s.quickPollingStartedAt,
 	});
 
-	// Load quick jobs list when dropdown is opened for the first time
-	useEffect(() => {
-		if (!s.quickJobOpen || s.quickJobs.length > 0 || s.quickJobsLoading) return;
-		d({ type: "QUICK_JOBS_LOADING" });
-		fetch("/watch/api/jenkins/search")
-			.then((r) => r.json())
-			.then(
-				(
-					jobs: {
-						name: string;
-						url: string;
-						color: string;
-						fullName?: string;
-					}[],
-				) => d({ type: "QUICK_JOBS_LOADED", jobs }),
-			)
-			.catch(() => d({ type: "QUICK_JOBS_LOADED", jobs: [] }));
-	}, [s.quickJobOpen, s.quickJobs.length, s.quickJobsLoading]);
-
-	// Close dropdown when clicking outside
-	useEffect(() => {
-		if (!s.quickJobOpen) return;
-		const handler = (e: Event) => {
-			const target = e.target as HTMLElement;
-			if (!target.closest('[data-sel="quick-job"]')) {
-				d({ type: "QUICK_SET_JOB_OPEN", open: false });
-			}
-		};
-		document.addEventListener("click", handler);
-		return () => document.removeEventListener("click", handler);
-	}, [s.quickJobOpen]);
-
 	const handleConfirmWatch = async () => {
 		if (!s.quickSelectedJob) return;
 		const jobName = s.quickSelectedJob.name;
-		// Check if job already exists in history
 		const histRes = await fetch("/watch/api/history");
 		const histData = await histRes.json();
 		const existingEntry = histData.find(
@@ -1841,7 +1591,6 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 		);
 		d({ type: "SET_HISTORY", history: histData });
 		if (!existingEntry) {
-			// Save to history
 			await fetch("/watch/api/history", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -1855,134 +1604,67 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 					jenkinsJobName: jobName,
 				}),
 			});
-			// Refresh history list
 			const newHistRes = await fetch("/watch/api/history");
 			const newHistData = await newHistRes.json();
 			d({ type: "SET_HISTORY", history: newHistData });
 		}
-		// Start monitoring in Quick tab (don't reset form)
 		d({ type: "QUICK_BUILD_START" });
 	};
 
-	const filteredJobs = filterByRelevance(
-		s.quickJobs.map((j) => ({ ...j, name: j.name })),
-		s.quickSearch,
-	);
-
 	return (
 		<div class="quick-section">
-			<div
-				class="sel"
-				data-sel="quick-job"
-				style={`z-index:${s.quickJobOpen ? 100 : 1}`}
-			>
-				<button
-					class={`sel-trigger${s.quickJobOpen ? " open" : ""}`}
-					type="button"
-					role="combobox"
-					aria-expanded={s.quickJobOpen}
-					aria-haspopup="listbox"
-					onClick={() => {
-						d({ type: "QUICK_SET_JOB_OPEN", open: !s.quickJobOpen });
-					}}
-				>
-					<span class="sel-trigger-label">{t("web.watchSelectJob")}</span>
-					<span
-						class={`sel-trigger-value${s.quickSelectedJob ? "" : " empty"}`}
-					>
-						{s.quickSelectedJob
-							? s.quickSelectedJob.name
-							: t("web.watchSelectJobPlaceholder")}
-					</span>
-					<span class="sel-trigger-arrow">▼</span>
-				</button>
-				{s.quickJobOpen && (
-					<div
-						class="sel-dropdown"
-						role="listbox"
-						aria-label={t("web.watchSelectJob")}
-					>
-						<div class="sel-search">
-							<input
-								ref={jobSearchRef}
-								class="sel-search-input"
-								type="text"
-								placeholder={t("web.watchFilterJobs")}
-								value={s.quickSearch}
-								onChange={(e: Event) =>
-									d({
-										type: "QUICK_SET_SEARCH",
-										search: (e.target as HTMLInputElement).value,
-									})
-								}
-								onKeyDown={(e: KeyboardEvent) => {
-									const n = selKeyDown(
-										e,
-										true,
-										filteredJobs.length,
-										s.quickJobIndex,
-										(i) => {
-											const j = filteredJobs[i];
-											if (j)
-												d({ type: "QUICK_SELECT_JOB", job: j as JenkinsJob });
-										},
-										() => d({ type: "QUICK_SET_JOB_OPEN", open: false }),
-									);
-									if (n !== undefined)
-										d({ type: "QUICK_SET_JOB_INDEX", index: n });
-								}}
-							/>
-						</div>
-						{s.quickJobsLoading ? (
-							<div class="sel-empty">
-								<div style="display:flex;align-items:center;justify-content:center;gap:6px">
-									<span
-										class="spinner"
-										style="width:10px;height:10px;border-width:1px"
-									/>
-									{t("web.watchSearchingJobs")}
-								</div>
-							</div>
-						) : filteredJobs.length > 0 ? (
-							filteredJobs.map((j, i) => (
-								<div
-									class={`sel-item${s.quickSelectedJob?.name === (j as JenkinsJob).name ? " active" : ""}${i === s.quickJobIndex ? " highlighted" : ""}`}
-									onMouseEnter={() =>
-										d({ type: "QUICK_SET_JOB_INDEX", index: i })
-									}
-									onClick={() =>
-										d({ type: "QUICK_SELECT_JOB", job: j as JenkinsJob })
-									}
-								>
-									<span class="sel-item-name">{(j as JenkinsJob).name}</span>
-								</div>
-							))
-						) : (
-							<div class="sel-empty">{t("web.watchNoMatchingJobs")}</div>
+			<NeonSelect
+				id="quick-job"
+				color={ACCENT}
+				label={t("web.watchSelectJob")}
+				placeholder={t("web.watchSelectJobPlaceholder")}
+				searchPlaceholder={t("web.watchFilterJobs")}
+				loading={s.quickJobsLoading}
+				emptyText={
+					s.quickJobsLoading ? undefined : t("web.watchNoMatchingJobs")
+				}
+				items={s.quickJobs}
+				value={s.quickSelectedJob}
+				isEqual={(a, b) => a.name === b.name}
+				onSelect={(item) => d({ type: "QUICK_SELECT_JOB", job: item })}
+				renderItem={(item, _isActive) => (
+					<span>
+						<div class="sel-item-name">{item.name}</div>
+						{item.fullName && item.fullName !== item.name && (
+							<div class="sel-item-sub">{item.fullName}</div>
 						)}
-					</div>
+					</span>
 				)}
-			</div>
+			/>
 
 			{s.quickSelectedJob &&
 				!s.quickPolling &&
 				s.quickBuildStatus === "idle" && (
 					<div style="margin-bottom:16px">
-						<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px">
-							<span style="font-size:12px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;font-family:var(--mono)">
-								{t("web.watchSelectedJob")}
-							</span>
-							<span style="font-family:var(--mono);font-size:14px;font-weight:600;color:var(--cyan)">
-								{s.quickSelectedJob.name}
-							</span>
-						</div>
-						<button
-							class="watch-btn"
-							type="button"
+						<NeonGlowCornerCutCard
+							className="job-name-display-card"
+							colorA={ACCENT}
+							size="sm"
+							hoverEffect="glow-only"
+						>
+							<div style="display:flex;align-items:center;gap:12px">
+								{fieldLabel(ACCENT, t("web.watchSelectedJob"))}
+								<NeonGlow colors={ACCENT} glowIntensity="subtle">
+									<span
+										style={`font-family:var(--mono);font-size:14px;font-weight:600;color:`}
+									>
+										{s.quickSelectedJob.name}
+									</span>
+								</NeonGlow>
+							</div>
+						</NeonGlowCornerCutCard>
+						<CornerCutButton
+							color={ACCENT}
+							variant="solid"
 							onClick={handleConfirmWatch}
 						>
 							{t("web.watchConfirmStart")}
-						</button>
+						</CornerCutButton>
 					</div>
 				)}
 
@@ -2002,9 +1684,6 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 };
 
 const WatchFlow: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
-	const projectSearchRef = useRef<HTMLInputElement>(null);
-	const branchSearchRef = useRef<HTMLInputElement>(null);
-
 	const handleSelectProject = (project: Project) => {
 		d({ type: "SELECT_PROJECT", project });
 		d({ type: "BRANCHES_LOADING" });
@@ -2021,10 +1700,6 @@ const WatchFlow: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 			.catch(() => d({ type: "BRANCHES_LOADED", branches: [] }));
 	};
 
-	const handleSelectBranch = (name: string) => {
-		d({ type: "SELECT_BRANCH", branch: name });
-	};
-
 	useEffect(() => {
 		fetch("/watch/api/projects")
 			.then((r) => r.json())
@@ -2034,7 +1709,6 @@ const WatchFlow: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 					return;
 				}
 				d({ type: "PROJECTS_LOADED", projects: data });
-				// Auto-select project from query param (CLI: `watch -o` passes `?project=path`)
 				const projectPath = new URLSearchParams(window.location.search).get(
 					"project",
 				);
@@ -2051,26 +1725,7 @@ const WatchFlow: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 	}, []);
 
 	useEffect(() => {
-		if (!s.projectOpen && !s.branchOpen && !s.jenkinsJobOpen) return;
-		const handler = (e: Event) => {
-			const target = e.target as HTMLElement;
-			if (!target.closest(".sel")) {
-				d({ type: "SET_PROJECT_OPEN", open: false });
-				d({ type: "SET_BRANCH_OPEN", open: false });
-				d({ type: "SET_JENKINS_JOB_OPEN", open: false });
-			}
-		};
-		document.addEventListener("click", handler);
-		return () => document.removeEventListener("click", handler);
-	}, [s.projectOpen, s.branchOpen, s.jenkinsJobOpen]);
-
-	useEffect(() => {
-		if (s.projectOpen) setTimeout(() => projectSearchRef.current?.focus(), 50);
-		if (s.branchOpen) setTimeout(() => branchSearchRef.current?.focus(), 50);
-	}, [s.projectOpen, s.branchOpen, s.jenkinsJobOpen]);
-
-	useEffect(() => {
-		if (!s.selected || s.pomInfo || s.pomLoading) return;
+		if (!s.selected || s.pomInfo || s.pomLoading || s.pomError) return;
 		if (!s.selectedBranch) return;
 		d({ type: "POM_LOADING" });
 		fetch(
@@ -2082,20 +1737,7 @@ const WatchFlow: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 				else d({ type: "POM_LOADED", info: data as PomInfo });
 			})
 			.catch(() => d({ type: "POM_ERROR", error: "Failed to fetch pom.xml" }));
-	}, [s.selected?.id, s.selectedBranch, s.pomInfo, s.pomLoading]);
-
-	const fp = filterByRelevance(
-		s.projects.map((p) => ({
-			...p,
-			name: p.name,
-			path: p.pathWithNamespace ?? "",
-		})),
-		s.projectSearch,
-	);
-	const fb = filterByRelevance(
-		s.branches.map((b) => ({ ...b, name: b.name })),
-		s.branchSearch,
-	);
+	}, [s.selected?.id, s.selectedBranch, s.pomInfo, s.pomLoading, s.pomError]);
 
 	const step1Done = !!s.selected;
 	const step1Active = !s.projectsLoading && !step1Done;
@@ -2103,230 +1745,196 @@ const WatchFlow: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 	const step2Active = !!s.selected && !step2Done;
 	const step3Done = !!s.pomInfo && !!s.jenkinsJobName;
 	const step3Active = !!s.selectedBranch && !step3Done;
+	const stepVariant = (done: boolean, active: boolean) =>
+		done ? "solid" : active ? "outline" : "ghost";
 
 	if (s.projectsLoading) {
 		return (
-			<div class="loading-row">
-				<span class="spinner" />
-				{t("web.loadingProjects")}
+			<div
+				class="loading-row"
+				style="flex-direction:column;align-items:stretch;gap:8px"
+			>
+				<NeonGlow colors={ACCENT} glowIntensity="subtle">
+					{t("web.loadingProjects")}
+				</NeonGlow>
+				<ProgressBar
+					value={100}
+					variant="striped"
+					pulse
+					color={ACCENT}
+					size="sm"
+					glow
+				/>
 			</div>
 		);
 	}
-	if (s.projectsError) return <div class="state-error">{s.projectsError}</div>;
+	if (s.projectsError)
+		return (
+			<div class="error-text" role="alert">
+				<NeonGlow colors={ERROR_COLOR} glowIntensity="subtle">
+					{s.projectsError}
+				</NeonGlow>
+			</div>
+		);
 
 	return (
 		<div>
-			<div class="pipeline">
-				<div class={pipelineStepClass(step1Done, step1Active)}>
-					<span class="pipeline-node" />
-					{t("web.projectLabel")}
-				</div>
-				<div class={pipelineLineClass(step1Done)} />
-				<div class={pipelineStepClass(step2Done, step2Active)}>
-					<span class="pipeline-node" />
-					{t("web.branchLabel")}
-				</div>
-				<div class={pipelineLineClass(step2Done)} />
-				<div class={pipelineStepClass(step3Done, step3Active)}>
-					<span class="pipeline-node" />
-					{t("web.watchJobName")}
-				</div>
-			</div>
-
-			{/* Project select */}
-			<div
-				class="sel"
-				data-sel="project"
-				style={`z-index:${s.projectOpen ? 100 : 1}`}
-			>
-				<button
-					class={`sel-trigger${s.projectOpen ? " open" : ""}`}
-					type="button"
-					role="combobox"
-					aria-expanded={s.projectOpen}
-					aria-haspopup="listbox"
-					onClick={() => {
-						d({ type: "SET_BRANCH_OPEN", open: false });
-						d({ type: "SET_PROJECT_OPEN", open: !s.projectOpen });
-					}}
+			<div class="watch-steps">
+				<Badge
+					color={ACCENT}
+					variant={stepVariant(step1Done, step1Active)}
+					shape="corner-cut"
+					size="sm"
+					glow={step1Done || step1Active}
 				>
-					<span class="sel-trigger-label">{t("web.projectLabel")}</span>
-					<span class={`sel-trigger-value${s.selected ? "" : " empty"}`}>
-						{s.selected ? s.selected.name : t("web.selectProject")}
-					</span>
-					<span class="sel-trigger-arrow">▼</span>
-				</button>
-				{s.projectOpen && (
-					<div
-						class="sel-dropdown"
-						role="listbox"
-						aria-label={t("web.selectProject")}
-					>
-						<div class="sel-search">
-							<input
-								ref={projectSearchRef}
-								class="sel-search-input"
-								type="text"
-								placeholder={t("web.searchProjects")}
-								value={s.projectSearch}
-								onChange={(e: Event) =>
-									d({
-										type: "SET_PROJECT_SEARCH",
-										search: (e.target as HTMLInputElement).value,
-									})
-								}
-								onKeyDown={(e: KeyboardEvent) => {
-									const n = selKeyDown(
-										e,
-										s.projectOpen,
-										fp.length,
-										s.projectIndex,
-										(i) => {
-											const p = fp[i];
-											if (p) handleSelectProject(p as Project);
-										},
-										() => d({ type: "SET_PROJECT_OPEN", open: false }),
-									);
-									if (n !== undefined)
-										d({ type: "SET_PROJECT_INDEX", index: n });
-								}}
-							/>
-						</div>
-						{fp.length > 0 ? (
-							fp.map((p, i) => (
-								<div
-									class={`sel-item${s.selected?.id === (p as Project).id ? " active" : ""}${i === s.projectIndex ? " highlighted" : ""}`}
-									onMouseEnter={() =>
-										d({ type: "SET_PROJECT_INDEX", index: i })
-									}
-									onClick={() => handleSelectProject(p as Project)}
-								>
-									<div class="sel-item-name">{(p as Project).name}</div>
-									<div class="sel-item-sub">
-										{(p as Project).pathWithNamespace}
-									</div>
-								</div>
-							))
-						) : (
-							<div class="sel-empty">{t("web.noProjects")}</div>
-						)}
-					</div>
-				)}
+					{t("web.projectLabel")}
+				</Badge>
+				<span class="watch-step-sep">›</span>
+				<Badge
+					color={ACCENT}
+					variant={stepVariant(step2Done, step2Active)}
+					shape="corner-cut"
+					size="sm"
+					glow={step2Done || step2Active}
+				>
+					{t("web.branchLabel")}
+				</Badge>
+				<span class="watch-step-sep">›</span>
+				<Badge
+					color={ACCENT}
+					variant={stepVariant(step3Done, step3Active)}
+					shape="corner-cut"
+					size="sm"
+					glow={step3Done || step3Active}
+				>
+					{t("web.watchJobName")}
+				</Badge>
 			</div>
 
-			{/* Branch select */}
-			{s.selected &&
-				(s.branchesLoading ? (
-					<div class="loading-row">
-						<span class="spinner" />
-						{t("web.loadingBranches")}
-					</div>
-				) : (
-					s.branches.length > 0 && (
-						<div
-							class="sel"
-							data-sel="branch"
-							style={`z-index:${s.branchOpen ? 100 : 1}`}
-						>
-							<button
-								class={`sel-trigger${s.branchOpen ? " open" : ""}`}
-								type="button"
-								role="combobox"
-								aria-expanded={s.branchOpen}
-								aria-haspopup="listbox"
-								onClick={() => {
-									d({ type: "SET_PROJECT_OPEN", open: false });
-									d({ type: "SET_BRANCH_OPEN", open: !s.branchOpen });
-								}}
-							>
-								<span class="sel-trigger-label">{t("web.branchLabel")}</span>
-								<span
-									class={`sel-trigger-value${s.selectedBranch ? "" : " empty"}`}
-								>
-									{s.selectedBranch || t("web.selectBranch")}
-								</span>
-								<span class="sel-trigger-arrow">▼</span>
-							</button>
-							{s.branchOpen && (
-								<div
-									class="sel-dropdown"
-									role="listbox"
-									aria-label={t("web.selectBranch")}
-								>
-									<div class="sel-search">
-										<input
-											ref={branchSearchRef}
-											class="sel-search-input"
-											type="text"
-											placeholder={t("web.filterBranches")}
-											value={s.branchSearch}
-											onChange={(e: Event) =>
-												d({
-													type: "SET_BRANCH_SEARCH",
-													search: (e.target as HTMLInputElement).value,
-												})
-											}
-											onKeyDown={(e: KeyboardEvent) => {
-												const n = selKeyDown(
-													e,
-													s.branchOpen,
-													fb.length,
-													s.branchIndex,
-													(i) => {
-														const b = fb[i];
-														if (b) handleSelectBranch((b as Branch).name);
-													},
-													() => d({ type: "SET_BRANCH_OPEN", open: false }),
-												);
-												if (n !== undefined)
-													d({ type: "SET_BRANCH_INDEX", index: n });
-											}}
-										/>
-									</div>
-									{fb.length > 0 ? (
-										fb.map((b, i) => (
-											<div
-												class={`sel-item${(b as Branch).name === s.selectedBranch ? " active" : ""}${i === s.branchIndex ? " highlighted" : ""}`}
-												onMouseEnter={() =>
-													d({ type: "SET_BRANCH_INDEX", index: i })
-												}
-												onClick={() => handleSelectBranch((b as Branch).name)}
-											>
-												<span class="sel-item-name">{(b as Branch).name}</span>
-												{(b as Branch).default && (
-													<span style="font-size:10px;color:var(--neon);margin-left:6px">
-														{t("web.defaultBranch")}
-													</span>
-												)}
-											</div>
-										))
-									) : (
-										<div class="sel-empty">{t("web.noBranches")}</div>
-									)}
-								</div>
-							)}
-						</div>
-					)
-				))}
+			<NeonSelect
+				id="project"
+				color={ACCENT}
+				label={t("web.projectLabel")}
+				placeholder={t("web.selectProject")}
+				searchPlaceholder={t("web.searchProjects")}
+				emptyText={t("web.noProjects")}
+				items={s.projects}
+				value={s.selected}
+				isEqual={(a, b) => a.id === b.id}
+				onSelect={handleSelectProject}
+				renderItem={(item) => (
+					<>
+						<div class="sel-item-name">{item.name}</div>
+						<div class="sel-item-sub">{item.pathWithNamespace}</div>
+					</>
+				)}
+			/>
 
-			{/* POM loading */}
+			{s.selected && (s.branchesLoading || s.branches.length > 0) && (
+				<NeonSelect
+					id="branch"
+					color={ACCENT}
+					label={t("web.branchLabel")}
+					placeholder={t("web.selectBranch")}
+					loading={s.branchesLoading}
+					searchPlaceholder={t("web.filterBranches")}
+					emptyText={t("web.noBranches")}
+					items={s.branches}
+					value={s.selectedBranch ? { name: s.selectedBranch } : null}
+					onSelect={(item) => d({ type: "SELECT_BRANCH", branch: item.name })}
+					renderItem={(item) => (
+						<>
+							<span class="sel-item-name">{item.name}</span>
+							{item.default && (
+								<Badge
+									color={ACCENT}
+									variant="outline"
+									shape="pill"
+									size="xs"
+									className="sel-item-default"
+								>
+									{t("web.defaultBranch")}
+								</Badge>
+							)}
+						</>
+					)}
+				/>
+			)}
+
 			{s.selected &&
 				s.selectedBranch &&
 				!s.branchesLoading &&
 				(s.pomLoading ? (
-					<div class="loading-row">
-						<span class="spinner" />
-						{t("web.watchFetchingPom")}
+					<div
+						class="loading-row"
+						style="flex-direction:column;align-items:stretch;gap:8px"
+					>
+						<NeonGlow colors={ACCENT} glowIntensity="subtle">
+							{t("web.watchFetchingPom")}
+						</NeonGlow>
+						<ProgressBar
+							value={100}
+							variant="striped"
+							pulse
+							color={ACCENT}
+							size="sm"
+							glow
+						/>
 					</div>
-				) : (
-					s.pomError && (
-						<div class="state-error">
-							{s.pomError.includes("404") ? t("web.noPom") : s.pomError}
+				) : s.pomError || (s.pomInfo && !s.jenkinsJobName) ? (
+					<NeonGlowCornerCutCard
+						className="pom-fallback-card"
+						colorA={ACCENT}
+						size="sm"
+						hoverEffect="glow-only"
+					>
+						<div style="display:flex;flex-direction:column;gap:8px">
+							<NeonGlow colors={ACCENT} glowIntensity="subtle">
+								{t("web.watchPomFallbackHint")}
+							</NeonGlow>
+							{s.pomError && !s.pomError.includes("404") && (
+								<div class="error-text" role="alert" style="margin-top:0">
+									<NeonGlow colors={ERROR_COLOR} glowIntensity="subtle">
+										{s.pomError}
+									</NeonGlow>
+								</div>
+							)}
+							<NeonSelect
+								id="manual-job"
+								color={ACCENT}
+								label={t("web.watchSelectJob")}
+								placeholder={t("web.watchSelectJobPlaceholder")}
+								searchPlaceholder={t("web.watchFilterJobs")}
+								loading={s.quickJobsLoading}
+								emptyText={
+									s.quickJobsLoading ? undefined : t("web.watchNoMatchingJobs")
+								}
+								items={s.quickJobs}
+								value={s.selectedJob}
+								isEqual={(a, b) => a.name === b.name}
+								onSelect={(item) =>
+									d({ type: "MANUAL_JOB_SELECTED", job: item })
+								}
+								renderItem={(item) => (
+									<span>
+										<div class="sel-item-name">{item.name}</div>
+										{item.fullName && item.fullName !== item.name && (
+											<div class="sel-item-sub">{item.fullName}</div>
+										)}
+									</span>
+								)}
+							/>
 						</div>
-					)
-				))}
+					</NeonGlowCornerCutCard>
+				) : null)}
 
-			{!s.selected && <div class="empty-hint">{t("web.watchEmptyHint")}</div>}
+			{!s.selected && (
+				<div class="empty-hint">
+					<NeonGlow colors={ACCENT} glowIntensity="subtle">
+						{t("web.watchEmptyHint")}
+					</NeonGlow>
+				</div>
+			)}
 		</div>
 	);
 };
@@ -2349,6 +1957,25 @@ const WatchClient: FC = () => {
 			d({ type: "SET_ACTIVE_TAB", tab: "project" });
 		}
 	}, []);
+
+	// Eager-load Jenkins jobs on page entry (consistent with MR project search)
+	useEffect(() => {
+		if (s.quickJobs.length > 0 || s.quickJobsLoading) return;
+		d({ type: "QUICK_JOBS_LOADING" });
+		fetch("/watch/api/jenkins/search")
+			.then((r) => r.json())
+			.then(
+				(
+					jobs: {
+						name: string;
+						url: string;
+						color: string;
+						fullName?: string;
+					}[],
+				) => d({ type: "QUICK_JOBS_LOADED", jobs }),
+			)
+			.catch(() => d({ type: "QUICK_JOBS_LOADED", jobs: [] }));
+	}, [s.quickJobs.length, s.quickJobsLoading]);
 
 	// Auto-trigger monitoring when jenkinsJobName becomes available (POM loaded or project name fallback)
 	// Save to history (or trigger existing entry) and start polling automatically
@@ -2406,28 +2033,57 @@ const WatchClient: FC = () => {
 	return (
 		<div>
 			<style>{watchStyle}</style>
-			<div class="page-header">
-				<h2>{t("web.watchTitle")}</h2>
-				<p>{t("web.watchDesc")}</p>
-			</div>
+			<PageHeader
+				title={
+					<GlitchText
+						neon
+						mode="active"
+						colorA={ACCENT}
+						colorB={ACCENT}
+						glowColor={ACCENT}
+						speed="slow"
+						style="color:#bf00ff"
+					>
+						{t("web.watchTitle")}
+					</GlitchText>
+				}
+				description={
+					<NeonGlow colors={ACCENT} glowIntensity="subtle">
+						{t("web.watchDesc")}
+					</NeonGlow>
+				}
+			/>
 
 			{/* Tab bar */}
-			<div class="watch-tabs">
-				<button
-					type="button"
-					class={`watch-tab${s.activeTab === "quick" ? " active" : ""}`}
+			<NeonGlowCornerCutCard
+				className="watch-tabs-card"
+				colorA={ACCENT}
+				size="sm"
+				hoverEffect="glow-only"
+			>
+				<CornerCutButton
+					color={ACCENT}
+					size="sm"
+					variant={s.activeTab === "quick" ? "solid" : "ghost"}
+					corner="all"
+					hoverEffect="glow"
+					className={`watch-tab-cta${s.activeTab === "quick" ? " is-active" : ""}`}
 					onClick={() => d({ type: "SET_ACTIVE_TAB", tab: "quick" })}
 				>
 					{t("web.watchQuickTab")}
-				</button>
-				<button
-					type="button"
-					class={`watch-tab${s.activeTab === "project" ? " active" : ""}`}
+				</CornerCutButton>
+				<CornerCutButton
+					color={ACCENT}
+					size="sm"
+					variant={s.activeTab === "project" ? "solid" : "ghost"}
+					corner="all"
+					hoverEffect="glow"
+					className={`watch-tab-cta${s.activeTab === "project" ? " is-active" : ""}`}
 					onClick={() => d({ type: "SET_ACTIVE_TAB", tab: "project" })}
 				>
 					{t("web.watchProjectTab")}
-				</button>
-			</div>
+				</CornerCutButton>
+			</NeonGlowCornerCutCard>
 
 			{/* Tab content */}
 			{s.activeTab === "quick" && <QuickTab s={s} d={d} />}
@@ -2437,7 +2093,9 @@ const WatchClient: FC = () => {
 			{s.historyLoading ? (
 				<div class="loading-row">
 					<span class="spinner" />
-					{t("web.loading")}
+					<NeonGlow colors={ACCENT} glowIntensity="subtle">
+						{t("web.loading")}
+					</NeonGlow>
 				</div>
 			) : (
 				<HistoryList s={s} d={d} />

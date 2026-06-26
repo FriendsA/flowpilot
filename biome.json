@@ -14,7 +14,8 @@
 			"*.ts",
 			"*.tsx",
 			"*.css",
-			"!!**/.claude"
+			"!!**/.claude",
+			"!!src/shared/neon"
 		]
 	},
 	"formatter": {
@@ -43,6 +44,11 @@
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "double"
+		}
+	},
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
 		}
 	},
 	"assist": {
