@@ -36,6 +36,7 @@ export const Layout: FC<LayoutProps> = ({
 			var sidebar = document.querySelector('.sidebar');
 			var trigger = document.querySelector('.sidebar-trigger');
 			var backdrop = document.querySelector('.sidebar-backdrop');
+			var mainWrapper = document.querySelector('.main-wrapper');
 			if (!sidebar || !trigger || !backdrop) return;
 
 			// SSR renders collapsed (drawer hidden) by default. Open if the user previously opened it.
@@ -43,6 +44,12 @@ export const Layout: FC<LayoutProps> = ({
 			if (saved === 'false') {
 				sidebar.style.transition = 'none';
 				sidebar.classList.remove('collapsed');
+				// Suppress the first-frame rotateY transition on the main area as well,
+				// so the page doesn't spin into place on every navigation.
+				if (mainWrapper) {
+					mainWrapper.style.transition = 'none';
+					requestAnimationFrame(function () { mainWrapper.style.transition = ''; });
+				}
 				requestAnimationFrame(function () { sidebar.style.transition = ''; });
 			}
 

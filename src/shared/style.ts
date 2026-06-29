@@ -30,6 +30,9 @@ export const globalStyle = `
     color: var(--text-1);
     display: flex;
     animation: page-in 0.3s ease both;
+    /* 3D rotation perspective — simulates viewing from the user's eye */
+    perspective: 1400px;
+    perspective-origin: 50% 50%;
   }
 
   @keyframes page-in {
@@ -337,6 +340,17 @@ export const globalStyle = `
     flex: 1;
     min-height: 100vh;
     padding: 0 24px;
+    /* 3D rotation around a vertical axis in FRONT of the screen (toward the viewer),
+       so the page orbits around the user rather than spinning in place at screen center.
+       The Z value pushes the axis forward; larger Z = axis closer to the user = bigger orbit swing. */
+    transform-origin: 50% 50% 400px;
+    transform: rotateY(0deg);
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-style: preserve-3d;
+  }
+  /* Sidebar expanded → whole main area revolves 30° to the right around the viewer */
+  .sidebar:not(.collapsed) ~ .main-wrapper {
+    transform: rotateY(-30deg);
   }
   .main {
     min-height: 100vh;
@@ -357,6 +371,7 @@ export const globalStyle = `
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+    .main-wrapper { transform: none !important; }
   }
 
   /* Responsive */
