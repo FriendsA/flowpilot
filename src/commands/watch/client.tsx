@@ -45,6 +45,41 @@ declare global {
 	}
 }
 
+// ── Retry-backoff countdown ─────────────────────────────────────
+// useReducer (not useState) per CLAUDE.md. Drives a ticking "retrying in Ns"
+// display from the retryAfterMs prop reported by useChainPolling's onBackoff.
+const retryCountdownReducer = (
+	state: number,
+	action: { type: "set" | "reset"; value?: number },
+): number => {
+	if (action.type === "reset") return 0;
+	const next = action.value ?? 0;
+	// Bail out on unchanged value to avoid re-rendering every tick.
+	return next === state ? state : next;
+};
+
+const useRetryCountdown = (retryAfterMs: number | undefined): number => {
+	const [countdown, dispatch] = useReducer(retryCountdownReducer, 0);
+	useEffect(() => {
+		if (!retryAfterMs || retryAfterMs <= 0) {
+			dispatch({ type: "reset" });
+			return;
+		}
+		const startedAt = Date.now();
+		const tick = () => {
+			const remain = Math.max(
+				0,
+				Math.ceil((retryAfterMs - (Date.now() - startedAt)) / 1000),
+			);
+			dispatch({ type: "set", value: remain });
+		};
+		tick();
+		const timer = window.setInterval(tick, 250);
+		return () => window.clearInterval(timer);
+	}, [retryAfterMs]);
+	return countdown;
+};
+
 type Project = {
 	id: number;
 	name: string;
@@ -315,6 +350,8 @@ type State = {
 			buildError: string;
 			polling: boolean;
 			startedAt?: number;
+			retryAfterMs?: number;
+			retryAttempt?: number;
 		}
 	>;
 	activeTab: "quick" | "project";
@@ -326,6 +363,8 @@ type State = {
 	quickBuildError: string;
 	quickPolling: boolean;
 	quickPollingStartedAt: number;
+	quickRetryAfterMs: number;
+	quickRetryAttempt: number;
 	clearConfirm: boolean;
 };
 
@@ -361,6 +400,8 @@ const initial: State = {
 	quickBuildError: "",
 	quickPolling: false,
 	quickPollingStartedAt: 0,
+	quickRetryAfterMs: 0,
+	quickRetryAttempt: 0,
 	clearConfirm: false,
 };
 
@@ -407,6 +448,12 @@ type Action =
 			id: string;
 	  }
 	| {
+			type: "HISTORY_BUILD_BACKOFF";
+			id: string;
+			nextDelayMs: number;
+			attempt: number;
+	  }
+	| {
 			type: "HISTORY_BUILD_RESET";
 			id: string;
 	  }
@@ -420,6 +467,7 @@ type Action =
 	| { type: "QUICK_BUILD_START" }
 	| { type: "QUICK_BUILD_RESULT"; info: JenkinsBuildInfo }
 	| { type: "QUICK_BUILD_ERROR"; error: string }
+	| { type: "QUICK_BUILD_BACKOFF"; nextDelayMs: number; attempt: number }
 	| { type: "QUICK_BUILD_STOP" }
 	| { type: "QUICK_BUILD_RESET" };
 
@@ -652,6 +700,8 @@ const reducer = (state: State, action: Action): State => {
 						buildInfo: info,
 						buildError: "",
 						polling: false,
+						retryAfterMs: 0,
+						retryAttempt: 0,
 					},
 				},
 			};
@@ -671,6 +721,25 @@ const reducer = (state: State, action: Action): State => {
 						}),
 						buildStatus: "error",
 						buildError: action.error,
+					},
+				},
+			};
+		}
+		case "HISTORY_BUILD_BACKOFF": {
+			const id = action.id;
+			return {
+				...state,
+				historyBuilds: {
+					...state.historyBuilds,
+					[id]: {
+						...(state.historyBuilds[id] ?? {
+							buildStatus: "idle",
+							buildInfo: null,
+							buildError: "",
+							polling: true,
+						}),
+						retryAfterMs: action.nextDelayMs,
+						retryAttempt: action.attempt,
 					},
 				},
 			};
@@ -767,6 +836,8 @@ const reducer = (state: State, action: Action): State => {
 					quickBuildStatus: "building",
 					quickBuildInfo: info,
 					quickPolling: true,
+					quickRetryAfterMs: 0,
+					quickRetryAttempt: 0,
 				};
 			}
 			const status: BuildStatus =
@@ -782,6 +853,8 @@ const reducer = (state: State, action: Action): State => {
 				quickBuildStatus: status,
 				quickBuildInfo: info,
 				quickPolling: false,
+				quickRetryAfterMs: 0,
+				quickRetryAttempt: 0,
 			};
 		}
 		case "QUICK_BUILD_ERROR":
@@ -789,6 +862,12 @@ const reducer = (state: State, action: Action): State => {
 				...state,
 				quickBuildStatus: "error",
 				quickBuildError: action.error,
+			};
+		case "QUICK_BUILD_BACKOFF":
+			return {
+				...state,
+				quickRetryAfterMs: action.nextDelayMs,
+				quickRetryAttempt: action.attempt,
 			};
 		case "QUICK_BUILD_STOP":
 			return { ...state, quickPolling: false };
@@ -801,6 +880,8 @@ const reducer = (state: State, action: Action): State => {
 				quickPolling: false,
 				quickPollingStartedAt: 0,
 				quickSelectedJob: null,
+				quickRetryAfterMs: 0,
+				quickRetryAttempt: 0,
 			};
 	}
 };
@@ -832,7 +913,12 @@ const HistoryBuildItem: FC<{
 		buildError: "",
 		polling: false,
 		startedAt: undefined,
+		retryAfterMs: undefined,
+		retryAttempt: undefined,
 	};
+
+	// Hook must run before any early return. Only ticks while a backoff is pending.
+	const countdown = useRetryCountdown(build.retryAfterMs);
 
 	useChainPolling({
 		active: build.polling,
@@ -840,6 +926,13 @@ const HistoryBuildItem: FC<{
 		onResult: (info) =>
 			d({ type: "HISTORY_BUILD_RESULT", id, info: info as JenkinsBuildInfo }),
 		onError: (error) => d({ type: "HISTORY_BUILD_ERROR", id, error }),
+		onBackoff: (info) =>
+			d({
+				type: "HISTORY_BUILD_BACKOFF",
+				id,
+				nextDelayMs: info.nextDelayMs,
+				attempt: info.attempt,
+			}),
 		restartToken: build.startedAt,
 	});
 
@@ -958,6 +1051,30 @@ const HistoryBuildItem: FC<{
 							{build.buildError}
 						</NeonGlow>
 					</div>
+					{build.retryAfterMs && build.retryAfterMs > 0 ? (
+						<div
+							class="build-polling-bar"
+							style="padding:6px 14px;font-size:11px"
+						>
+							<span
+								class="spinner"
+								style="width:8px;height:8px;border-width:1px"
+							/>
+							<NeonGlow colors={ERROR_COLOR} glowIntensity="subtle">
+								{t("web.watchRetryHint", {
+									seconds:
+										countdown > 0
+											? countdown
+											: Math.ceil((build.retryAfterMs ?? 0) / 1000),
+								})}
+								{(build.retryAttempt ?? 0) > 0
+									? ` (${t("web.watchRetryAttempt", {
+											attempt: build.retryAttempt ?? 0,
+										})})`
+									: ""}
+							</NeonGlow>
+						</div>
+					) : null}
 				</NeonGlowCornerCutCard>
 			);
 		}
@@ -1304,6 +1421,8 @@ const BuildPanel: FC<{
 	buildInfo: JenkinsBuildInfo | null;
 	buildError: string;
 	polling: boolean;
+	retryAfterMs?: number;
+	retryAttempt?: number;
 	selectedJob?: JenkinsJob | null;
 	onStopPoll?: () => void;
 	onReselectJob?: () => void;
@@ -1312,10 +1431,15 @@ const BuildPanel: FC<{
 	buildInfo: bi,
 	buildError,
 	polling,
+	retryAfterMs,
+	retryAttempt,
 	selectedJob,
 	onStopPoll,
 	onReselectJob,
 }) => {
+	// Hook must run before any early return. Only ticks while a backoff is pending.
+	const countdown = useRetryCountdown(retryAfterMs);
+
 	if (buildStatus === "idle") return null;
 
 	if (buildStatus === "polling") {
@@ -1361,6 +1485,27 @@ const BuildPanel: FC<{
 						{buildError}
 					</NeonGlow>
 				</div>
+				{retryAfterMs && retryAfterMs > 0 ? (
+					<div class="build-polling-bar" style="margin-top:8px">
+						<span
+							class="spinner"
+							style="width:10px;height:10px;border-width:1px"
+						/>
+						<NeonGlow colors={ERROR_COLOR} glowIntensity="subtle">
+							{t("web.watchRetryHint", {
+								seconds:
+									countdown > 0
+										? countdown
+										: Math.ceil((retryAfterMs ?? 0) / 1000),
+							})}
+							{(retryAttempt ?? 0) > 0
+								? ` (${t("web.watchRetryAttempt", {
+										attempt: retryAttempt ?? 0,
+									})})`
+								: ""}
+						</NeonGlow>
+					</div>
+				) : null}
 			</NeonGlowCornerCutCard>
 		);
 	}
@@ -1578,6 +1723,12 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 		onResult: (info) =>
 			d({ type: "QUICK_BUILD_RESULT", info: info as JenkinsBuildInfo }),
 		onError: (error) => d({ type: "QUICK_BUILD_ERROR", error }),
+		onBackoff: (info) =>
+			d({
+				type: "QUICK_BUILD_BACKOFF",
+				nextDelayMs: info.nextDelayMs,
+				attempt: info.attempt,
+			}),
 		restartToken: s.quickPollingStartedAt,
 	});
 
@@ -1674,6 +1825,8 @@ const QuickTab: FC<{ s: State; d: (a: Action) => void }> = ({ s, d }) => {
 					buildInfo={s.quickBuildInfo}
 					buildError={s.quickBuildError}
 					polling={s.quickPolling}
+					retryAfterMs={s.quickRetryAfterMs}
+					retryAttempt={s.quickRetryAttempt}
 					selectedJob={s.quickSelectedJob}
 					onStopPoll={() => d({ type: "QUICK_BUILD_RESET" })}
 					onReselectJob={() => d({ type: "QUICK_BUILD_RESET" })}

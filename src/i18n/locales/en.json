@@ -295,6 +295,8 @@
 		"watchBuild": "Build",
 		"watchNoBuild": "No build found",
 		"watchPollingHint": "Auto-refresh every minute",
+		"watchRetryHint": "Retrying in {{seconds}}s",
+		"watchRetryAttempt": "Attempt #{{attempt}}",
 		"watchStopPolling": "Stop Polling",
 		"watchArtifacts": "Artifacts",
 		"watchEmptyHint": "Start a new monitor above",

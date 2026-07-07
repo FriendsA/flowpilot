@@ -295,6 +295,8 @@
 		"watchBuild": "构建",
 		"watchNoBuild": "暂无构建记录",
 		"watchPollingHint": "每分钟自动刷新",
+		"watchRetryHint": "{{seconds}} 秒后重试",
+		"watchRetryAttempt": "重试 #{{attempt}}",
 		"watchStopPolling": "停止轮询",
 		"watchArtifacts": "产物",
 		"watchEmptyHint": "上方新建监控以开始",
