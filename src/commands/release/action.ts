@@ -17,6 +17,7 @@ import {
 } from "../../utils/git";
 import { createMrWithFallback } from "../../utils/mr";
 import { cleanVersion, parsePomXml } from "../../utils/pom";
+import { buildReleaseSummary, buildVersionName } from "../../utils/release";
 import { filterByRelevance, searchSelect } from "../../utils/search";
 
 interface ReleaseActionProps {
@@ -276,8 +277,12 @@ export const releaseAction = async (options: ReleaseActionProps) => {
 	const displayVersion = cleanVersion(pomInfo.version);
 	const flowPilotName =
 		pomInfo.flowPilotName ?? pomInfo.artifactId ?? projectName;
-	const versionName = `${flowPilotName}-${displayVersion}`;
-	const summary = `${flowPilotName}-${displayVersion} ${t("release.releaseSuffix")}`;
+	const versionName = buildVersionName(flowPilotName, displayVersion);
+	const summary = buildReleaseSummary(
+		flowPilotName,
+		displayVersion,
+		t("release.releaseSuffix"),
+	);
 
 	clack.log.info(
 		`${t("release.flowPilotNameLabel")}: ${flowPilotName} | ${t("release.versionNameLabel")}: ${versionName}`,

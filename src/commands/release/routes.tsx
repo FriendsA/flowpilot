@@ -8,6 +8,11 @@ import { Store } from "../../store";
 import type { Config } from "../../types";
 import { createMrWithFallback } from "../../utils/mr";
 import { cleanVersion, parsePomXml } from "../../utils/pom";
+import {
+	buildReleaseSummary,
+	buildVersionName,
+	escapeJqlStringLiteral,
+} from "../../utils/release";
 
 type ReleaseHistoryEntry = {
 	id: string;
@@ -170,9 +175,13 @@ router.post("/api/history/:id/execute", async (c) => {
 	const displayVersion = cleanVersion(pomInfo.version ?? "");
 	const flowPilotName =
 		pomInfo.flowPilotName ?? pomInfo.artifactId ?? entry.projectName;
-	const versionName = `${flowPilotName}-${displayVersion}`;
-	const summary = `${flowPilotName}-${displayVersion} release request`;
-	const safeSummary = summary.replace(/"/g, '\\"');
+	const versionName = buildVersionName(flowPilotName, displayVersion);
+	const summary = buildReleaseSummary(
+		flowPilotName,
+		displayVersion,
+		t("release.releaseSuffix"),
+	);
+	const safeSummary = escapeJqlStringLiteral(summary);
 
 	// Check existing issue
 	try {
