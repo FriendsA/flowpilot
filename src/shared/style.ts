@@ -30,9 +30,9 @@ export const globalStyle = `
     color: var(--text-1);
     display: flex;
     animation: page-in 0.3s ease both;
-    /* 3D rotation perspective — simulates viewing from the user's eye */
-    perspective: 1400px;
-    perspective-origin: 50% 50%;
+    /* NOTE: perspective lives on .main-wrapper, NOT here. Setting perspective on body
+       would establish a containing block for the fixed sidebar, making it scroll with
+       the page instead of staying pinned to the viewport. */
   }
 
   @keyframes page-in {
@@ -339,7 +339,24 @@ export const globalStyle = `
   .main-wrapper {
     flex: 1;
     min-height: 100vh;
+    /* Don't let the flex container stretch this to body's 100vh — that would clip
+       tall content once overflow:hidden is set. flex-start keeps height = content
+       (min 100vh), so the page scrolls normally and overflow only clips 3D spillover. */
+    align-self: flex-start;
     padding: 0 24px;
+    /* perspective is local to this subtree so it does NOT establish a containing block
+       for the fixed sidebar (a sibling, not a descendant) — the drawer stays pinned on scroll. */
+    perspective: 1400px;
+    perspective-origin: 50% 50%;
+    /* Clip the 3D-projected spillover of the rotated .main so it never reaches the document
+       and spawns scrollbars (the horizontal one, plus the vertical one it drags in). */
+    overflow: hidden;
+  }
+  .main {
+    min-height: 100vh;
+    padding: 32px 24px;
+    margin: 0 auto;
+    max-width: 1200px;
     /* 3D rotation around a vertical axis in FRONT of the screen (toward the viewer),
        so the page orbits around the user rather than spinning in place at screen center.
        The Z value pushes the axis forward; larger Z = axis closer to the user = bigger orbit swing. */
@@ -349,18 +366,13 @@ export const globalStyle = `
     transform-style: preserve-3d;
   }
   /* Sidebar expanded → whole main area revolves 30° to the right around the viewer */
-  .sidebar:not(.collapsed) ~ .main-wrapper {
+  .sidebar:not(.collapsed) ~ .main-wrapper .main {
     transform: rotateY(-30deg);
-  }
-  .main {
-    min-height: 100vh;
-    padding: 32px 24px;
-    margin: 0 auto;
-    animation: slide-right 0.4s ease both;
-    max-width: 1200px;
   }
   .content {
     width: 100%;
+    /* entrance slide lives here (not on .main) so it can't override .main's rotateY via fill-mode. */
+    animation: slide-right 0.4s ease both;
   }
 
   /* ── Reduced motion ── */
@@ -371,7 +383,7 @@ export const globalStyle = `
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
-    .main-wrapper { transform: none !important; }
+    .main { transform: none !important; }
   }
 
   /* Responsive */
