@@ -1,5 +1,6 @@
 // Shared Modal component for release/mr/watch Web UI pages
 import type { FC } from "hono/jsx";
+import { createPortal } from "hono/jsx/dom";
 import { CornerCutButton } from "./neonblade/corner-cut-button";
 
 type ModalProps = {
@@ -18,7 +19,12 @@ export const Modal: FC<ModalProps> = ({
 	variant,
 }) => {
 	if (!open) return null;
-	return (
+	// Portal to <body>: the overlay is position:fixed, but .main-wrapper (perspective)
+	// and .main (transform: rotateY(0deg), non-none even at rest) each establish a
+	// containing block for fixed descendants — rendered inline in the page tree, the
+	// overlay would anchor to .main's box and drift with page scroll instead of
+	// staying pinned to the viewport.
+	return createPortal(
 		<div
 			class="modal-overlay"
 			onClick={(e: Event) => {
@@ -43,7 +49,8 @@ export const Modal: FC<ModalProps> = ({
 				</div>
 				{children}
 			</div>
-		</div>
+		</div>,
+		document.body,
 	);
 };
 
